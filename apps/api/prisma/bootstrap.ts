@@ -8,9 +8,10 @@ const adminUrl = process.env.DATABASE_URL_UNPOOLED
   || process.env.DATABASE_URL;
 
 if (!adminUrl) throw new Error('A PostgreSQL connection URL is required to bootstrap the database');
+const bootstrapUrl: string = adminUrl;
 
 async function main() {
-  const db = new PrismaClient({ adapter: new PrismaPg(adminUrl) });
+  const db = new PrismaClient({ adapter: new PrismaPg(bootstrapUrl) });
   const tenantCount = await db.tenant.count();
   await db.$disconnect();
 
