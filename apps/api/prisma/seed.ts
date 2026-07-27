@@ -5,8 +5,8 @@ import { config } from 'dotenv';
 import { resolve } from 'node:path';
 import { enforceTlsVerification } from '../src/database-url';
 
-config({ path: resolve(process.cwd(), '.env') });
-config({ path: resolve(process.cwd(), '../../.env') });
+config({ path: resolve(process.cwd(), '.env'), quiet: true });
+config({ path: resolve(process.cwd(), '../../.env'), quiet: true });
 
 const d = (value: string) => new Date(`${value}T00:00:00.000Z`);
 
@@ -90,7 +90,10 @@ export async function seed(initiatedBy = 'CLI', targetTenantId?: bigint) {
   for (const [name, permissions] of Object.entries(rolePermissions)) {
     const role = await db.role.create({ data: { tenantId: tenant.id, name, permissions } }); roles.set(name, role.id);
   }
-  const passwordHash = await hash(process.env.ODIN_DEMO_PASSWORD || 'OdinDemo2026!', 12);
+  const demoPassword = process.env.ODIN_DEMO_PASSWORD
+    || (process.env.NODE_ENV !== 'production' && !process.env.CI ? 'OdinLocalOnly2026!' : '');
+  if (!demoPassword) throw new Error('ODIN_DEMO_PASSWORD is required when seeding in production or CI');
+  const passwordHash = await hash(demoPassword, 12);
   const createdUsers = new Map<string, bigint>();
   for (const [email, name, role] of users) {
     const user = await db.user.create({ data: { tenantId: tenant.id, roleId: roles.get(role)!, email, name, passwordHash, branchIds: [branch.id.toString(), alex.id.toString()], warehouseIds: [main.id.toString(), retail.id.toString(), alexWarehouse.id.toString()] } });

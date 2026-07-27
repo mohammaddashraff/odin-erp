@@ -37,7 +37,7 @@ export default function OdinApp({ initialRoute = '/dashboard', initialLanguage =
   const current = routeEntry(route);
   const { status: sessionStatus, token, user, sessionMessage, establishSession, endSession, authorizedFetch } = useSession();
   const [refs, setRefs] = useState<Json>(null);
-  const [theme, setTheme] = useState('dark');
+  const [theme, setTheme] = useState('light');
   const [language, setLanguage] = useState<Language>(initialLanguage);
   const [mobileNav, setMobileNav] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
@@ -63,7 +63,7 @@ export default function OdinApp({ initialRoute = '/dashboard', initialLanguage =
   const loadRefs = useCallback(async () => setRefs(await request('/bootstrap')), [request]);
 
   useEffect(() => {
-    const savedTheme = localStorage.getItem('odin_theme') || 'dark'; setTheme(savedTheme); document.documentElement.dataset.theme = savedTheme;
+    const savedTheme = localStorage.getItem('odin_theme') || 'light'; setTheme(savedTheme); document.documentElement.dataset.theme = savedTheme;
     const savedCollapse = localStorage.getItem('odin_sidebar_collapsed') === 'true'; setCollapsed(savedCollapse);
     displayLanguage = initialLanguage; localStorage.setItem('odin_language', initialLanguage); document.documentElement.lang = initialLanguage; document.documentElement.dir = initialLanguage === 'ar' ? 'rtl' : 'ltr';
   }, [initialLanguage]);
@@ -154,7 +154,7 @@ function Breadcrumbs({ current, navigate }: { current: ReturnType<typeof routeEn
 }
 
 function Login({ onLogin, sessionMessage, theme, changeTheme, language, changeLanguage }: { onLogin: (result: Json) => void; sessionMessage?: string; theme: string; changeTheme: () => void; language: Language; changeLanguage: () => void }) {
-  const [email, setEmail] = useState('admin@odin.demo'), [password, setPassword] = useState('OdinDemo2026!');
+  const [email, setEmail] = useState('admin@odin.demo'), [password, setPassword] = useState('');
   const [rememberMe, setRememberMe] = useState(true);
   const [error, setError] = useState(''), [busy, setBusy] = useState(false);
   const submit = async (event: FormEvent) => {
@@ -174,7 +174,7 @@ function Login({ onLogin, sessionMessage, theme, changeTheme, language, changeLa
       <label className="remember-session"><input type="checkbox" checked={rememberMe} onChange={(event) => setRememberMe(event.target.checked)}/><span>{t('Keep me signed in on this device', language)}</span></label>
       <button data-testid="login-submit" className="button primary wide" disabled={busy}>{t(busy ? 'Authenticating…' : 'Enter Odin ERP', language)}<AppIcon name="next"/></button>
       <p className="form-error" role="alert">{error || sessionMessage}</p>
-      <details className="credential-hint"><summary>{t('Nine role-based demo profiles', language)}</summary><div><code>admin@odin.demo</code><code>cfo@odin.demo</code><code>sales@odin.demo</code><code>purchasing@odin.demo</code><code>warehouse@odin.demo</code><code>cashier@odin.demo</code><p>{t('Password for every profile:', language)} <strong>OdinDemo2026!</strong></p></div></details>
+      <details className="credential-hint"><summary>{t('Nine role-based demo profiles', language)}</summary><div><code>admin@odin.demo</code><code>cfo@odin.demo</code><code>sales@odin.demo</code><code>purchasing@odin.demo</code><code>warehouse@odin.demo</code><code>cashier@odin.demo</code><p>{t('Use the password configured by the deployment administrator.', language)}</p></div></details>
     </form>
   </section>;
 }
@@ -528,10 +528,11 @@ function Payments({ pageTitle, refs, request, notify, canWrite }: { pageTitle: s
 function PaymentForm({ refs, request, close, saved }: { refs: Json; request: (path: string, options?: RequestInit) => Promise<Json>; close: () => void; saved: (payment: Json) => void }) {
   const [kind, setKind] = useState('RECEIPT'), [documents, setDocuments] = useState<Json[]>([]), [documentId, setDocumentId] = useState('');
   const [amount, setAmount] = useState(''), [bankAccountId, setBankAccountId] = useState(refs.bankAccounts[0]?.id || ''), [error, setError] = useState(''), [busy, setBusy] = useState(false);
-  useEffect(() => { request(`/documents?type=${kind === 'RECEIPT' ? 'SALES_INVOICE' : 'PURCHASE_BILL'}&status=POSTED`).then((rows) => { const open = rows.filter((row: Json) => BigInt(row.totalMinor) > BigInt(row.paidMinor)); setDocuments(open); if (open[0]) { setDocumentId(open[0].id); setAmount((Number(BigInt(open[0].totalMinor) - BigInt(open[0].paidMinor)) / 100).toFixed(2)); } }); }, [kind, request]);
+  const remaining = useCallback((row: Json) => kind === 'RECEIPT' ? BigInt(row.remainingMinor) : BigInt(row.totalMinor) - BigInt(row.paidMinor), [kind]);
+  useEffect(() => { request(`/documents?type=${kind === 'RECEIPT' ? 'SALES_INVOICE' : 'PURCHASE_BILL'}&status=POSTED`).then((rows) => { const open = rows.filter((row: Json) => remaining(row) > 0n); setDocuments(open); setDocumentId(open[0]?.id || ''); setAmount(open[0] ? (Number(remaining(open[0])) / 100).toFixed(2) : ''); }); }, [kind, request, remaining]);
   const selected = documents.find((row) => row.id === documentId);
   const submit = async (event: FormEvent) => { event.preventDefault(); setBusy(true); setError(''); try { saved(await request('/payments', { method: 'POST', body: JSON.stringify({ kind, branchId: refs.branches.find((branch: Json) => branch.code === 'CAI')?.id || refs.branches[0].id, bankAccountId, postingDate: today(), amount, method: refs.bankAccounts.find((account: Json) => account.id === bankAccountId)?.type === 'CASH' ? 'CASH' : 'BANK', customerId: selected?.customerId, supplierId: selected?.supplierId, allocations: [{ documentId, amount }] }) })); } catch (reason: any) { setError(reason.message); } finally { setBusy(false); } };
-  return <Modal title="Allocate receipt or payment" close={close}><form className="form-grid" onSubmit={submit}><label className="field">{t('Direction', displayLanguage)}<select value={kind} onChange={(event) => setKind(event.target.value)}><option value="RECEIPT">{t('Customer receipt', displayLanguage)}</option><option value="PAYMENT">{t('Supplier payment', displayLanguage)}</option></select></label><label className="field">{t('Cash / bank account', displayLanguage)}<select value={bankAccountId} onChange={(event) => setBankAccountId(event.target.value)}>{refs.bankAccounts.map((account: Json) => <option key={account.id} value={account.id}>{account.code} · {referenceName(account.name)}</option>)}</select></label><label className="field full">{t('Open document', displayLanguage)}<select value={documentId} onChange={(event) => { const doc = documents.find((row) => row.id === event.target.value); setDocumentId(event.target.value); if (doc) setAmount((Number(BigInt(doc.totalMinor)-BigInt(doc.paidMinor))/100).toFixed(2)); }}>{documents.map((doc) => <option key={doc.id} value={doc.id}>{t(`${doc.number} · ${referenceName(doc.customer?.name || doc.supplier?.name)} · outstanding ${money(BigInt(doc.totalMinor)-BigInt(doc.paidMinor))}`, displayLanguage)}</option>)}</select></label><label className="field">{t('Allocation amount', displayLanguage)}<input value={amount} onChange={(event) => setAmount(event.target.value)} required/></label><label className="field">{t('Posting date', displayLanguage)}<input type="date" value={today()} readOnly/></label><p className="form-message">{error || (!documents.length ? t('There are no open posted documents for this direction.', displayLanguage) : '')}</p><div className="modal-actions full"><button type="button" className="button" onClick={close}>{t('Cancel', displayLanguage)}</button><button className="button primary" disabled={busy || !documentId}>{t(busy ? 'Posting allocation…' : 'Post and allocate', displayLanguage)}</button></div></form></Modal>;
+  return <Modal title="Allocate receipt or payment" close={close}><form className="form-grid" onSubmit={submit}><label className="field">{t('Direction', displayLanguage)}<select value={kind} onChange={(event) => setKind(event.target.value)}><option value="RECEIPT">{t('Customer receipt', displayLanguage)}</option><option value="PAYMENT">{t('Supplier payment', displayLanguage)}</option></select></label><label className="field">{t('Cash / bank account', displayLanguage)}<select value={bankAccountId} onChange={(event) => setBankAccountId(event.target.value)}>{refs.bankAccounts.map((account: Json) => <option key={account.id} value={account.id}>{account.code} · {referenceName(account.name)}</option>)}</select></label><label className="field full">{t('Open document', displayLanguage)}<select value={documentId} onChange={(event) => { const doc = documents.find((row) => row.id === event.target.value); setDocumentId(event.target.value); if (doc) setAmount((Number(remaining(doc))/100).toFixed(2)); }}>{documents.map((doc) => <option key={doc.id} value={doc.id}>{t(`${doc.number} · ${referenceName(doc.customer?.name || doc.supplier?.name)} · outstanding ${money(remaining(doc))}`, displayLanguage)}</option>)}</select></label><label className="field">{t('Allocation amount', displayLanguage)}<input value={amount} onChange={(event) => setAmount(event.target.value)} required/></label><label className="field">{t('Posting date', displayLanguage)}<input type="date" value={today()} readOnly/></label><p className="form-message">{error || (!documents.length ? t('There are no open posted documents for this direction.', displayLanguage) : '')}</p><div className="modal-actions full"><button type="button" className="button" onClick={close}>{t('Cancel', displayLanguage)}</button><button className="button primary" disabled={busy || !documentId}>{t(busy ? 'Posting allocation…' : 'Post and allocate', displayLanguage)}</button></div></form></Modal>;
 }
 
 function Pos({ refs, request, notify }: { refs: Json; request: (path: string, options?: RequestInit) => Promise<Json>; notify: (message: string, error?: boolean) => void }) {
@@ -582,11 +583,11 @@ function StatementForm({ refs, request, close, saved }: { refs: Json; request: (
 
 const reportCatalog = [
   ['trial-balance', 'Trial balance', 'Debits, credits and account balances'], ['general-ledger', 'General ledger', 'Journal lines with source drill-down'], ['account-ledger', 'Account ledger', 'Account-level debit, credit and balance'], ['income-statement', 'Income statement', 'Revenue, cost and current profit'], ['balance-sheet', 'Balance sheet', 'Assets, liabilities and equity'],
-  ['customer-statement', 'Customer statement', 'Invoices, receipts and running exposure'], ['supplier-statement', 'Supplier statement', 'Bills, payments and running exposure'], ['ar-aging', 'AR aging', 'Customer balances by due bucket'], ['ap-aging', 'AP aging', 'Supplier balances by due bucket'], ['inventory-valuation', 'Inventory valuation', 'On-hand quantity and moving value'], ['stock-movements', 'Stock movements', 'Custody history with source documents'],
+  ['customer-balances', 'Customer balances', 'Posted receivables by customer'], ['customer-statement', 'Customer statement', 'Invoices, receipts and running exposure'], ['supplier-statement', 'Supplier statement', 'Bills, payments and running exposure'], ['ar-aging', 'AR aging', 'Customer balances by due bucket'], ['ap-aging', 'AP aging', 'Supplier balances by due bucket'], ['inventory-valuation', 'Inventory valuation', 'On-hand quantity and moving value'], ['stock-movements', 'Stock movements', 'Custody history with source documents'],
   ['tax-report', 'VAT report', 'Output less recoverable input tax'], ['sales-profitability', 'Sales profitability', 'Revenue, source cost and margin'], ['purchase-analysis', 'Purchase analysis', 'Bills and returns by supplier'], ['cash-flow', 'Cash position', 'Cash, bank and card balances'], ['pos-shifts', 'POS shift report', 'Expected, actual, difference and closure'], ['reconciliation', 'Control reconciliation', 'AR, AP and inventory proof'],
 ];
 const reportCategories: Record<string, string[]> = {
-  sales: ['customer-statement', 'ar-aging', 'sales-profitability'],
+  sales: ['customer-balances', 'customer-statement', 'ar-aging', 'sales-profitability'],
   purchasing: ['supplier-statement', 'ap-aging', 'purchase-analysis'],
   inventory: ['inventory-valuation', 'stock-movements'],
   accounting: ['trial-balance', 'general-ledger', 'account-ledger', 'income-statement', 'balance-sheet', 'tax-report', 'reconciliation'],

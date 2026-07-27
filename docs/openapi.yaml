@@ -4,7 +4,7 @@ info:
   version: 1.0.0
   description: >-
     Tenant-scoped ERP API backed by PostgreSQL. The complete generated contract and interactive
-    request explorer are available from the running API at /api/docs and /api/docs-json.
+    request explorer are available at /api/docs and /api/docs-json only when ENABLE_SWAGGER=true.
 servers:
   - url: http://127.0.0.1:8081
 components:
@@ -22,6 +22,7 @@ paths:
       summary: Service and database health
       responses:
         '200': { description: Healthy }
+        '503': { description: API is running but the PostgreSQL query failed }
   /api/auth/login:
     post:
       security: []
@@ -59,7 +60,7 @@ paths:
       parameters:
         - { in: path, name: id, required: true, schema: { type: integer } }
       responses:
-        '200': { description: Document evidence }
+        '200': { description: Document evidence, including invoice gross/paid/returned/credited/net/remaining settlement fields }
   /api/documents/{id}/convert:
     post:
       summary: Convert remaining source quantities to the next document

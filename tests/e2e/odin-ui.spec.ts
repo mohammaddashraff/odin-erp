@@ -3,7 +3,9 @@ import { mkdirSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { t } from '../../apps/web/src/app/i18n';
 
-const password = 'OdinDemo2026!';
+const password = process.env.ODIN_DEMO_PASSWORD
+  || (process.env.NODE_ENV !== 'production' && !process.env.CI ? 'OdinLocalOnly2026!' : '');
+if (!password) throw new Error('ODIN_DEMO_PASSWORD is required for browser tests in production or CI.');
 const screenshots = resolve(process.cwd(), 'artifacts/screenshots');
 mkdirSync(screenshots, { recursive: true });
 

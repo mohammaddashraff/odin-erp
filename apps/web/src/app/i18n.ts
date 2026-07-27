@@ -221,7 +221,7 @@ const auth: Namespace = {
   'Authenticating…': 'جارٍ تسجيل الدخول…',
   'Sign in failed': 'فشل تسجيل الدخول',
   'Nine role-based demo profiles': 'تسعة حسابات تجريبية حسب الصلاحيات',
-  'Password for every profile:': 'كلمة المرور لجميع الحسابات:',
+  'Use the password configured by the deployment administrator.': 'استخدم كلمة المرور التي عيّنها مسؤول النشر.',
 };
 
 const dashboard: Namespace = {

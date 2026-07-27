@@ -3,8 +3,8 @@ import { resolve } from 'node:path';
 import { defineConfig } from 'prisma/config';
 import { enforceTlsVerification } from './src/database-url';
 
-config({ path: resolve(process.cwd(), '.env') });
-config({ path: resolve(process.cwd(), '../../.env') });
+config({ path: resolve(process.cwd(), '.env'), quiet: true });
+config({ path: resolve(process.cwd(), '../../.env'), quiet: true });
 
 export default defineConfig({
   schema: 'prisma/schema.prisma',
