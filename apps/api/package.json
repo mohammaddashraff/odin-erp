@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "nest start --watch",
+    "prebuild": "prisma generate",
     "build": "nest build",
     "start:prod": "node dist/src/main.js",
     "lint": "tsc --noEmit",
