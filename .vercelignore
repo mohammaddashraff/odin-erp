@@ -1,0 +1,15 @@
+.env
+.env.*
+!.env.example
+.vercel/
+node_modules/
+data/
+apps/api/dist/
+apps/api/src/generated/
+apps/web/.next/
+artifacts/
+output/
+playwright-report/
+test-results/
+tmp/
+odin-dashboard*.png

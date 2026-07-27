@@ -12,9 +12,9 @@ export default defineConfig({
     seed: 'tsx prisma/seed.ts',
   },
   datasource: {
-    url: process.env.DATABASE_ADMIN_URL
-      ?? process.env.DATABASE_URL_UNPOOLED
+    url: process.env.DATABASE_URL_UNPOOLED
       ?? process.env.POSTGRES_URL_NON_POOLING
+      ?? process.env.DATABASE_ADMIN_URL
       ?? process.env.DATABASE_URL
       ?? '',
   },

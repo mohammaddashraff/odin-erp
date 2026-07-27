@@ -48,9 +48,9 @@ const accountData: Array<[string, string, AccountType, string?]> = [
 ];
 
 export async function seed(initiatedBy = 'CLI', targetTenantId?: bigint) {
-  const adminUrl = process.env.DATABASE_ADMIN_URL
-    || process.env.DATABASE_URL_UNPOOLED
+  const adminUrl = process.env.DATABASE_URL_UNPOOLED
     || process.env.POSTGRES_URL_NON_POOLING
+    || process.env.DATABASE_ADMIN_URL
     || process.env.DATABASE_URL;
   if (!adminUrl) throw new Error('DATABASE_ADMIN_URL is required');
   const db = new PrismaClient({ adapter: new PrismaPg(adminUrl) });

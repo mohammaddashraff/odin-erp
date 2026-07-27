@@ -2,9 +2,9 @@ import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '@prisma/client';
 import { seed } from './seed';
 
-const adminUrl = process.env.DATABASE_ADMIN_URL
-  || process.env.DATABASE_URL_UNPOOLED
+const adminUrl = process.env.DATABASE_URL_UNPOOLED
   || process.env.POSTGRES_URL_NON_POOLING
+  || process.env.DATABASE_ADMIN_URL
   || process.env.DATABASE_URL;
 
 if (!adminUrl) throw new Error('A PostgreSQL connection URL is required to bootstrap the database');
