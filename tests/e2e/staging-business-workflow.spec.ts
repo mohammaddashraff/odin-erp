@@ -240,9 +240,12 @@ test.describe('deployed Odin ERP business workflow', () => {
       expect(BigInt(relatedStatement.at(-1).runningBalanceMinor)).toBe(0n);
       expect(customerDetail.ageing).toHaveLength(0);
 
-      const reconciliation = await json(await cfo.context.get('/api/reports/reconciliation', { headers: headers(cfo) }), 'AR reconciliation');
-      const ar = reconciliation.rows.find((row: any) => row.control === 'Accounts receivable');
-      expect(BigInt(ar.differenceMinor)).toBe(0n);
+      const reconciliation = await json(await cfo.context.get('/api/reports/reconciliation', { headers: headers(cfo) }), 'control reconciliation');
+      for (const control of ['Accounts receivable', 'Accounts payable', 'Inventory']) {
+        const row = reconciliation.rows.find((entry: any) => entry.control === control);
+        expect(row, `${control} reconciliation row is missing`).toBeTruthy();
+        expect(BigInt(row.differenceMinor), `${control} difference`).toBe(0n);
+      }
 
       const audit = await json(await admin.context.get('/api/audit', { headers: headers(admin) }), 'audit log');
       const relatedIds = new Set([customer.id, quotation.id, order.id, delivery.id, invoice.id, salesReturn.id, creditNote.id].map(String));
