@@ -1,0 +1,41 @@
+name: Staging Business Workflow
+
+on:
+  push:
+    branches:
+      - qa/staging-business-workflow-20260727
+  workflow_dispatch:
+
+jobs:
+  business-workflow:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      STAGING_BASE_URL: https://odin-erp-web.vercel.app
+      ODIN_DEMO_PASSWORD: OdinDemo2026!
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run deployed business workflow test
+        run: npx playwright test tests/e2e/staging-business-workflow.spec.ts --reporter=list,html
+
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: staging-business-workflow-report
+          path: |
+            playwright-report
+            test-results
+          if-no-files-found: ignore
+          retention-days: 14
