@@ -1,0 +1,9 @@
+{
+  "redirects": [
+    {
+      "source": "/",
+      "destination": "https://odin-erp-web.vercel.app",
+      "permanent": false
+    }
+  ]
+}
