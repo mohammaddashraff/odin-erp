@@ -75,6 +75,8 @@ function expectJournalSource(document: any) {
   expect(String(document.journalEntry.sourceId)).toBe(String(document.id));
 }
 
+test.use({ trace: 'off' });
+
 test.describe('deployed Odin ERP business workflow', () => {
   test.skip(!stagingBaseUrl || !demoPassword, 'STAGING_BASE_URL and ODIN_DEMO_PASSWORD are required for deployed workflow testing.');
 
@@ -254,5 +256,42 @@ test.describe('deployed Odin ERP business workflow', () => {
     } finally {
       await Promise.all([sales.context.dispose(), cfo.context.dispose(), admin.context.dispose()]);
     }
+  });
+
+  test('authenticated invoice and customer statement refresh, then logout', async ({ page }) => {
+    const invoicePage = await page.goto(`${stagingBaseUrl}/sales/invoices`, { waitUntil: 'domcontentloaded' });
+    expect(invoicePage?.status()).toBe(200);
+    await page.getByTestId('login-email').fill('admin@odin.demo');
+    await page.getByTestId('login-password').fill(demoPassword!);
+    await page.getByTestId('login-submit').click();
+    await expect(page.getByTestId('account-menu')).toBeVisible({ timeout: 30_000 });
+
+    const refreshedInvoicePage = await page.reload({ waitUntil: 'domcontentloaded' });
+    expect(refreshedInvoicePage?.status()).toBe(200);
+    await expect(page.getByTestId('account-menu')).toBeVisible({ timeout: 30_000 });
+    await expect(page).toHaveURL(/\/sales\/invoices$/);
+
+    const statementPage = await page.goto(`${stagingBaseUrl}/reports/sales`, { waitUntil: 'domcontentloaded' });
+    expect(statementPage?.status()).toBe(200);
+    await expect(page.getByTestId('account-menu')).toBeVisible({ timeout: 30_000 });
+    await page.getByRole('button', { name: /Customer statement/ }).click();
+    await expect(page.getByRole('heading', { name: 'Customer statement' })).toBeVisible();
+
+    const refreshedStatementPage = await page.reload({ waitUntil: 'domcontentloaded' });
+    expect(refreshedStatementPage?.status()).toBe(200);
+    await expect(page.getByTestId('account-menu')).toBeVisible({ timeout: 30_000 });
+    await expect(page).toHaveURL(/\/reports\/sales$/);
+
+    const logoutResponse = page.waitForResponse((response) =>
+      response.url().endsWith('/api/auth/logout') && response.request().method() === 'POST');
+    await page.getByTestId('account-menu').click();
+    await page.getByRole('button', { name: 'Sign out' }).click();
+    expect((await logoutResponse).ok()).toBeTruthy();
+    await expect(page.getByTestId('login-submit')).toBeVisible();
+
+    const loggedOutRefresh = await page.reload({ waitUntil: 'domcontentloaded' });
+    expect(loggedOutRefresh?.status()).toBe(200);
+    await expect(page.getByTestId('login-submit')).toBeVisible();
+    await expect(page.locator('.session-restoring')).toBeHidden();
   });
 });
