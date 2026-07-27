@@ -121,9 +121,11 @@ test.describe('production client-readiness usability audit', () => {
     await page.getByRole('button', { name: 'Menu' }).click();
     await expect(page.locator('.sidebar')).toHaveClass(/open/);
     await assertNoOverflow(page);
+    await page.getByRole('button', { name: 'Close' }).first().click();
+    await expect(page.locator('.sidebar')).not.toHaveClass(/open/);
 
-    await page.getByTestId('account-menu').click();
     const logout = page.waitForResponse((response) => response.url().endsWith('/api/auth/logout') && response.request().method() === 'POST');
+    await page.getByTestId('account-menu').click();
     await page.getByRole('button', { name: 'Sign out' }).click();
     expect((await logout).ok()).toBeTruthy();
     await expect(page.getByTestId('login-submit')).toBeVisible();
