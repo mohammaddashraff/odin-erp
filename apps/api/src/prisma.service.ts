@@ -8,7 +8,10 @@ export class PrismaService implements OnModuleDestroy {
   readonly app: PrismaClient;
 
   constructor() {
-    const adminUrl = process.env.DATABASE_ADMIN_URL || process.env.DATABASE_URL;
+    const adminUrl = process.env.DATABASE_ADMIN_URL
+      || process.env.DATABASE_URL_UNPOOLED
+      || process.env.POSTGRES_URL_NON_POOLING
+      || process.env.DATABASE_URL;
     const appUrl = process.env.DATABASE_URL || adminUrl;
     if (!adminUrl || !appUrl) throw new Error('DATABASE_ADMIN_URL and DATABASE_URL are required');
     this.admin = new PrismaClient({ adapter: new PrismaPg(adminUrl) });

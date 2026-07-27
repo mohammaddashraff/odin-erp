@@ -16,3 +16,6 @@ coverage/
 *.tsbuildinfo
 tmp/
 odin-dashboard*.png
+.vercel/
+.env.local
+.env.*.local

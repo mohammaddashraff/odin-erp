@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "nest start --watch",
-    "prebuild": "prisma generate",
+    "prebuild": "prisma generate && prisma migrate deploy && tsx prisma/bootstrap.ts",
     "build": "nest build",
     "start:prod": "node dist/src/main.js",
     "lint": "tsc --noEmit",
