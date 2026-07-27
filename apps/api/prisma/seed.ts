@@ -3,6 +3,7 @@ import { AccountType, DocumentType, JournalStatus, PrismaClient, WorkflowStatus 
 import { hash } from 'bcryptjs';
 import { config } from 'dotenv';
 import { resolve } from 'node:path';
+import { enforceTlsVerification } from '../src/database-url';
 
 config({ path: resolve(process.cwd(), '.env') });
 config({ path: resolve(process.cwd(), '../../.env') });
@@ -53,7 +54,7 @@ export async function seed(initiatedBy = 'CLI', targetTenantId?: bigint) {
     || process.env.DATABASE_ADMIN_URL
     || process.env.DATABASE_URL;
   if (!adminUrl) throw new Error('DATABASE_ADMIN_URL is required');
-  const db = new PrismaClient({ adapter: new PrismaPg(adminUrl) });
+  const db = new PrismaClient({ adapter: new PrismaPg(enforceTlsVerification(adminUrl)) });
   let resetVersion = 0;
   await db.$transaction(async (tx) => {
     const hasExistingTenant = targetTenantId !== undefined || await tx.tenant.count() > 0;

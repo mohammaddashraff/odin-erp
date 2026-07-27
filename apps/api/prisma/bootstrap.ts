@@ -1,5 +1,6 @@
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '@prisma/client';
+import { enforceTlsVerification } from '../src/database-url';
 import { seed } from './seed';
 
 const adminUrl = process.env.DATABASE_URL_UNPOOLED
@@ -8,7 +9,7 @@ const adminUrl = process.env.DATABASE_URL_UNPOOLED
   || process.env.DATABASE_URL;
 
 if (!adminUrl) throw new Error('A PostgreSQL connection URL is required to bootstrap the database');
-const bootstrapUrl: string = adminUrl;
+const bootstrapUrl: string = enforceTlsVerification(adminUrl);
 
 async function main() {
   const db = new PrismaClient({ adapter: new PrismaPg(bootstrapUrl) });
