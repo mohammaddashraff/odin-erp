@@ -1,0 +1,182 @@
+openapi: 3.1.0
+info:
+  title: Odin ERP API
+  version: 1.0.0
+  description: >-
+    Tenant-scoped ERP API backed by PostgreSQL. The complete generated contract and interactive
+    request explorer are available from the running API at /api/docs and /api/docs-json.
+servers:
+  - url: http://127.0.0.1:8081
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+security:
+  - bearerAuth: []
+paths:
+  /api/health:
+    get:
+      security: []
+      summary: Service and database health
+      responses:
+        '200': { description: Healthy }
+  /api/auth/login:
+    post:
+      security: []
+      summary: Authenticate a tenant user
+      responses:
+        '200': { description: Access token and user context }
+        '401': { description: Invalid credentials }
+  /api/auth/me:
+    get:
+      summary: Current authenticated user
+      responses:
+        '200': { description: User and tenant context }
+  /api/bootstrap:
+    get:
+      summary: Role-scoped navigation and master data
+      responses:
+        '200': { description: Application bootstrap data }
+  /api/dashboard:
+    get:
+      summary: Persisted role-aware metrics and alerts
+      responses:
+        '200': { description: Dashboard data }
+  /api/documents:
+    get:
+      summary: List business documents
+      responses:
+        '200': { description: Documents }
+    post:
+      summary: Create a draft business document
+      responses:
+        '201': { description: Created document }
+  /api/documents/{id}:
+    get:
+      summary: Document, lines, chain, journal, stock, approvals, and allocations
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: integer } }
+      responses:
+        '200': { description: Document evidence }
+  /api/documents/{id}/convert:
+    post:
+      summary: Convert remaining source quantities to the next document
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: integer } }
+      responses:
+        '201': { description: Derived document }
+        '400': { description: Quantity or workflow violation }
+  /api/documents/{id}/{action}:
+    post:
+      summary: Submit, approve, reject, or post a document
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: integer } }
+        - { in: path, name: action, required: true, schema: { type: string, enum: [submit, approve, reject, post] } }
+      responses:
+        '200': { description: Updated document }
+        '403': { description: Permission or maker-checker denial }
+  /api/payments:
+    get:
+      summary: List receipts, payments, and allocations
+      responses:
+        '200': { description: Payments }
+    post:
+      summary: Post an exactly allocated customer receipt or supplier payment
+      responses:
+        '201': { description: Posted payment and journal }
+  /api/journals:
+    get:
+      summary: List journals and lines
+      responses:
+        '200': { description: Journals }
+    post:
+      summary: Create a balanced draft manual journal
+      responses:
+        '201': { description: Draft journal }
+  /api/journals/{id}:
+    patch:
+      summary: Edit a draft journal; posted journals are immutable
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: integer } }
+      responses:
+        '200': { description: Updated draft }
+        '400': { description: Immutable or invalid entry }
+  /api/journals/{id}/{action}:
+    post:
+      summary: Submit, approve, reject, or post a journal
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: integer } }
+        - { in: path, name: action, required: true, schema: { type: string, enum: [submit, approve, reject, post] } }
+      responses:
+        '200': { description: Updated journal }
+  /api/journals/{id}/reverse/create:
+    post:
+      summary: Create and post a dated, reasoned linked reversal
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: integer } }
+      responses:
+        '201': { description: Reversal journal }
+  /api/pos:
+    get:
+      summary: POS shifts, held/completed sales, tenders, and closing data
+      responses:
+        '200': { description: POS state }
+  /api/pos/sales:
+    post:
+      summary: Hold or atomically complete a POS sale with split tender
+      responses:
+        '201': { description: POS sale and accounting evidence }
+  /api/banking:
+    get:
+      summary: Accounts, system transactions, statement lines, and reconciliation totals
+      responses:
+        '200': { description: Banking state }
+  /api/banking/transactions:
+    post:
+      summary: Post cash/bank receipt, payment, or transfer
+      responses:
+        '201': { description: Posted bank transaction }
+  /api/banking/statements:
+    post:
+      summary: Enter bank statement lines
+      responses:
+        '201': { description: Statement import }
+  /api/approvals:
+    get:
+      summary: Approval inbox, steps, history, and comments
+      responses:
+        '200': { description: Approval records }
+  /api/reports/{name}:
+    get:
+      summary: Query a persisted financial or operational report
+      parameters:
+        - { in: path, name: name, required: true, schema: { type: string } }
+      responses:
+        '200': { description: Report rows and totals }
+  /api/reports/{name}/csv:
+    get:
+      summary: Export a report as CSV
+      parameters:
+        - { in: path, name: name, required: true, schema: { type: string } }
+      responses:
+        '200': { description: CSV file }
+  /api/reports/{name}/pdf:
+    get:
+      summary: Export a report as PDF
+      parameters:
+        - { in: path, name: name, required: true, schema: { type: string } }
+      responses:
+        '200': { description: PDF file }
+  /api/audit:
+    get:
+      summary: Read append-only audit evidence
+      responses:
+        '200': { description: Audit events }
+  /api/system/reset:
+    post:
+      summary: Administrator-only selected-tenant deterministic reset
+      responses:
+        '201': { description: Reset result and reconciliation checks }
+        '403': { description: Permission or password failure }

@@ -1,0 +1,24 @@
+{
+  "name": "odin-erp",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": ["apps/api", "apps/web"],
+  "engines": { "node": ">=24" },
+  "scripts": {
+    "dev": "concurrently -k -n api,web -c blue,cyan \"npm run dev -w @odin/api\" \"npm run dev -w @odin/web\"",
+    "build": "npm run build -w @odin/api && npm run build -w @odin/web",
+    "start": "concurrently -k -n api,web -c blue,cyan \"npm run start:prod -w @odin/api\" \"npm run start -w @odin/web\"",
+    "lint": "npm run lint -w @odin/api && npm run lint -w @odin/web",
+    "test": "npm run test -w @odin/api",
+    "test:e2e": "playwright test",
+    "db:generate": "npm run db:generate -w @odin/api",
+    "db:migrate": "npm run db:migrate -w @odin/api",
+    "db:seed": "npm run db:seed -w @odin/api",
+    "db:reset": "npm run db:reset -w @odin/api",
+    "integrity": "npm run integrity -w @odin/api"
+  },
+  "devDependencies": {
+    "@playwright/test": "latest",
+    "concurrently": "latest"
+  }
+}

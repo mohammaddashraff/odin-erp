@@ -1,0 +1,19 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: odin_erp
+      POSTGRES_USER: odin
+      POSTGRES_PASSWORD: odin_local_only
+    ports:
+      - "5433:5432"
+    volumes:
+      - odin_pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U odin -d odin_erp"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
+volumes:
+  odin_pg_data:

@@ -1,0 +1,970 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum DocumentType {
+  QUOTATION
+  SALES_ORDER
+  DELIVERY_NOTE
+  SALES_INVOICE
+  SALES_RETURN
+  CREDIT_NOTE
+  PURCHASE_REQUEST
+  PURCHASE_RFQ
+  PURCHASE_ORDER
+  GOODS_RECEIPT
+  PURCHASE_BILL
+  PURCHASE_RETURN
+  WAREHOUSE_TRANSFER
+  INVENTORY_ADJUSTMENT
+  STOCK_COUNT
+}
+
+enum WorkflowStatus {
+  DRAFT
+  SUBMITTED
+  APPROVED
+  POSTED
+  REJECTED
+  CANCELLED
+}
+
+enum JournalStatus {
+  DRAFT
+  SUBMITTED
+  APPROVED
+  POSTED
+  REJECTED
+}
+
+enum AccountType {
+  ASSET
+  LIABILITY
+  EQUITY
+  REVENUE
+  COGS
+  EXPENSE
+  OTHER_INCOME
+  OTHER_EXPENSE
+}
+
+enum PartyType {
+  CUSTOMER
+  SUPPLIER
+}
+
+enum PaymentKind {
+  RECEIPT
+  PAYMENT
+}
+
+enum PaymentMethod {
+  CASH
+  CARD
+  BANK
+}
+
+enum PosShiftStatus {
+  OPEN
+  CLOSED
+}
+
+enum PosSaleStatus {
+  HELD
+  COMPLETED
+  RETURNED
+}
+
+enum BankAccountType {
+  CASH
+  BANK
+  CARD_CLEARING
+}
+
+enum BankTransactionKind {
+  RECEIPT
+  PAYMENT
+  TRANSFER_IN
+  TRANSFER_OUT
+}
+
+model Tenant {
+  id             BigInt   @id @default(autoincrement())
+  name           String
+  baseCurrency   String   @default("EGP") @map("base_currency")
+  customerCodePrefix String @default("CUS") @map("customer_code_prefix")
+  negativeStock  Boolean  @default(false) @map("negative_stock")
+  makerChecker   Boolean  @default(true) @map("maker_checker")
+  approvalLimit  BigInt   @default(5000000) @map("approval_limit_minor")
+  resetVersion   Int      @default(0) @map("reset_version")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  branches       Branch[]
+  warehouses     Warehouse[]
+  departments    Department[]
+  employees      Employee[]
+  currencies     Currency[]
+  currencyRates  CurrencyRate[]
+  masterSequences MasterSequence[]
+  refreshSessions RefreshSession[]
+  roles          Role[]
+  users          User[]
+  fiscalPeriods  FiscalPeriod[]
+  accounts       Account[]
+  sequences      DocumentSequence[]
+  customers      Customer[]
+  suppliers      Supplier[]
+  itemCategories ItemCategory[]
+  units          UnitOfMeasure[]
+  items          Item[]
+  stockBalances  StockBalance[]
+  stockMovements StockMovement[]
+  documents      Document[]
+  documentLines  DocumentLine[]
+  journals       JournalEntry[]
+  journalLines   JournalLine[]
+  payments       Payment[]
+  allocations    PaymentAllocation[]
+  approvals      ApprovalEvent[]
+  auditEvents    AuditEvent[]
+  posShifts      PosShift[]
+  posSales       PosSale[]
+  posSaleLines   PosSaleLine[]
+  posTenders     PosTender[]
+  bankAccounts   BankAccount[]
+  bankTxns       BankTransaction[]
+  bankStatements BankStatement[]
+  statementLines BankStatementLine[]
+  idempotency    IdempotencyKey[]
+
+  @@map("tenants")
+}
+
+model Branch {
+  id          BigInt   @id @default(autoincrement())
+  tenantId    BigInt   @map("tenant_id")
+  code        String
+  name        String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  warehouses  Warehouse[]
+  documents   Document[]
+  journals    JournalEntry[]
+  stockMoves  StockMovement[]
+  posShifts   PosShift[]
+  bankTxns    BankTransaction[]
+  sequences   DocumentSequence[]
+  defaultCustomers Customer[] @relation("CustomerDefaultBranch")
+
+  @@unique([tenantId, code])
+  @@index([tenantId, name])
+  @@map("branches")
+}
+
+model Warehouse {
+  id                BigInt   @id @default(autoincrement())
+  tenantId          BigInt   @map("tenant_id")
+  branchId          BigInt   @map("branch_id")
+  code              String
+  name              String
+  active            Boolean  @default(true)
+  tenant            Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branch            Branch   @relation(fields: [branchId], references: [id])
+  sourceDocuments   Document[] @relation("DocumentWarehouse")
+  targetDocuments   Document[] @relation("DocumentDestinationWarehouse")
+  stockBalances     StockBalance[]
+  stockMovements    StockMovement[]
+  posShifts         PosShift[]
+
+  @@unique([tenantId, code])
+  @@index([tenantId, branchId])
+  @@map("warehouses")
+}
+
+model Role {
+  id          BigInt @id @default(autoincrement())
+  tenantId    BigInt @map("tenant_id")
+  name        String
+  permissions Json
+  tenant      Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  users       User[]
+
+  @@unique([tenantId, name])
+  @@map("roles")
+}
+
+model User {
+  id               BigInt   @id @default(autoincrement())
+  tenantId         BigInt   @map("tenant_id")
+  roleId           BigInt   @map("role_id")
+  email            String
+  name             String
+  passwordHash     String   @map("password_hash")
+  branchIds        Json     @map("branch_ids")
+  warehouseIds     Json     @map("warehouse_ids")
+  language         String   @default("en")
+  active           Boolean  @default(true)
+  tenant           Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  role             Role     @relation(fields: [roleId], references: [id])
+  createdDocuments Document[] @relation("DocumentCreator")
+  submittedDocuments Document[] @relation("DocumentSubmitter")
+  approvedDocuments Document[] @relation("DocumentApprover")
+  postedDocuments  Document[] @relation("DocumentPoster")
+  createdJournals  JournalEntry[] @relation("JournalCreator")
+  submittedJournals JournalEntry[] @relation("JournalSubmitter")
+  approvedJournals JournalEntry[] @relation("JournalApprover")
+  postedJournals   JournalEntry[] @relation("JournalPoster")
+  stockMovements   StockMovement[]
+  payments         Payment[]
+  approvals        ApprovalEvent[]
+  auditEvents      AuditEvent[]
+  openedShifts     PosShift[] @relation("ShiftOpener")
+  closedShifts     PosShift[] @relation("ShiftCloser")
+  posSales         PosSale[]
+  bankTxns         BankTransaction[]
+  bankStatements   BankStatement[]
+  refreshSessions  RefreshSession[]
+
+  @@unique([tenantId, email])
+  @@index([tenantId, roleId, active])
+  @@map("users")
+}
+
+model Department {
+  id        BigInt   @id @default(autoincrement())
+  tenantId  BigInt   @map("tenant_id")
+  code      String
+  name      String
+  active    Boolean  @default(true)
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  employees Employee[]
+
+  @@unique([tenantId, code])
+  @@index([tenantId, name, active])
+  @@map("departments")
+}
+
+model Employee {
+  id            BigInt     @id @default(autoincrement())
+  tenantId      BigInt     @map("tenant_id")
+  departmentId  BigInt     @map("department_id")
+  code          String
+  name          String
+  jobTitle      String?    @map("job_title")
+  salesEligible Boolean    @default(false) @map("sales_eligible")
+  branchIds     Json       @map("branch_ids")
+  active        Boolean    @default(true)
+  tenant        Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  department    Department @relation(fields: [departmentId], references: [id])
+  salesDocuments Document[]
+
+  @@unique([tenantId, code])
+  @@index([tenantId, departmentId, active, salesEligible])
+  @@index([tenantId, name])
+  @@map("employees")
+}
+
+model Currency {
+  id        BigInt  @id @default(autoincrement())
+  tenantId  BigInt  @map("tenant_id")
+  code      String
+  name      String
+  symbol    String
+  precision Int     @default(2)
+  active    Boolean @default(true)
+  tenant    Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, code])
+  @@index([tenantId, active, name])
+  @@map("currencies")
+}
+
+model CurrencyRate {
+  id             BigInt   @id @default(autoincrement())
+  tenantId       BigInt   @map("tenant_id")
+  baseCurrency   String   @map("base_currency")
+  targetCurrency String   @map("target_currency")
+  rateMicros     BigInt   @map("rate_micros")
+  rateDate       DateTime @map("rate_date") @db.Date
+  source         String   @default("SYSTEM")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  tenant         Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, baseCurrency, targetCurrency, rateDate])
+  @@index([tenantId, targetCurrency, rateDate])
+  @@map("currency_rates")
+}
+
+model MasterSequence {
+  tenantId  BigInt @map("tenant_id")
+  key       String
+  prefix    String
+  nextValue BigInt @default(1) @map("next_value")
+  tenant    Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@id([tenantId, key])
+  @@map("master_sequences")
+}
+
+model RefreshSession {
+  id        String    @id @default(uuid()) @db.Uuid
+  tenantId  BigInt    @map("tenant_id")
+  userId    BigInt    @map("user_id")
+  tokenHash String    @unique @map("token_hash")
+  persistent Boolean  @default(true)
+  expiresAt DateTime  @map("expires_at") @db.Timestamptz(3)
+  revokedAt DateTime? @map("revoked_at") @db.Timestamptz(3)
+  lastUsedAt DateTime @default(now()) @map("last_used_at") @db.Timestamptz(3)
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  tenant    Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, userId, expiresAt])
+  @@map("refresh_sessions")
+}
+
+model FiscalPeriod {
+  id        BigInt   @id @default(autoincrement())
+  tenantId  BigInt   @map("tenant_id")
+  year      Int
+  month     Int
+  name      String
+  startDate DateTime @map("start_date") @db.Date
+  endDate   DateTime @map("end_date") @db.Date
+  status    String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, year, month])
+  @@index([tenantId, status, startDate])
+  @@map("fiscal_periods")
+}
+
+model Account {
+  id             BigInt      @id @default(autoincrement())
+  tenantId       BigInt      @map("tenant_id")
+  code           String
+  name           String
+  type           AccountType
+  parentId       BigInt?     @map("parent_id")
+  postingAllowed Boolean     @default(true) @map("posting_allowed")
+  controlType    String?     @map("control_type")
+  active         Boolean     @default(true)
+  tenant         Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  parent         Account?    @relation("AccountTree", fields: [parentId], references: [id])
+  children       Account[]   @relation("AccountTree")
+  journalLines   JournalLine[]
+  bankAccounts   BankAccount[]
+  bankCounterparties BankTransaction[] @relation("BankCounterparty")
+
+  @@unique([tenantId, code])
+  @@index([tenantId, type, active])
+  @@index([parentId])
+  @@map("accounts")
+}
+
+model DocumentSequence {
+  tenantId    BigInt @map("tenant_id")
+  branchId    BigInt @map("branch_id")
+  documentType String @map("document_type")
+  fiscalYear  Int    @map("fiscal_year")
+  nextValue   BigInt @default(1) @map("next_value")
+  tenant      Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branch      Branch @relation(fields: [branchId], references: [id], onDelete: Cascade)
+
+  @@id([tenantId, branchId, documentType, fiscalYear])
+  @@map("document_sequences")
+}
+
+model Customer {
+  id                BigInt   @id @default(autoincrement())
+  tenantId          BigInt   @map("tenant_id")
+  code              String
+  name              String
+  customerType      String   @default("BUSINESS") @map("customer_type")
+  taxNumber         String?  @map("tax_number")
+  registrationNumber String? @map("registration_number")
+  email             String?
+  phone             String?
+  address           String?
+  billingAddress    String?  @map("billing_address")
+  shippingAddress   String?  @map("shipping_address")
+  city              String
+  defaultBranchId   BigInt?  @map("default_branch_id")
+  creditLimitMinor  BigInt?  @map("credit_limit_minor")
+  paymentTermsDays  Int?     @map("payment_terms_days")
+  defaultCurrency   String?  @map("default_currency")
+  taxTreatment      String   @default("STANDARD") @map("tax_treatment")
+  creditHold        Boolean  @default(false) @map("credit_hold")
+  active            Boolean  @default(true)
+  tenant            Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  defaultBranch     Branch?  @relation("CustomerDefaultBranch", fields: [defaultBranchId], references: [id])
+  documents         Document[]
+  payments          Payment[]
+  posSales          PosSale[]
+
+  @@unique([tenantId, code])
+  @@index([tenantId, name, active])
+  @@index([tenantId, phone])
+  @@index([tenantId, email])
+  @@index([tenantId, taxNumber])
+  @@map("customers")
+}
+
+model Supplier {
+  id               BigInt   @id @default(autoincrement())
+  tenantId         BigInt   @map("tenant_id")
+  code             String
+  name             String
+  taxNumber        String?  @map("tax_number")
+  email            String?
+  phone            String?
+  address          String?
+  city             String
+  paymentTermsDays Int      @default(30) @map("payment_terms_days")
+  active           Boolean  @default(true)
+  tenant           Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  documents        Document[]
+  payments         Payment[]
+
+  @@unique([tenantId, code])
+  @@index([tenantId, name])
+  @@map("suppliers")
+}
+
+model ItemCategory {
+  id       BigInt  @id @default(autoincrement())
+  tenantId BigInt  @map("tenant_id")
+  code     String
+  name     String
+  tenant   Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  items    Item[]
+
+  @@unique([tenantId, code])
+  @@map("item_categories")
+}
+
+model UnitOfMeasure {
+  id          BigInt @id @default(autoincrement())
+  tenantId    BigInt @map("tenant_id")
+  code        String
+  name        String
+  precision   Int    @default(3)
+  tenant      Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  items       Item[]
+  documentLines DocumentLine[]
+
+  @@unique([tenantId, code])
+  @@map("units_of_measure")
+}
+
+model Item {
+  id               BigInt   @id @default(autoincrement())
+  tenantId         BigInt   @map("tenant_id")
+  categoryId       BigInt   @map("category_id")
+  uomId            BigInt   @map("uom_id")
+  sku              String
+  barcode          String
+  name             String
+  nameAr           String   @map("name_ar")
+  purchasePriceMinor BigInt @map("purchase_price_minor")
+  salePriceMinor   BigInt   @map("sale_price_minor")
+  taxRateBps       Int      @default(1400) @map("tax_rate_bps")
+  reorderMilli     BigInt   @default(0) @map("reorder_milli")
+  active           Boolean  @default(true)
+  tenant           Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  category         ItemCategory @relation(fields: [categoryId], references: [id])
+  uom              UnitOfMeasure @relation(fields: [uomId], references: [id])
+  balances         StockBalance[]
+  movements        StockMovement[]
+  documentLines    DocumentLine[]
+  posLines         PosSaleLine[]
+
+  @@unique([tenantId, sku])
+  @@unique([tenantId, barcode])
+  @@index([tenantId, categoryId, active])
+  @@map("items")
+}
+
+model StockBalance {
+  tenantId    BigInt @map("tenant_id")
+  warehouseId BigInt @map("warehouse_id")
+  itemId      BigInt @map("item_id")
+  quantityMilli BigInt @default(0) @map("quantity_milli")
+  valueMinor  BigInt @default(0) @map("value_minor")
+  tenant      Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  warehouse   Warehouse @relation(fields: [warehouseId], references: [id], onDelete: Cascade)
+  item        Item @relation(fields: [itemId], references: [id], onDelete: Cascade)
+
+  @@id([tenantId, warehouseId, itemId])
+  @@index([tenantId, itemId])
+  @@map("stock_balances")
+}
+
+model StockMovement {
+  id                   BigInt   @id @default(autoincrement())
+  tenantId             BigInt   @map("tenant_id")
+  branchId             BigInt   @map("branch_id")
+  warehouseId          BigInt   @map("warehouse_id")
+  itemId               BigInt   @map("item_id")
+  postingDate          DateTime @map("posting_date") @db.Date
+  quantityInMilli      BigInt   @default(0) @map("quantity_in_milli")
+  quantityOutMilli     BigInt   @default(0) @map("quantity_out_milli")
+  unitCostMinor        BigInt   @map("unit_cost_minor")
+  totalCostMinor       BigInt   @map("total_cost_minor")
+  runningQuantityMilli BigInt   @map("running_quantity_milli")
+  runningValueMinor    BigInt   @map("running_value_minor")
+  sourceType           String   @map("source_type")
+  sourceId             BigInt   @map("source_id")
+  sourceNumber         String   @map("source_number")
+  createdById          BigInt   @map("created_by_id")
+  createdAt            DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  tenant               Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branch               Branch   @relation(fields: [branchId], references: [id])
+  warehouse            Warehouse @relation(fields: [warehouseId], references: [id])
+  item                 Item     @relation(fields: [itemId], references: [id])
+  createdBy            User     @relation(fields: [createdById], references: [id])
+
+  @@unique([tenantId, sourceType, sourceId, itemId, warehouseId])
+  @@index([tenantId, itemId, postingDate])
+  @@index([tenantId, warehouseId, postingDate])
+  @@map("stock_movements")
+}
+
+model Document {
+  id                     BigInt         @id @default(autoincrement())
+  tenantId               BigInt         @map("tenant_id")
+  type                   DocumentType
+  number                 String
+  status                 WorkflowStatus @default(DRAFT)
+  branchId               BigInt         @map("branch_id")
+  warehouseId            BigInt?        @map("warehouse_id")
+  destinationWarehouseId BigInt?        @map("destination_warehouse_id")
+  customerId             BigInt?        @map("customer_id")
+  supplierId             BigInt?        @map("supplier_id")
+  sourceDocumentId       BigInt?        @map("source_document_id")
+  documentDate           DateTime       @map("document_date") @db.Date
+  dueDate                DateTime?      @map("due_date") @db.Date
+  currency               String         @default("EGP")
+  exchangeRateMicros     BigInt         @default(1000000) @map("exchange_rate_micros")
+  exchangeRateDate       DateTime?      @map("exchange_rate_date") @db.Date
+  manualExchangeRate     Boolean        @default(false) @map("manual_exchange_rate")
+  priceList              String?        @map("price_list")
+  taxMode                String         @default("EXCLUSIVE") @map("tax_mode")
+  paymentTerms           String?        @map("payment_terms")
+  salesperson            String?
+  salespersonId          BigInt?        @map("salesperson_id")
+  notes                  String?
+  attachments            Json           @default("[]")
+  subtotalMinor          BigInt         @default(0) @map("subtotal_minor")
+  discountMinor          BigInt         @default(0) @map("discount_minor")
+  taxMinor               BigInt         @default(0) @map("tax_minor")
+  totalMinor             BigInt         @default(0) @map("total_minor")
+  costMinor              BigInt         @default(0) @map("cost_minor")
+  paidMinor              BigInt         @default(0) @map("paid_minor")
+  journalEntryId         BigInt?        @unique @map("journal_entry_id")
+  createdById            BigInt         @map("created_by_id")
+  submittedById          BigInt?        @map("submitted_by_id")
+  approvedById           BigInt?        @map("approved_by_id")
+  postedById             BigInt?        @map("posted_by_id")
+  submittedAt            DateTime?      @map("submitted_at") @db.Timestamptz(3)
+  approvedAt             DateTime?      @map("approved_at") @db.Timestamptz(3)
+  postedAt               DateTime?      @map("posted_at") @db.Timestamptz(3)
+  createdAt              DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt              DateTime       @updatedAt @map("updated_at") @db.Timestamptz(3)
+  tenant                 Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branch                 Branch         @relation(fields: [branchId], references: [id])
+  warehouse              Warehouse?     @relation("DocumentWarehouse", fields: [warehouseId], references: [id])
+  destinationWarehouse   Warehouse?     @relation("DocumentDestinationWarehouse", fields: [destinationWarehouseId], references: [id])
+  customer               Customer?      @relation(fields: [customerId], references: [id])
+  supplier               Supplier?      @relation(fields: [supplierId], references: [id])
+  salesEmployee          Employee?      @relation(fields: [salespersonId], references: [id])
+  sourceDocument         Document?      @relation("DocumentChain", fields: [sourceDocumentId], references: [id])
+  targetDocuments        Document[]     @relation("DocumentChain")
+  lines                  DocumentLine[]
+  journalEntry           JournalEntry?  @relation(fields: [journalEntryId], references: [id])
+  createdBy              User           @relation("DocumentCreator", fields: [createdById], references: [id])
+  submittedBy            User?          @relation("DocumentSubmitter", fields: [submittedById], references: [id])
+  approvedBy             User?          @relation("DocumentApprover", fields: [approvedById], references: [id])
+  postedBy               User?          @relation("DocumentPoster", fields: [postedById], references: [id])
+  allocations            PaymentAllocation[]
+
+  @@unique([tenantId, type, number])
+  @@index([tenantId, type, status, documentDate])
+  @@index([tenantId, customerId, status])
+  @@index([tenantId, supplierId, status])
+  @@index([tenantId, salespersonId, status])
+  @@index([sourceDocumentId])
+  @@map("documents")
+}
+
+model DocumentLine {
+  id               BigInt   @id @default(autoincrement())
+  tenantId         BigInt   @map("tenant_id")
+  documentId       BigInt   @map("document_id")
+  itemId           BigInt   @map("item_id")
+  uomId            BigInt   @map("uom_id")
+  sourceLineId     BigInt?  @map("source_line_id")
+  description      String?
+  quantityMilli    BigInt   @map("quantity_milli")
+  systemQuantityMilli BigInt? @map("system_quantity_milli")
+  countedQuantityMilli BigInt? @map("counted_quantity_milli")
+  unitPriceMinor   BigInt   @map("unit_price_minor")
+  discountMinor    BigInt   @default(0) @map("discount_minor")
+  taxableMinor     BigInt   @map("taxable_minor")
+  taxMinor         BigInt   @map("tax_minor")
+  totalMinor       BigInt   @map("total_minor")
+  unitCostMinor    BigInt   @default(0) @map("unit_cost_minor")
+  costMinor        BigInt   @default(0) @map("cost_minor")
+  tenant           Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  document         Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  item             Item     @relation(fields: [itemId], references: [id])
+  uom              UnitOfMeasure @relation(fields: [uomId], references: [id])
+  sourceLine       DocumentLine? @relation("DocumentLineChain", fields: [sourceLineId], references: [id])
+  targetLines      DocumentLine[] @relation("DocumentLineChain")
+
+  @@index([tenantId, documentId])
+  @@index([sourceLineId])
+  @@map("document_lines")
+}
+
+model JournalEntry {
+  id                 BigInt        @id @default(autoincrement())
+  tenantId           BigInt        @map("tenant_id")
+  branchId           BigInt        @map("branch_id")
+  number             String
+  postingDate        DateTime      @map("posting_date") @db.Date
+  description        String
+  status             JournalStatus @default(DRAFT)
+  sourceModule       String        @map("source_module")
+  sourceType         String        @map("source_type")
+  sourceId           BigInt        @map("source_id")
+  sourceNumber       String        @map("source_number")
+  currency           String        @default("EGP")
+  exchangeRateMicros BigInt        @default(1000000) @map("exchange_rate_micros")
+  reversesEntryId    BigInt?       @unique @map("reverses_entry_id")
+  reversalReason     String?       @map("reversal_reason")
+  createdById        BigInt        @map("created_by_id")
+  submittedById      BigInt?       @map("submitted_by_id")
+  approvedById       BigInt?       @map("approved_by_id")
+  postedById         BigInt?       @map("posted_by_id")
+  submittedAt        DateTime?     @map("submitted_at") @db.Timestamptz(3)
+  approvedAt         DateTime?     @map("approved_at") @db.Timestamptz(3)
+  postedAt           DateTime?     @map("posted_at") @db.Timestamptz(3)
+  createdAt          DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  tenant             Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branch             Branch        @relation(fields: [branchId], references: [id])
+  lines              JournalLine[]
+  reversesEntry      JournalEntry? @relation("JournalReversal", fields: [reversesEntryId], references: [id])
+  reversedBy         JournalEntry? @relation("JournalReversal")
+  createdBy          User          @relation("JournalCreator", fields: [createdById], references: [id])
+  submittedBy        User?         @relation("JournalSubmitter", fields: [submittedById], references: [id])
+  approvedBy         User?         @relation("JournalApprover", fields: [approvedById], references: [id])
+  postedBy           User?         @relation("JournalPoster", fields: [postedById], references: [id])
+  sourceDocument     Document?
+  payments           Payment[]
+  posSales           PosSale[]
+  posShiftClosings   PosShift[]
+  bankTxns           BankTransaction[]
+
+  @@unique([tenantId, number])
+  @@unique([tenantId, sourceType, sourceId])
+  @@index([tenantId, status, postingDate])
+  @@map("journal_entries")
+}
+
+model JournalLine {
+  id             BigInt   @id @default(autoincrement())
+  tenantId       BigInt   @map("tenant_id")
+  journalEntryId BigInt   @map("journal_entry_id")
+  accountId      BigInt   @map("account_id")
+  description    String
+  debitMinor     BigInt   @default(0) @map("debit_minor")
+  creditMinor    BigInt   @default(0) @map("credit_minor")
+  foreignMinor   BigInt   @default(0) @map("foreign_minor")
+  costCenter     String?  @map("cost_center")
+  tenant         Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  journalEntry   JournalEntry @relation(fields: [journalEntryId], references: [id], onDelete: Cascade)
+  account        Account  @relation(fields: [accountId], references: [id])
+
+  @@index([tenantId, accountId, journalEntryId])
+  @@index([journalEntryId])
+  @@map("journal_lines")
+}
+
+model Payment {
+  id             BigInt        @id @default(autoincrement())
+  tenantId       BigInt        @map("tenant_id")
+  kind           PaymentKind
+  partyType      PartyType     @map("party_type")
+  customerId     BigInt?       @map("customer_id")
+  supplierId     BigInt?       @map("supplier_id")
+  bankAccountId  BigInt        @map("bank_account_id")
+  number         String
+  postingDate    DateTime      @map("posting_date") @db.Date
+  amountMinor    BigInt        @map("amount_minor")
+  method         PaymentMethod
+  reference      String?
+  journalEntryId BigInt        @map("journal_entry_id")
+  createdById    BigInt        @map("created_by_id")
+  createdAt      DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  tenant         Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  customer       Customer?     @relation(fields: [customerId], references: [id])
+  supplier       Supplier?     @relation(fields: [supplierId], references: [id])
+  bankAccount    BankAccount   @relation(fields: [bankAccountId], references: [id])
+  journalEntry   JournalEntry  @relation(fields: [journalEntryId], references: [id])
+  createdBy      User          @relation(fields: [createdById], references: [id])
+  allocations    PaymentAllocation[]
+
+  @@unique([tenantId, number])
+  @@index([tenantId, customerId, postingDate])
+  @@index([tenantId, supplierId, postingDate])
+  @@map("payments")
+}
+
+model PaymentAllocation {
+  id          BigInt   @id @default(autoincrement())
+  tenantId    BigInt   @map("tenant_id")
+  paymentId   BigInt   @map("payment_id")
+  documentId  BigInt   @map("document_id")
+  amountMinor BigInt   @map("amount_minor")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  payment     Payment  @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  document    Document @relation(fields: [documentId], references: [id])
+
+  @@unique([paymentId, documentId])
+  @@index([tenantId, documentId])
+  @@map("payment_allocations")
+}
+
+model ApprovalEvent {
+  id         BigInt   @id @default(autoincrement())
+  tenantId   BigInt   @map("tenant_id")
+  entityType String   @map("entity_type")
+  entityId   BigInt   @map("entity_id")
+  action     String
+  step       Int      @default(1)
+  actorId    BigInt   @map("actor_id")
+  comment    String?
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  tenant     Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  actor      User     @relation(fields: [actorId], references: [id])
+
+  @@index([tenantId, entityType, entityId, createdAt])
+  @@map("approval_events")
+}
+
+model AuditEvent {
+  id                BigInt   @id @default(autoincrement())
+  tenantId          BigInt   @map("tenant_id")
+  userId            BigInt   @map("user_id")
+  action            String
+  entityType        String   @map("entity_type")
+  entityId          String   @map("entity_id")
+  previousValues    Json?    @map("previous_values")
+  newValues         Json?    @map("new_values")
+  ipAddress         String?  @map("ip_address")
+  userAgent         String?  @map("user_agent")
+  postingReference  String?  @map("posting_reference")
+  approvalReference String?  @map("approval_reference")
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  tenant            Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user              User     @relation(fields: [userId], references: [id])
+
+  @@index([tenantId, entityType, entityId, createdAt])
+  @@index([tenantId, userId, createdAt])
+  @@map("audit_events")
+}
+
+model PosShift {
+  id                    BigInt         @id @default(autoincrement())
+  tenantId              BigInt         @map("tenant_id")
+  branchId              BigInt         @map("branch_id")
+  warehouseId           BigInt         @map("warehouse_id")
+  registerCode          String         @map("register_code")
+  status                PosShiftStatus @default(OPEN)
+  openedById            BigInt         @map("opened_by_id")
+  closedById            BigInt?        @map("closed_by_id")
+  openedAt              DateTime       @default(now()) @map("opened_at") @db.Timestamptz(3)
+  closedAt              DateTime?      @map("closed_at") @db.Timestamptz(3)
+  openingCashMinor      BigInt         @map("opening_cash_minor")
+  expectedCashMinor     BigInt         @default(0) @map("expected_cash_minor")
+  actualCashMinor       BigInt?        @map("actual_cash_minor")
+  differenceMinor       BigInt?        @map("difference_minor")
+  closingJournalEntryId BigInt?        @map("closing_journal_entry_id")
+  tenant                Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branch                Branch         @relation(fields: [branchId], references: [id])
+  warehouse             Warehouse      @relation(fields: [warehouseId], references: [id])
+  openedBy              User           @relation("ShiftOpener", fields: [openedById], references: [id])
+  closedBy              User?          @relation("ShiftCloser", fields: [closedById], references: [id])
+  closingJournalEntry   JournalEntry?  @relation(fields: [closingJournalEntryId], references: [id])
+  sales                 PosSale[]
+
+  @@index([tenantId, status, openedAt])
+  @@map("pos_shifts")
+}
+
+model PosSale {
+  id             BigInt        @id @default(autoincrement())
+  tenantId       BigInt        @map("tenant_id")
+  shiftId        BigInt        @map("shift_id")
+  customerId     BigInt?       @map("customer_id")
+  number         String
+  status         PosSaleStatus @default(HELD)
+  sourceSaleId   BigInt?       @map("source_sale_id")
+  subtotalMinor  BigInt        @map("subtotal_minor")
+  discountMinor  BigInt        @default(0) @map("discount_minor")
+  taxMinor       BigInt        @map("tax_minor")
+  totalMinor     BigInt        @map("total_minor")
+  costMinor      BigInt        @default(0) @map("cost_minor")
+  journalEntryId BigInt?       @map("journal_entry_id")
+  createdById    BigInt        @map("created_by_id")
+  createdAt      DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  completedAt    DateTime?     @map("completed_at") @db.Timestamptz(3)
+  tenant         Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  shift          PosShift      @relation(fields: [shiftId], references: [id])
+  customer       Customer?     @relation(fields: [customerId], references: [id])
+  sourceSale     PosSale?      @relation("PosReturn", fields: [sourceSaleId], references: [id])
+  returns        PosSale[]     @relation("PosReturn")
+  journalEntry   JournalEntry? @relation(fields: [journalEntryId], references: [id])
+  createdBy      User          @relation(fields: [createdById], references: [id])
+  lines          PosSaleLine[]
+  tenders        PosTender[]
+
+  @@unique([tenantId, number])
+  @@index([tenantId, shiftId, status, createdAt])
+  @@map("pos_sales")
+}
+
+model PosSaleLine {
+  id             BigInt   @id @default(autoincrement())
+  tenantId       BigInt   @map("tenant_id")
+  saleId         BigInt   @map("sale_id")
+  itemId         BigInt   @map("item_id")
+  quantityMilli  BigInt   @map("quantity_milli")
+  unitPriceMinor BigInt   @map("unit_price_minor")
+  discountMinor  BigInt   @default(0) @map("discount_minor")
+  taxMinor       BigInt   @map("tax_minor")
+  totalMinor     BigInt   @map("total_minor")
+  costMinor      BigInt   @default(0) @map("cost_minor")
+  tenant         Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  sale           PosSale  @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  item           Item     @relation(fields: [itemId], references: [id])
+
+  @@index([tenantId, saleId])
+  @@map("pos_sale_lines")
+}
+
+model PosTender {
+  id          BigInt        @id @default(autoincrement())
+  tenantId    BigInt        @map("tenant_id")
+  saleId      BigInt        @map("sale_id")
+  method      PaymentMethod
+  amountMinor BigInt        @map("amount_minor")
+  reference   String?
+  tenant      Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  sale        PosSale       @relation(fields: [saleId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, saleId])
+  @@map("pos_tenders")
+}
+
+model BankAccount {
+  id           BigInt          @id @default(autoincrement())
+  tenantId     BigInt          @map("tenant_id")
+  code         String
+  name         String
+  type         BankAccountType
+  currency     String          @default("EGP")
+  glAccountId  BigInt          @map("gl_account_id")
+  bankName     String?         @map("bank_name")
+  accountNumber String?        @map("account_number")
+  active       Boolean         @default(true)
+  tenant       Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  glAccount    Account         @relation(fields: [glAccountId], references: [id])
+  payments     Payment[]
+  transactions BankTransaction[]
+  statements   BankStatement[]
+
+  @@unique([tenantId, code])
+  @@index([tenantId, type, active])
+  @@map("bank_accounts")
+}
+
+model BankTransaction {
+  id               BigInt              @id @default(autoincrement())
+  tenantId         BigInt              @map("tenant_id")
+  branchId         BigInt              @map("branch_id")
+  bankAccountId    BigInt              @map("bank_account_id")
+  counterpartyAccountId BigInt          @map("counterparty_account_id")
+  kind             BankTransactionKind
+  number           String
+  postingDate      DateTime            @map("posting_date") @db.Date
+  amountMinor      BigInt              @map("amount_minor")
+  reference        String?
+  description      String
+  reconciled       Boolean             @default(false)
+  journalEntryId   BigInt              @map("journal_entry_id")
+  createdById      BigInt              @map("created_by_id")
+  tenant           Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branch           Branch              @relation(fields: [branchId], references: [id])
+  bankAccount      BankAccount         @relation(fields: [bankAccountId], references: [id])
+  counterpartyAccount Account          @relation("BankCounterparty", fields: [counterpartyAccountId], references: [id])
+  journalEntry     JournalEntry        @relation(fields: [journalEntryId], references: [id])
+  createdBy        User                @relation(fields: [createdById], references: [id])
+  statementLines   BankStatementLine[]
+
+  @@unique([tenantId, number])
+  @@index([tenantId, bankAccountId, reconciled, postingDate])
+  @@map("bank_transactions")
+}
+
+model BankStatement {
+  id            BigInt   @id @default(autoincrement())
+  tenantId      BigInt   @map("tenant_id")
+  bankAccountId BigInt   @map("bank_account_id")
+  statementDate DateTime @map("statement_date") @db.Date
+  openingMinor  BigInt   @map("opening_minor")
+  closingMinor  BigInt   @map("closing_minor")
+  createdById   BigInt   @map("created_by_id")
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  tenant        Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  bankAccount   BankAccount @relation(fields: [bankAccountId], references: [id])
+  createdBy     User     @relation(fields: [createdById], references: [id])
+  lines         BankStatementLine[]
+
+  @@index([tenantId, bankAccountId, statementDate])
+  @@map("bank_statements")
+}
+
+model BankStatementLine {
+  id                BigInt   @id @default(autoincrement())
+  tenantId          BigInt   @map("tenant_id")
+  statementId       BigInt   @map("statement_id")
+  transactionId     BigInt?  @map("transaction_id")
+  lineDate          DateTime @map("line_date") @db.Date
+  description       String
+  reference         String?
+  amountMinor       BigInt   @map("amount_minor")
+  matched           Boolean  @default(false)
+  tenant            Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  statement         BankStatement @relation(fields: [statementId], references: [id], onDelete: Cascade)
+  transaction       BankTransaction? @relation(fields: [transactionId], references: [id])
+
+  @@index([tenantId, statementId, matched])
+  @@index([transactionId])
+  @@map("bank_statement_lines")
+}
+
+model IdempotencyKey {
+  tenantId    BigInt   @map("tenant_id")
+  key         String
+  responseJson Json    @map("response_json")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@id([tenantId, key])
+  @@map("idempotency_keys")
+}
