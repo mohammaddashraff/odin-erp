@@ -56,7 +56,10 @@ export async function seed(initiatedBy = 'CLI', targetTenantId?: bigint) {
   const db = new PrismaClient({ adapter: new PrismaPg(adminUrl) });
   let resetVersion = 0;
   await db.$transaction(async (tx) => {
-    await tx.$executeRawUnsafe('SET LOCAL session_replication_role = replica');
+    const hasExistingTenant = targetTenantId !== undefined || await tx.tenant.count() > 0;
+    if (hasExistingTenant) {
+      await tx.$queryRaw`SELECT set_config('app.reset_mode', 'on', true)`;
+    }
     if (targetTenantId) {
       const existing = await tx.tenant.findUnique({ where: { id: targetTenantId }, select: { resetVersion: true } });
       if (!existing) throw new Error('Selected demo tenant no longer exists');
