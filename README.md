@@ -14,7 +14,7 @@ persist across navigation and sign-in.
 - Database: PostgreSQL 17
 - ORM/migrations: Prisma 7 with the PostgreSQL driver adapter
 - Tests: Jest/Supertest and Playwright
-- API contract: runtime Swagger/OpenAPI
+- API contract: OpenAPI, with runtime Swagger available only when explicitly enabled
 - Money: exact integer minor units (`BigInt`); quantities: integer thousandths
 
 PostgreSQL row-level security scopes the runtime role by tenant. Database triggers protect posted
@@ -36,18 +36,24 @@ npm run build
 npm run start
 ```
 
+Set `ODIN_DEMO_PASSWORD` in `.env` before seeding. `ODIN_ALLOWED_ORIGINS` is a comma-separated
+allowlist. Swagger is disabled unless `ENABLE_SWAGGER=true`.
+The API emits one JSON log record per handled request with request ID, route, status, duration,
+user, tenant, and safe error metadata; it never serializes request headers, cookies, tokens,
+passwords, request bodies, or database URLs.
+
 Open:
 
 - Application: [http://127.0.0.1:8080](http://127.0.0.1:8080)
 - API health: [http://127.0.0.1:8080/api/health](http://127.0.0.1:8080/api/health)
-- Swagger: [http://127.0.0.1:8081/api/docs](http://127.0.0.1:8081/api/docs)
+- Swagger, when enabled: [http://127.0.0.1:8081/api/docs](http://127.0.0.1:8081/api/docs)
 
 For development, use `npm run dev` after the database steps. Stop the database with
 `docker compose down`; its named volume preserves transactions across restarts.
 
 ## Demo users
 
-Every account uses password `OdinDemo2026!`.
+Every account uses the password supplied through `ODIN_DEMO_PASSWORD`.
 
 | Role | Email |
 |---|---|
@@ -106,6 +112,8 @@ The Playwright suite drives the real UI, changes users, and covers the complete 
 inventory, POS, accounting, banking, permissions, reporting, export, Arabic RTL, audit, and reset
 story. See [docs/VERIFICATION.md](docs/VERIFICATION.md) for the acceptance matrix and captured
 evidence. See [DEMO_WALKTHROUGH.md](DEMO_WALKTHROUGH.md) for the client demonstration sequence.
+The signed AR movement model and no-implicit-credit rule are documented in
+[docs/customer-receivables.md](docs/customer-receivables.md).
 
 ## Optional production extensions
 

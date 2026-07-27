@@ -2,8 +2,9 @@ import { config } from 'dotenv';
 import { resolve } from 'node:path';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '@prisma/client';
+import { receivableBaseMinor } from '../customer-receivables';
 
-config({ path: resolve(process.cwd(), '../../.env') });
+config({ path: resolve(process.cwd(), '../../.env'), quiet: true });
 const db = new PrismaClient({ adapter: new PrismaPg(process.env.DATABASE_ADMIN_URL!) });
 
 async function main() {
@@ -22,8 +23,13 @@ async function main() {
     SELECT coalesce(sum(jl.debit_minor-jl.credit_minor),0)::bigint value FROM journal_lines jl
     JOIN journal_entries je ON je.id=jl.journal_entry_id JOIN accounts a ON a.id=jl.account_id
     WHERE je.status='POSTED' AND a.code='1100'`;
-  const ar = await db.document.aggregate({ where: { type: 'SALES_INVOICE', status: 'POSTED' }, _sum: { totalMinor: true, paidMinor: true } });
-  const arCredits = await db.document.aggregate({ where: { type: { in: ['SALES_RETURN', 'CREDIT_NOTE'] }, status: 'POSTED' }, _sum: { totalMinor: true } });
+  const arDocuments = await db.document.findMany({
+    where: { type: { in: ['SALES_INVOICE', 'SALES_RETURN', 'CREDIT_NOTE'] }, status: 'POSTED' },
+    select: { type: true, totalMinor: true, paidMinor: true, exchangeRateMicros: true },
+  });
+  const arSubledger = arDocuments.reduce((sum, document) => sum + (document.type === 'SALES_INVOICE'
+    ? receivableBaseMinor(document.totalMinor, document.exchangeRateMicros) - receivableBaseMinor(document.paidMinor, document.exchangeRateMicros)
+    : -receivableBaseMinor(document.totalMinor, document.exchangeRateMicros)), 0n);
   const [apLedger] = await db.$queryRaw<Array<{ value: bigint }>>`
     SELECT coalesce(sum(jl.credit_minor-jl.debit_minor),0)::bigint value FROM journal_lines jl
     JOIN journal_entries je ON je.id=jl.journal_entry_id JOIN accounts a ON a.id=jl.account_id
@@ -35,7 +41,7 @@ async function main() {
     ledgerDifferenceMinor: (totals.debit - totals.credit).toString(),
     negativeStockRows: negativeStock,
     inventoryDifferenceMinor: (inventoryLedger.value - (inventory._sum.valueMinor || 0n)).toString(),
-    arDifferenceMinor: (arLedger.value - ((ar._sum.totalMinor || 0n) - (ar._sum.paidMinor || 0n) - (arCredits._sum.totalMinor || 0n))).toString(),
+    arDifferenceMinor: (arLedger.value - arSubledger).toString(),
     apDifferenceMinor: (apLedger.value - ((ap._sum.totalMinor || 0n) - (ap._sum.paidMinor || 0n) - (apCredits._sum.totalMinor || 0n))).toString(),
     postedJournalCount: journalRows.length,
     totalDebitsMinor: totals.debit.toString(), totalCreditsMinor: totals.credit.toString(),

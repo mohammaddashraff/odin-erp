@@ -78,7 +78,7 @@ export const modules: readonly ModuleDefinition[] = [
       { id: 'sales-invoices', label: 'Invoices', route: '/sales/invoices', permission: 'sales.write', namespace: 'documents', screen: 'documents', documentType: 'SALES_INVOICE' },
       { id: 'sales-returns', label: 'Returns', route: '/sales/returns', permission: 'sales.write', namespace: 'documents', screen: 'documents', documentType: 'SALES_RETURN' },
       { id: 'credit-notes', label: 'Credit Notes', route: '/sales/credit-notes', permission: 'sales.write', namespace: 'documents', screen: 'documents', documentType: 'CREDIT_NOTE' },
-      { id: 'customer-balances', label: 'Customer Balances', route: '/sales/customer-balances', permission: 'reports.read', namespace: 'reports', screen: 'reports', reportCategory: 'sales', initialReport: 'customer-statement' },
+      { id: 'customer-balances', label: 'Customer Balances', route: '/sales/customer-balances', permission: 'reports.read', namespace: 'reports', screen: 'reports', reportCategory: 'sales', initialReport: 'customer-balances' },
     ],
   },
   {

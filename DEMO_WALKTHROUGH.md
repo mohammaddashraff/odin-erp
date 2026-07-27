@@ -1,6 +1,7 @@
 # Odin ERP client demonstration
 
-Use the browser only after starting the stack. All demo users have password `OdinDemo2026!`.
+Use the browser only after starting the stack. All demo users use the password configured through
+`ODIN_DEMO_PASSWORD`.
 
 ## 1. Light mode, dashboard, and language
 

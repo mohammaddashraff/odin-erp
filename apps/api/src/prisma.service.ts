@@ -37,6 +37,10 @@ export class PrismaService implements OnModuleDestroy {
     throw new Error('Tenant transaction retry limit reached');
   }
 
+  async healthCheck() {
+    await this.admin.$queryRaw`SELECT 1`;
+  }
+
   async onModuleDestroy() {
     await Promise.all([this.admin.$disconnect(), this.app.$disconnect()]);
   }

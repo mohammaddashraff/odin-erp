@@ -3,7 +3,7 @@ import { resolve } from 'node:path';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '@prisma/client';
 
-config({ path: resolve(process.cwd(), '../../.env') });
+config({ path: resolve(process.cwd(), '../../.env'), quiet: true });
 
 describe('PostgreSQL accounting controls', () => {
   let admin: PrismaClient;
@@ -63,8 +63,11 @@ describe('PostgreSQL accounting controls', () => {
     const [subledgers] = await admin.$queryRaw<Array<{ ar_subledger: bigint; ap_subledger: bigint }>>`
       SELECT
         coalesce(sum(CASE
-          WHEN d.type='SALES_INVOICE' THEN d.total_minor-d.paid_minor
-          WHEN d.type IN ('SALES_RETURN','CREDIT_NOTE') THEN -d.total_minor
+          WHEN d.type='SALES_INVOICE' THEN
+            round(d.total_minor*d.exchange_rate_micros/1000000.0)::bigint
+            - round(d.paid_minor*d.exchange_rate_micros/1000000.0)::bigint
+          WHEN d.type IN ('SALES_RETURN','CREDIT_NOTE') THEN
+            -round(d.total_minor*d.exchange_rate_micros/1000000.0)::bigint
           ELSE 0 END),0)::bigint ar_subledger,
         coalesce(sum(CASE
           WHEN d.type='PURCHASE_BILL' THEN d.total_minor-d.paid_minor

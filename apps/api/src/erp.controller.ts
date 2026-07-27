@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Patch, Post, Query, Req, Res } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Post, Query, Req, Res, ServiceUnavailableException } from '@nestjs/common';
 import type { Request, Response } from 'express';
 import PDFDocument from 'pdfkit';
 import { existsSync } from 'node:fs';
@@ -23,7 +23,13 @@ export class ErpController {
   constructor(private readonly erp: ErpService, private readonly auth: AuthService) {}
 
   @Get('health')
-  health() { return { status: 'ok', database: 'PostgreSQL', architecture: 'Next.js + NestJS + Prisma', time: new Date().toISOString() }; }
+  async health() {
+    try {
+      return await this.erp.health();
+    } catch {
+      throw new ServiceUnavailableException({ api: 'ok', database: 'unhealthy', timestamp: new Date().toISOString() });
+    }
+  }
 
   @Post('auth/login')
   async login(@Body() body: any, @Res({ passthrough: true }) response: Response) {
