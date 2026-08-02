@@ -4,10 +4,11 @@ import {
   PosSaleStatus, PosShiftStatus, Prisma, WorkflowStatus,
 } from '@prisma/client';
 import { compare } from 'bcryptjs';
-import { Actor, requirePermission } from './auth';
+import { Actor, can, requirePermission } from './auth';
 import { CustomerReceivablesService, receivableBaseMinor, receivableJournalAmounts } from './customer-receivables';
 import { money, parseFixed, quantity, roundDiv, serialize } from './money';
 import { PrismaService } from './prisma.service';
+import { normalizePermissions } from './permissions';
 import { seed } from '../prisma/seed';
 
 type Tx = Prisma.TransactionClient;
@@ -56,6 +57,13 @@ export function documentEditState(status: WorkflowStatus, hasOperationalEffects:
   return { editable: status === WorkflowStatus.DRAFT || status === WorkflowStatus.REJECTED, reason: null };
 }
 
+export function documentConversionAllowed(sourceType: DocumentType, sourceStatus: WorkflowStatus, targetType: DocumentType) {
+  const supportedTarget = CONVERSIONS[sourceType]?.includes(targetType) ?? false;
+  if (!supportedTarget) return false;
+  if (sourceType === DocumentType.QUOTATION && targetType === DocumentType.SALES_ORDER && sourceStatus === WorkflowStatus.DRAFT) return true;
+  return sourceStatus === WorkflowStatus.APPROVED || sourceStatus === WorkflowStatus.POSTED;
+}
+
 @Injectable()
 export class ErpService {
   constructor(
@@ -73,22 +81,212 @@ export class ErpService {
   }
 
   private assertBranch(actor: Actor, branchId: bigint) {
-    if (!actor.permissions.includes('*') && !actor.branchIds.includes(branchId.toString())) throw new ForbiddenException('Branch is outside your access scope');
+    if (!can(actor, 'system.super_admin') && !actor.branchIds.includes(branchId.toString())) throw new ForbiddenException('Branch is outside your access scope');
   }
 
   private assertWarehouse(actor: Actor, warehouseId?: bigint | null) {
-    if (warehouseId && !actor.permissions.includes('*') && !actor.warehouseIds.includes(warehouseId.toString())) throw new ForbiddenException('Warehouse is outside your access scope');
+    if (warehouseId && !can(actor, 'system.super_admin') && !actor.warehouseIds.includes(warehouseId.toString())) throw new ForbiddenException('Warehouse is outside your access scope');
   }
 
   private requireAny(actor: Actor, ...permissions: string[]) {
-    if (!actor.permissions.includes('*') && !permissions.some((permission) => actor.permissions.includes(permission))) {
+    const allowed = permissions.some((permission) => {
+      const normalized = normalizePermissions([permission]);
+      return actor.legacyPermissions.includes('*') || actor.legacyPermissions.includes(permission)
+        || normalized.some((candidate) => can(actor, candidate)) || can(actor, permission);
+    });
+    if (!allowed) {
       throw new ForbiddenException(`Permission required: ${permissions[0]}`);
     }
   }
 
+  private scope(actor: Actor, resource: string) {
+    if (can(actor, 'system.super_admin')) return 'ALL';
+    return actor.dataScopes.find((entry) => entry.resource === resource)?.scope || 'BRANCH';
+  }
+
+  private teamUserScope(actor: Actor, module?: string): Prisma.UserWhereInput {
+    const roleIds = actor.roleIds.map(BigInt);
+    const sharedRoles: Prisma.UserWhereInput[] = roleIds.length
+      ? [{ roleId: { in: roleIds } }, { additionalRoles: { some: { roleId: { in: roleIds } } } }]
+      : [];
+    if (module) {
+      const role: Prisma.RoleWhereInput = {
+        active: true,
+        permissionAssignments: { some: { permission: { module, active: true } } },
+      };
+      sharedRoles.push({ role }, { additionalRoles: { some: { role } } });
+    }
+    return sharedRoles.length ? { OR: sharedRoles } : { id: -1n };
+  }
+
+  private documentResource(type: DocumentType) {
+    const resources: Partial<Record<DocumentType, string>> = {
+      QUOTATION: 'quotation', SALES_ORDER: 'order', DELIVERY_NOTE: 'delivery', SALES_INVOICE: 'invoice',
+      SALES_RETURN: 'return', CREDIT_NOTE: 'credit_note', PURCHASE_REQUEST: 'purchase_request', PURCHASE_RFQ: 'rfq',
+      PURCHASE_ORDER: 'purchase_order', GOODS_RECEIPT: 'receipt', PURCHASE_BILL: 'bill', PURCHASE_RETURN: 'purchase_return',
+      WAREHOUSE_TRANSFER: 'transfer', INVENTORY_ADJUSTMENT: 'adjustment', STOCK_COUNT: 'stock_count',
+    };
+    return resources[type] || 'document';
+  }
+
+  private documentModule(type: DocumentType) {
+    return SALES_TYPES.has(type) ? 'sales' : PURCHASE_TYPES.has(type) ? 'purchasing' : 'inventory';
+  }
+
+  private requireDocumentPermission(actor: Actor, type: DocumentType, action: string) {
+    const permission = `${this.documentModule(type)}.${this.documentResource(type)}.${action}`;
+    if (!can(actor, permission)) throw new ForbiddenException({ statusCode: 403, error: 'Forbidden', message: 'You do not have permission to perform this document action.', permission });
+  }
+
+  private assertApprovalLimit(actor: Actor, type: DocumentType, totalMinor: bigint, subtotalMinor = 0n, discountMinor = 0n) {
+    if (!can(actor, 'system.super_admin') && SALES_TYPES.has(type) && discountMinor > 0n && subtotalMinor > 0n) {
+      const discountLimit = this.limit(actor, 'sales.discount_percent', 0);
+      if (discountMinor * 10_000n > subtotalMinor * BigInt(Math.round(discountLimit * 100))) {
+        throw new ForbiddenException(`Document discount exceeds your configured approval limit of ${discountLimit}%.`);
+      }
+    }
+    const key = type === DocumentType.QUOTATION ? 'sales.quotation_amount_minor'
+      : type === DocumentType.SALES_RETURN || type === DocumentType.CREDIT_NOTE ? 'sales.return_amount_minor'
+      : type === DocumentType.SALES_ORDER || type === DocumentType.SALES_INVOICE ? 'sales.credit_amount_minor'
+      : null;
+    if (!key || can(actor, 'system.super_admin')) return;
+    const maximum = this.limit(actor, key, 0);
+    if (maximum <= 0 || totalMinor > BigInt(Math.round(maximum))) {
+      throw new ForbiddenException(`Document amount exceeds your configured approval limit for ${key}.`);
+    }
+  }
+
+  private documentScope(actor: Actor, resource: string, module?: string): Prisma.DocumentWhereInput {
+    const scope = this.scope(actor, resource);
+    if (scope === 'ALL') return {};
+    if (scope === 'OWN') return { createdById: actor.userId };
+    if (scope === 'ASSIGNED') return actor.employeeId ? { salespersonId: BigInt(actor.employeeId) } : { createdById: actor.userId };
+    if (scope === 'WAREHOUSE') return { warehouseId: { in: actor.warehouseIds.map(BigInt) } };
+    if (scope === 'DEPARTMENT' && actor.departmentId) return { salesEmployee: { departmentId: BigInt(actor.departmentId) } };
+    if (scope === 'TEAM') {
+      const configured = actor.dataScopes.find((entry) => entry.resource === resource)?.config as { userIds?: string[] } | undefined;
+      return configured?.userIds?.length ? { createdById: { in: configured.userIds.map(BigInt) } } : { createdBy: this.teamUserScope(actor, module) };
+    }
+    return { branchId: { in: actor.branchIds.map(BigInt) } };
+  }
+
+  private async documentInScope(tx: Tx, actor: Actor, id: bigint, include?: Prisma.DocumentInclude): Promise<any> {
+    const header = await tx.document.findUnique({ where: { id }, select: { type: true } });
+    if (!header) return null;
+    return tx.document.findFirst({ where: { id, ...this.documentScope(actor, this.documentResource(header.type), this.documentModule(header.type)) }, include });
+  }
+
+  private customerScope(actor: Actor): Prisma.CustomerWhereInput {
+    const scope = this.scope(actor, 'customer');
+    if (scope === 'ALL') return {};
+    if (scope === 'OWN' || scope === 'ASSIGNED') return { ownerUserId: actor.userId };
+    if (scope === 'TEAM') {
+      const configured = actor.dataScopes.find((entry) => entry.resource === 'customer')?.config as { userIds?: string[] } | undefined;
+      if (configured?.userIds?.length) return { ownerUserId: { in: configured.userIds.map(BigInt) } };
+      return { ownerUser: this.teamUserScope(actor, 'sales') };
+    }
+    return { defaultBranchId: { in: actor.branchIds.map(BigInt) } };
+  }
+
+  private employeeScope(actor: Actor): Prisma.EmployeeWhereInput {
+    const scope = this.scope(actor, 'employee');
+    if (scope === 'ALL') return {};
+    if (scope === 'OWN' || scope === 'ASSIGNED') return { userId: actor.userId };
+    if (scope === 'DEPARTMENT') return actor.departmentId ? { departmentId: BigInt(actor.departmentId) } : { id: -1n };
+    if (scope === 'TEAM') {
+      const configured = actor.dataScopes.find((entry) => entry.resource === 'employee')?.config as { userIds?: string[] } | undefined;
+      if (configured?.userIds?.length) return { userId: { in: configured.userIds.map(BigInt) } };
+      return { user: this.teamUserScope(actor, 'sales') };
+    }
+    return actor.branchIds.length
+      ? { OR: actor.branchIds.map((branchId) => ({ branchIds: { array_contains: [branchId] } })) }
+      : { id: -1n };
+  }
+
+  private journalScope(actor: Actor, resource = 'journal'): Prisma.JournalEntryWhereInput {
+    const scope = this.scope(actor, resource);
+    if (scope === 'ALL') return {};
+    if (scope === 'OWN' || scope === 'ASSIGNED') return { createdById: actor.userId };
+    if (scope === 'TEAM') {
+      const configured = actor.dataScopes.find((entry) => entry.resource === resource)?.config as { userIds?: string[] } | undefined;
+      if (configured?.userIds?.length) return { createdById: { in: configured.userIds.map(BigInt) } };
+      return { createdBy: this.teamUserScope(actor, 'accounting') };
+    }
+    return { branchId: { in: actor.branchIds.map(BigInt) } };
+  }
+
+  private fieldAccess(actor: Actor, resource: string, field: string) {
+    if (can(actor, 'system.super_admin')) return 'EDIT';
+    return actor.fieldPermissions.find((entry) => entry.resource === resource && entry.field === field)?.access || 'HIDDEN';
+  }
+
+  private limit(actor: Actor, key: string, fallback: number) {
+    const configured: any = actor.limits[key];
+    const value = Number(configured && typeof configured === 'object' && 'value' in configured ? configured.value : configured);
+    return Number.isFinite(value) ? value : fallback;
+  }
+
   private customerForActor(actor: Actor, customer: any) {
-    if (actor.permissions.includes('*') || actor.permissions.includes('customers.view-credit')) return customer;
-    const { creditLimitMinor: _creditLimit, paymentTermsDays: _paymentTerms, creditHold: _creditHold, ...visible } = customer;
+    const visible = { ...customer };
+    if (this.fieldAccess(actor, 'customer', 'creditLimitMinor') === 'HIDDEN' && !actor.legacyPermissions.includes('customers.view-credit')) delete visible.creditLimitMinor;
+    if (this.fieldAccess(actor, 'customer', 'paymentTermsDays') === 'HIDDEN' && !actor.legacyPermissions.includes('customers.view-credit')) {
+      delete visible.paymentTermsDays; delete visible.creditHold;
+    }
+    if (this.fieldAccess(actor, 'customer', 'balanceMinor') === 'HIDDEN' && !actor.legacyPermissions.includes('customers.view-credit')) {
+      delete visible.outstandingMinor; delete visible.statement; delete visible.ageing;
+    }
+    if (this.fieldAccess(actor, 'party', 'taxNumber') === 'HIDDEN') { delete visible.taxNumber; delete visible.registrationNumber; }
+    return visible;
+  }
+
+  private itemForActor(actor: Actor, item: any) {
+    const visible = { ...item };
+    if (this.fieldAccess(actor, 'item', 'purchasePriceMinor') === 'HIDDEN') delete visible.purchasePriceMinor;
+    if (this.fieldAccess(actor, 'item', 'costPriceMinor') === 'HIDDEN') delete visible.costPriceMinor;
+    return visible;
+  }
+
+  private supplierForActor(actor: Actor, supplier: any) {
+    const visible = { ...supplier };
+    if (this.fieldAccess(actor, 'party', 'taxNumber') === 'HIDDEN') {
+      delete visible.taxNumber;
+      delete visible.registrationNumber;
+    }
+    return visible;
+  }
+
+  private bankAccountForActor(actor: Actor, account: any) {
+    const visible = { ...account };
+    if (this.fieldAccess(actor, 'bankAccount', 'accountNumber') === 'HIDDEN') delete visible.accountNumber;
+    return visible;
+  }
+
+  private employeeForActor(actor: Actor, employee: any) {
+    const visible = { ...employee };
+    if (this.fieldAccess(actor, 'employee', 'salaryMinor') === 'HIDDEN') delete visible.salaryMinor;
+    return visible;
+  }
+
+  private documentForActor(actor: Actor, document: any) {
+    const visible = {
+      ...document,
+      ...(document.customer ? { customer: this.customerForActor(actor, document.customer) } : {}),
+      ...(document.supplier ? { supplier: this.supplierForActor(actor, document.supplier) } : {}),
+      ...(document.salesEmployee ? { salesEmployee: this.employeeForActor(actor, document.salesEmployee) } : {}),
+    };
+    if (this.fieldAccess(actor, 'document', 'costMinor') === 'HIDDEN') delete visible.costMinor;
+    if (this.fieldAccess(actor, 'document', 'profitMargin') === 'HIDDEN') delete visible.profitMargin;
+    if (this.fieldAccess(actor, 'journal', 'lines') === 'HIDDEN' && !actor.legacyPermissions.includes('invoices.view-accounting')) delete visible.journalEntry;
+    if (Array.isArray(visible.lines)) {
+      visible.lines = visible.lines.map((line: any) => {
+        const visibleLine = { ...line, ...(line.item ? { item: this.itemForActor(actor, line.item) } : {}) };
+        if (this.fieldAccess(actor, 'document', 'costMinor') === 'HIDDEN') {
+          delete visibleLine.unitCostMinor;
+          delete visibleLine.costMinor;
+        }
+        return visibleLine;
+      });
+    }
     return visible;
   }
 
@@ -220,30 +418,34 @@ export class ErpService {
   }
 
   async bootstrap(actor: Actor) {
-    return this.withTenant(actor, async (tx) => ({
+    return this.withTenant(actor, async (tx) => {
+      const items = can(actor, 'inventory.item.view') || can(actor, 'sales.quotation.create') || can(actor, 'purchasing.order.create')
+        ? await tx.item.findMany({ where: { active: true }, include: { category: true, uom: true }, orderBy: { sku: 'asc' } }) : [];
+      const bankAccounts = can(actor, 'banking.account.view') || can(actor, 'payments.receipt.create') || can(actor, 'payments.payment.create')
+        ? await tx.bankAccount.findMany({ where: { active: true }, orderBy: { code: 'asc' } }) : [];
+      const salesEmployees = can(actor, 'hr.employee.view') || can(actor, 'sales.quotation.view') || can(actor, 'sales.quotation.create')
+        ? await tx.employee.findMany({ where: { active: true, AND: [this.employeeScope(actor), { OR: [{ salesEligible: true }, { department: { code: 'SALES' } }] }] }, include: { department: true }, orderBy: { name: 'asc' } }) : [];
+      return {
       tenant: await tx.tenant.findUnique({ where: { id: actor.tenantId } }),
-      branches: await tx.branch.findMany({ where: actor.permissions.includes('*') ? {} : { id: { in: actor.branchIds.map(BigInt) } }, orderBy: { code: 'asc' } }),
-      warehouses: await tx.warehouse.findMany({ where: { active: true, ...(actor.permissions.includes('*') ? {} : { id: { in: actor.warehouseIds.map(BigInt) } }) }, orderBy: { code: 'asc' } }),
-      customers: (await tx.customer.findMany({ where: {
+      branches: await tx.branch.findMany({ where: can(actor, 'system.super_admin') ? {} : { id: { in: actor.branchIds.map(BigInt) } }, orderBy: { code: 'asc' } }),
+      warehouses: await tx.warehouse.findMany({ where: { active: true, ...(can(actor, 'system.super_admin') ? {} : { id: { in: actor.warehouseIds.map(BigInt) } }) }, orderBy: { code: 'asc' } }),
+      customers: can(actor, 'sales.customer.view') ? (await tx.customer.findMany({ where: {
         active: true,
-        ...(actor.permissions.includes('*') ? {} : { defaultBranchId: { in: actor.branchIds.map(BigInt) } }),
-      }, orderBy: { code: 'asc' } })).map((customer) => this.customerForActor(actor, customer)),
-      suppliers: await tx.supplier.findMany({ where: { active: true }, orderBy: { code: 'asc' } }),
-      categories: await tx.itemCategory.findMany({ orderBy: { code: 'asc' } }),
-      units: await tx.unitOfMeasure.findMany({ orderBy: { code: 'asc' } }),
-      items: await tx.item.findMany({ where: { active: true }, include: { category: true, uom: true }, orderBy: { sku: 'asc' } }),
-      accounts: await tx.account.findMany({ where: { active: true }, orderBy: { code: 'asc' } }),
-      bankAccounts: await tx.bankAccount.findMany({ where: { active: true }, orderBy: { code: 'asc' } }),
-      periods: await tx.fiscalPeriod.findMany({ orderBy: [{ year: 'desc' }, { month: 'desc' }] }),
-      departments: await tx.department.findMany({ where: { active: true }, orderBy: { code: 'asc' } }),
-      salesEmployees: await tx.employee.findMany({
-        where: { active: true, OR: [{ salesEligible: true }, { department: { code: 'SALES' } }] },
-        include: { department: true },
-        orderBy: { name: 'asc' },
-      }),
+        ...this.customerScope(actor),
+      }, orderBy: { code: 'asc' } })).map((customer) => this.customerForActor(actor, customer)) : [],
+      suppliers: can(actor, 'purchasing.supplier.view') ? await tx.supplier.findMany({ where: { active: true }, orderBy: { code: 'asc' } }) : [],
+      categories: items.length ? await tx.itemCategory.findMany({ orderBy: { code: 'asc' } }) : [],
+      units: items.length ? await tx.unitOfMeasure.findMany({ orderBy: { code: 'asc' } }) : [],
+      items: items.map((item) => this.itemForActor(actor, item)),
+      accounts: can(actor, 'accounting.account.view') ? await tx.account.findMany({ where: { active: true }, orderBy: { code: 'asc' } }) : [],
+      bankAccounts: bankAccounts.map((account) => this.bankAccountForActor(actor, account)),
+      periods: can(actor, 'accounting.period.view') ? await tx.fiscalPeriod.findMany({ orderBy: [{ year: 'desc' }, { month: 'desc' }] }) : [],
+      departments: can(actor, 'hr.employee.view') ? await tx.department.findMany({ where: { active: true }, orderBy: { code: 'asc' } }) : [],
+      salesEmployees: salesEmployees.map((employee) => this.employeeForActor(actor, employee)),
       currencies: await tx.currency.findMany({ where: { active: true }, orderBy: { code: 'asc' } }),
       documentTypes: Object.values(DocumentType),
-    }));
+      };
+    });
   }
 
   private requiredText(value: unknown, field: string) {
@@ -266,12 +468,13 @@ export class ErpService {
   }
 
   async createCustomer(actor: Actor, body: any) {
-    this.requireAny(actor, 'customers.create', 'sales.write');
-    if ((body.creditLimit !== '' && body.creditLimit !== null && body.creditLimit !== undefined)
-      || (body.paymentTermsDays !== '' && body.paymentTermsDays !== null && body.paymentTermsDays !== undefined)
-      || body.creditHold === true) {
-      this.requireAny(actor, 'customers.edit-credit');
-    }
+    requirePermission(actor, 'sales.customer.create');
+    const legacyCreditEditor = actor.legacyPermissions.includes('customers.edit-credit');
+    if (((body.creditLimit !== '' && body.creditLimit !== null && body.creditLimit !== undefined) || body.creditHold === true)
+      && this.fieldAccess(actor, 'customer', 'creditLimitMinor') !== 'EDIT' && !legacyCreditEditor) throw new ForbiddenException('Credit limit controls are read-only for your role.');
+    if (body.paymentTermsDays !== '' && body.paymentTermsDays !== null && body.paymentTermsDays !== undefined
+      && this.fieldAccess(actor, 'customer', 'paymentTermsDays') !== 'EDIT' && !legacyCreditEditor) throw new ForbiddenException('Payment terms are read-only for your role.');
+    if ((body.taxNumber || body.registrationNumber) && this.fieldAccess(actor, 'party', 'taxNumber') !== 'EDIT') throw new ForbiddenException('Tax information is read-only for your role.');
     return this.masterCreate(actor, 'CUSTOMER', async (tx) => {
       const defaultBranchId = body.defaultBranchId ? BigInt(body.defaultBranchId) : null;
       if (defaultBranchId) {
@@ -307,6 +510,7 @@ export class ErpService {
         shippingAddress: body.shippingAddress || null,
         city: this.requiredText(body.city, 'City'),
         defaultBranchId,
+        ownerUserId: actor.userId,
         creditLimitMinor,
         paymentTermsDays,
         defaultCurrency,
@@ -317,20 +521,20 @@ export class ErpService {
   }
 
   async listCustomers(actor: Actor, query: any = {}) {
-    this.requireAny(actor, 'customers.view', 'sales.write');
+    requirePermission(actor, 'sales.customer.view');
     const page = Math.max(1, Number(query.page || 1));
     const pageSize = Math.min(100, Math.max(10, Number(query.pageSize || 20)));
     const search = String(query.search || '').trim();
     return this.withTenant(actor, async (tx) => {
       const where: Prisma.CustomerWhereInput = {
         ...(String(query.status || 'ACTIVE') === 'ALL' ? {} : { active: String(query.status || 'ACTIVE') === 'ACTIVE' }),
-        ...(query.branchId ? { defaultBranchId: BigInt(query.branchId) } : actor.permissions.includes('*') ? {} : { defaultBranchId: { in: actor.branchIds.map(BigInt) } }),
+        AND: [this.customerScope(actor), ...(query.branchId ? [{ defaultBranchId: BigInt(query.branchId) }] : [])],
         ...(search ? { OR: [
           { code: { contains: search, mode: 'insensitive' } },
           { name: { contains: search, mode: 'insensitive' } },
           { phone: { contains: search, mode: 'insensitive' } },
           { email: { contains: search, mode: 'insensitive' } },
-          { taxNumber: { contains: search, mode: 'insensitive' } },
+          ...(this.fieldAccess(actor, 'party', 'taxNumber') === 'HIDDEN' ? [] : [{ taxNumber: { contains: search, mode: 'insensitive' as const } }]),
         ] } : {}),
       };
       const [total, customers] = await Promise.all([
@@ -338,7 +542,7 @@ export class ErpService {
         tx.customer.findMany({ where, include: { defaultBranch: true }, orderBy: { id: 'desc' }, skip: (page - 1) * pageSize, take: pageSize }),
       ]);
       const ids = customers.map((customer) => customer.id);
-      const branchIds = actor.permissions.includes('*') ? undefined : actor.branchIds.map(BigInt);
+      const branchIds = can(actor, 'system.super_admin') ? undefined : actor.branchIds.map(BigInt);
       const outstanding = await this.receivables.customerBalances(tx, ids, branchIds);
       return {
         rows: customers.map((customer) => this.customerForActor(actor, { ...customer, outstandingMinor: outstanding.get(customer.id.toString()) || 0n })),
@@ -348,16 +552,16 @@ export class ErpService {
   }
 
   async customerDetail(actor: Actor, customerId: bigint) {
-    this.requireAny(actor, 'customers.view', 'sales.write');
+    requirePermission(actor, 'sales.customer.view');
     return this.withTenant(actor, async (tx) => {
-      const customer = await tx.customer.findUnique({ where: { id: customerId }, include: {
+      const customer = await tx.customer.findFirst({ where: { id: customerId, ...this.customerScope(actor) }, include: {
         defaultBranch: true,
         documents: { include: { branch: true, salesEmployee: true }, orderBy: { createdAt: 'desc' }, take: 50 },
         payments: { include: { allocations: { include: { document: true } } }, orderBy: { createdAt: 'desc' }, take: 30 },
       } });
       if (!customer) throw new NotFoundException('Customer not found');
       if (customer.defaultBranchId) this.assertBranch(actor, customer.defaultBranchId);
-      const branchIds = actor.permissions.includes('*') ? undefined : actor.branchIds.map(BigInt);
+      const branchIds = can(actor, 'system.super_admin') ? undefined : actor.branchIds.map(BigInt);
       const [balances, statement, ageing, audit, documents] = await Promise.all([
         this.receivables.customerBalances(tx, [customerId], branchIds),
         this.receivables.customerStatement(tx, { customerId, branchIds }),
@@ -367,7 +571,7 @@ export class ErpService {
       ]);
       return this.customerForActor(actor, {
         ...customer,
-        documents,
+        documents: documents.map((document) => this.documentForActor(actor, document)),
         outstandingMinor: balances.get(customerId.toString()) || 0n,
         statement,
         ageing,
@@ -377,12 +581,14 @@ export class ErpService {
   }
 
   async updateCustomer(actor: Actor, customerId: bigint, body: any) {
-    this.requireAny(actor, 'customers.edit', 'sales.write');
+    requirePermission(actor, 'sales.customer.edit');
     return this.withTenant(actor, async (tx) => {
-      const current = await tx.customer.findUnique({ where: { id: customerId } });
+      const current = await tx.customer.findFirst({ where: { id: customerId, ...this.customerScope(actor) } });
       if (!current) throw new NotFoundException('Customer not found');
-      const editingCredit = body.creditLimit !== undefined || body.paymentTermsDays !== undefined || body.creditHold !== undefined;
-      if (editingCredit) this.requireAny(actor, 'customers.edit-credit');
+      const legacyCreditEditor = actor.legacyPermissions.includes('customers.edit-credit');
+      if ((body.creditLimit !== undefined || body.creditHold !== undefined) && this.fieldAccess(actor, 'customer', 'creditLimitMinor') !== 'EDIT' && !legacyCreditEditor) throw new ForbiddenException('Credit limit controls are read-only for your role.');
+      if (body.paymentTermsDays !== undefined && this.fieldAccess(actor, 'customer', 'paymentTermsDays') !== 'EDIT' && !legacyCreditEditor) throw new ForbiddenException('Payment terms are read-only for your role.');
+      if ((body.taxNumber !== undefined || body.registrationNumber !== undefined) && this.fieldAccess(actor, 'party', 'taxNumber') !== 'EDIT') throw new ForbiddenException('Tax information is read-only for your role.');
       const creditLimitMinor = body.creditLimit === undefined ? current.creditLimitMinor
         : body.creditLimit === '' || body.creditLimit === null ? null : money(body.creditLimit, 'credit limit');
       const paymentTermsDays = body.paymentTermsDays === undefined ? current.paymentTermsDays
@@ -434,7 +640,8 @@ export class ErpService {
   }
 
   async createSupplier(actor: Actor, body: any) {
-    requirePermission(actor, 'purchases.write');
+    requirePermission(actor, 'purchasing.supplier.create');
+    if ((body.taxNumber || body.registrationNumber) && this.fieldAccess(actor, 'party', 'taxNumber') !== 'EDIT') throw new ForbiddenException('Tax information is read-only for your role.');
     return this.masterCreate(actor, 'SUPPLIER', (tx) => tx.supplier.create({ data: {
       tenantId: actor.tenantId, code: this.requiredText(body.code, 'Supplier code').toUpperCase(), name: this.requiredText(body.name, 'Supplier name'),
       taxNumber: body.taxNumber || null, email: body.email || null, phone: body.phone || null, address: body.address || null,
@@ -443,14 +650,14 @@ export class ErpService {
   }
 
   async createCategory(actor: Actor, body: any) {
-    requirePermission(actor, 'inventory.write');
+    requirePermission(actor, 'inventory.item.create');
     return this.masterCreate(actor, 'ITEM_CATEGORY', (tx) => tx.itemCategory.create({ data: {
       tenantId: actor.tenantId, code: this.requiredText(body.code, 'Category code').toUpperCase(), name: this.requiredText(body.name, 'Category name'),
     } }));
   }
 
   async createUnit(actor: Actor, body: any) {
-    requirePermission(actor, 'inventory.write');
+    requirePermission(actor, 'inventory.item.create');
     const precision = Number(body.precision ?? 3);
     if (!Number.isInteger(precision) || precision < 0 || precision > 6) throw new BadRequestException('UOM precision must be between 0 and 6');
     return this.masterCreate(actor, 'UNIT_OF_MEASURE', (tx) => tx.unitOfMeasure.create({ data: {
@@ -459,7 +666,7 @@ export class ErpService {
   }
 
   async createWarehouse(actor: Actor, body: any) {
-    requirePermission(actor, 'inventory.write');
+    requirePermission(actor, 'inventory.warehouse.create');
     const branchId = BigInt(body.branchId || 0); this.assertBranch(actor, branchId);
     return this.masterCreate(actor, 'WAREHOUSE', async (tx) => {
       if (!await tx.branch.findUnique({ where: { id: branchId } })) throw new BadRequestException('Branch is invalid');
@@ -468,7 +675,8 @@ export class ErpService {
   }
 
   async createItem(actor: Actor, body: any) {
-    requirePermission(actor, 'inventory.write');
+    requirePermission(actor, 'inventory.item.create');
+    if (this.fieldAccess(actor, 'item', 'purchasePriceMinor') !== 'EDIT') throw new ForbiddenException('Purchase price is read-only for your role.');
     const categoryId = BigInt(body.categoryId || 0), uomId = BigInt(body.uomId || 0);
     return this.masterCreate(actor, 'ITEM', async (tx) => {
       const [category, uom] = await Promise.all([tx.itemCategory.findUnique({ where: { id: categoryId } }), tx.unitOfMeasure.findUnique({ where: { id: uomId } })]);
@@ -485,7 +693,8 @@ export class ErpService {
   }
 
   async createBankAccount(actor: Actor, body: any) {
-    requirePermission(actor, 'banking.write');
+    requirePermission(actor, 'banking.account.create');
+    if (body.accountNumber && this.fieldAccess(actor, 'bankAccount', 'accountNumber') !== 'EDIT') throw new ForbiddenException('Bank account details are read-only for your role.');
     const glAccountId = BigInt(body.glAccountId || 0), type = body.type as BankAccountType;
     if (!Object.values(BankAccountType).includes(type)) throw new BadRequestException('Cash or bank account type is invalid');
     return this.masterCreate(actor, 'BANK_ACCOUNT', async (tx) => {
@@ -499,7 +708,7 @@ export class ErpService {
   }
 
   async createPeriod(actor: Actor, body: any) {
-    requirePermission(actor, 'periods.manage');
+    requirePermission(actor, 'accounting.period.manage');
     const year = Number(body.year), month = Number(body.month);
     if (!Number.isInteger(year) || year < 2000 || year > 2200 || !Number.isInteger(month) || month < 1 || month > 12) throw new BadRequestException('A valid fiscal year and month are required');
     return this.masterCreate(actor, 'FISCAL_PERIOD', (tx) => tx.fiscalPeriod.create({ data: {
@@ -508,32 +717,41 @@ export class ErpService {
   }
 
   async listDocuments(actor: Actor, type?: string, status?: string) {
+    if (type) {
+      if (!Object.values(DocumentType).includes(type as DocumentType)) throw new BadRequestException('Document type is invalid');
+      this.requireDocumentPermission(actor, type as DocumentType, 'view');
+    } else {
+      this.requireAny(actor, 'sales.quotation.view', 'purchasing.order.view', 'inventory.transfer.view', 'approvals.queue.view');
+    }
     return this.withTenant(actor, async (tx) => {
+      const allowedTypes = type ? [type as DocumentType] : Object.values(DocumentType).filter((candidate) => can(actor, `${this.documentModule(candidate)}.${this.documentResource(candidate)}.view`));
       const documents = await tx.document.findMany({
         where: {
-          ...(type ? { type: type as DocumentType } : {}), ...(status ? { status: status as WorkflowStatus } : {}),
-          ...(actor.permissions.includes('*') ? {} : { branchId: { in: actor.branchIds.map(BigInt) } }),
+          type: { in: allowedTypes }, ...(status ? { status: status as WorkflowStatus } : {}),
+          ...this.documentScope(actor, type ? this.documentResource(type as DocumentType) : 'document', type ? this.documentModule(type as DocumentType) : undefined),
         },
         include: { customer: true, supplier: true, branch: true, warehouse: true, salesEmployee: true, sourceDocument: true, journalEntry: true, _count: { select: { lines: true, targetDocuments: true } } },
         orderBy: { createdAt: 'desc' }, take: 200,
       });
-      return this.receivables.decorateInvoices(tx, documents);
+      return (await this.receivables.decorateInvoices(tx, documents)).map((document) => this.documentForActor(actor, document));
     });
   }
 
   async salesDocuments(actor: Actor, query: any = {}) {
-    this.requireAny(actor, 'quotations.view', 'invoices.view', 'sales.write');
+    if (query.type && Object.values(DocumentType).includes(query.type as DocumentType)) this.requireDocumentPermission(actor, query.type as DocumentType, 'view');
+    else this.requireAny(actor, 'sales.quotation.view', 'sales.order.view', 'sales.delivery.view', 'sales.invoice.view', 'sales.return.view', 'sales.credit_note.view');
     const page = Math.max(1, Number(query.page || 1));
     const pageSize = Math.min(100, Math.max(10, Number(query.pageSize || 20)));
     const search = String(query.search || '').trim();
     const type = query.type && Object.values(DocumentType).includes(query.type as DocumentType) ? query.type as DocumentType : undefined;
     const status = String(query.status || '') === 'PENDING_APPROVAL' ? WorkflowStatus.SUBMITTED
       : query.status && Object.values(WorkflowStatus).includes(query.status as WorkflowStatus) ? query.status as WorkflowStatus : undefined;
-    const allowedBranches = actor.permissions.includes('*') ? undefined : actor.branchIds.map(BigInt);
+    const allowedSalesTypes = [...SALES_TYPES].filter((candidate) => can(actor, `${this.documentModule(candidate)}.${this.documentResource(candidate)}.view`));
     const where: Prisma.DocumentWhereInput = {
-      type: type || { in: [...SALES_TYPES] },
+      type: type || { in: allowedSalesTypes },
       ...(status ? { status } : {}),
-      ...(query.branchId ? { branchId: BigInt(query.branchId) } : allowedBranches ? { branchId: { in: allowedBranches } } : {}),
+      ...(query.branchId ? { branchId: BigInt(query.branchId) } : {}),
+      ...this.documentScope(actor, type ? this.documentResource(type) : 'document', 'sales'),
       ...(query.salespersonId ? { salespersonId: BigInt(query.salespersonId) } : {}),
       ...(query.currency ? { currency: String(query.currency).toUpperCase() } : {}),
       ...(query.dateFrom || query.dateTo ? { documentDate: {
@@ -567,7 +785,7 @@ export class ErpService {
       ]);
       const decorated = await this.receivables.decorateInvoices(tx, rows);
       return {
-        rows: decorated.map((row) => ({
+        rows: decorated.map((row) => this.documentForActor(actor, {
           ...row,
           customer: row.customer ? this.customerForActor(actor, row.customer) : null,
           editState: documentEditState(row.status, Boolean(row.journalEntryId || row.postedAt || row.paidMinor > 0n)),
@@ -578,23 +796,23 @@ export class ErpService {
   }
 
   async salesOverview(actor: Actor) {
-    this.requireAny(actor, 'quotations.view', 'sales.write');
+    requirePermission(actor, 'sales.overview.view');
     return this.withTenant(actor, async (tx) => {
-      const branchScope = actor.permissions.includes('*') ? {} : { branchId: { in: actor.branchIds.map(BigInt) } };
+      const branchScope = this.documentScope(actor, 'quotation', 'sales');
       const now = new Date();
       const soon = new Date(now.valueOf() + 14 * 24 * 60 * 60 * 1000);
       const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
       const [awaitingApproval, expiringSoon, invoices, monthlyInvoices, recent, recentCustomers, activity] = await Promise.all([
-        tx.document.count({ where: { ...branchScope, type: DocumentType.QUOTATION, status: WorkflowStatus.SUBMITTED } }),
+        tx.document.count({ where: { ...branchScope, type: { in: [...SALES_TYPES] }, status: WorkflowStatus.SUBMITTED } }),
         tx.document.count({ where: { ...branchScope, type: DocumentType.QUOTATION, status: { in: [WorkflowStatus.DRAFT, WorkflowStatus.SUBMITTED, WorkflowStatus.APPROVED] }, dueDate: { gte: now, lte: soon } } }),
         tx.document.findMany({ where: { ...branchScope, type: DocumentType.SALES_INVOICE, status: WorkflowStatus.POSTED } }),
         tx.document.findMany({ where: { ...branchScope, type: DocumentType.SALES_INVOICE, status: WorkflowStatus.POSTED, documentDate: { gte: monthStart } } }),
         tx.document.findMany({ where: { ...branchScope, type: { in: [...SALES_TYPES] } }, include: { customer: true, branch: true, salesEmployee: true }, orderBy: { updatedAt: 'desc' }, take: 12 }),
         tx.customer.findMany({ where: {
           active: true,
-          ...(actor.permissions.includes('*') ? {} : { defaultBranchId: { in: actor.branchIds.map(BigInt) } }),
+          ...this.customerScope(actor),
         }, include: { defaultBranch: true }, orderBy: { id: 'desc' }, take: 6 }),
-        tx.auditEvent.findMany({ where: { entityType: { in: ['CUSTOMER', 'DOCUMENT'] } }, include: { user: publicUser }, orderBy: { createdAt: 'desc' }, take: 8 }),
+        tx.auditEvent.findMany({ where: { entityType: { in: ['CUSTOMER', 'DOCUMENT'] }, ...(can(actor, 'system.super_admin') || this.scope(actor, 'report') === 'ALL' ? {} : { userId: actor.userId }) }, include: { user: publicUser }, orderBy: { createdAt: 'desc' }, take: 8 }),
       ]);
       const invoiceSettlements = await this.receivables.settlements(tx, invoices, now);
       return {
@@ -605,7 +823,7 @@ export class ErpService {
           overdueMinor: invoices.filter((invoice) => invoice.dueDate && invoice.dueDate < now).reduce((sum, invoice) => sum + invoiceSettlements.get(invoice.id.toString())!.baseRemainingMinor, 0n),
           salesMonthMinor: monthlyInvoices.reduce((sum, invoice) => sum + receivableBaseMinor(invoice.totalMinor, invoice.exchangeRateMicros), 0n),
         },
-        recent: recent.map((document) => ({ ...document, customer: document.customer ? this.customerForActor(actor, document.customer) : null })),
+        recent: recent.map((document) => this.documentForActor(actor, { ...document, customer: document.customer ? this.customerForActor(actor, document.customer) : null })),
         recentCustomers: recentCustomers.map((customer) => this.customerForActor(actor, customer)),
         activity,
       };
@@ -613,34 +831,34 @@ export class ErpService {
   }
 
   async salesEmployees(actor: Actor, branchId?: string) {
-    this.requireAny(actor, 'employees.sales.read', 'sales.write');
+    this.requireAny(actor, 'sales.quotation.view', 'sales.quotation.create', 'sales.order.view');
     if (branchId) this.assertBranch(actor, BigInt(branchId));
     return this.withTenant(actor, async (tx) => {
       const employees = await tx.employee.findMany({
-        where: { active: true, OR: [{ salesEligible: true }, { department: { code: 'SALES', active: true } }] },
+        where: { active: true, AND: [this.employeeScope(actor), { OR: [{ salesEligible: true }, { department: { code: 'SALES', active: true } }] }] },
         include: { department: true },
         orderBy: { name: 'asc' },
       });
       return employees.filter((employee) => {
         const branchIds = employee.branchIds as string[];
-        return (!branchId || branchIds.includes(branchId)) && (actor.permissions.includes('*') || branchIds.some((id) => actor.branchIds.includes(id)));
-      });
+        return (!branchId || branchIds.includes(branchId)) && (can(actor, 'system.super_admin') || branchIds.some((id) => actor.branchIds.includes(id)));
+      }).map((employee) => this.employeeForActor(actor, employee));
     });
   }
 
   async employees(actor: Actor, query: any = {}) {
-    this.requireAny(actor, 'employees.sales.read', 'sales.write');
+    requirePermission(actor, 'hr.employee.view');
     const search = String(query.search || '').trim();
-    return this.withTenant(actor, (tx) => tx.employee.findMany({
+    return this.withTenant(actor, async (tx) => (await tx.employee.findMany({
       where: {
+        AND: [this.employeeScope(actor), ...(query.departmentId ? [{ departmentId: BigInt(query.departmentId) }] : [])],
         ...(query.status === 'INACTIVE' ? { active: false } : query.status === 'ALL' ? {} : { active: true }),
-        ...(query.departmentId ? { departmentId: BigInt(query.departmentId) } : {}),
         ...(search ? { OR: [{ code: { contains: search, mode: 'insensitive' } }, { name: { contains: search, mode: 'insensitive' } }, { jobTitle: { contains: search, mode: 'insensitive' } }] } : {}),
       },
       include: { department: true },
       orderBy: { name: 'asc' },
       take: 100,
-    }));
+    })).map((employee) => this.employeeForActor(actor, employee)));
   }
 
   async exchangeRate(actor: Actor, currency: string, dateValue?: string) {
@@ -670,33 +888,35 @@ export class ErpService {
 
   async documentDetail(actor: Actor, id: bigint) {
     return this.withTenant(actor, async (tx) => {
-      const document = await tx.document.findUnique({ where: { id }, include: {
+      const document = await this.documentInScope(tx, actor, id, {
         customer: { include: { defaultBranch: true } }, supplier: true, branch: true, warehouse: true, destinationWarehouse: true, salesEmployee: { include: { department: true } },
         sourceDocument: true, targetDocuments: true, lines: { include: { item: true, uom: true, targetLines: { include: { document: true } } } },
         journalEntry: { include: { lines: { include: { account: true } } } },
         allocations: { include: { payment: true } },
         createdBy: publicUser, submittedBy: publicUser, approvedBy: publicUser, postedBy: publicUser,
-      } });
+      });
       if (!document) throw new NotFoundException('Document not found');
-      if (SALES_TYPES.has(document.type)) {
-        const invoiceLike = [DocumentType.SALES_INVOICE, DocumentType.SALES_RETURN, DocumentType.CREDIT_NOTE].includes(document.type as any);
-        this.requireAny(actor, invoiceLike ? 'invoices.view' : 'quotations.view', 'sales.write', 'approvals.read');
-      } else if (PURCHASE_TYPES.has(document.type)) this.requireAny(actor, 'purchases.write', 'approvals.read');
-      else this.requireAny(actor, 'inventory.write', 'approvals.read');
+      this.requireDocumentPermission(actor, document.type, 'view');
       this.assertBranch(actor, document.branchId);
       const stockMovements = await tx.stockMovement.findMany({ where: { sourceType: { startsWith: document.type }, sourceId: document.id }, include: { item: true, warehouse: true } });
       const audit = await tx.auditEvent.findMany({ where: { entityType: 'DOCUMENT', entityId: id.toString() }, include: { user: publicUser }, orderBy: { createdAt: 'desc' } });
       const approvals = await tx.approvalEvent.findMany({ where: { entityType: 'DOCUMENT', entityId: id }, include: { actor: publicUser }, orderBy: { createdAt: 'asc' } });
       const [decorated] = await this.receivables.decorateInvoices(tx, [document]);
       return {
-        ...decorated,
+        ...this.documentForActor(actor, decorated),
         customer: document.customer ? this.customerForActor(actor, document.customer) : null,
-        journalEntry: actor.permissions.includes('*') || actor.permissions.includes('invoices.view-accounting') ? document.journalEntry : null,
+        journalEntry: this.fieldAccess(actor, 'journal', 'lines') !== 'HIDDEN' || actor.legacyPermissions.includes('invoices.view-accounting') ? document.journalEntry : null,
         editState: documentEditState(document.status, Boolean(document.journalEntryId || document.postedAt || document.paidMinor > 0n || stockMovements.length)),
-        stockMovements,
+        stockMovements: stockMovements.map((movement) => {
+          const visible: any = { ...movement, item: this.itemForActor(actor, movement.item) };
+          if (this.fieldAccess(actor, 'document', 'costMinor') === 'HIDDEN') {
+            delete visible.unitCostMinor; delete visible.totalCostMinor; delete visible.runningValueMinor;
+          }
+          return visible;
+        }),
         audit,
         approvals,
-        accountingEffect: actor.permissions.includes('*') || actor.permissions.includes('invoices.view-accounting')
+        accountingEffect: this.fieldAccess(actor, 'journal', 'lines') !== 'HIDDEN' || actor.legacyPermissions.includes('invoices.view-accounting')
           ? document.journalEntryId ? 'Posted journal linked below' : 'No general-ledger impact for this document type'
           : 'Accounting details are restricted.',
       };
@@ -706,16 +926,15 @@ export class ErpService {
   async createDocument(actor: Actor, body: any) {
     const type = body.type as DocumentType;
     if (!Object.values(DocumentType).includes(type)) throw new BadRequestException('Document type is invalid');
-    requirePermission(actor, SALES_TYPES.has(type) ? 'sales.write' : PURCHASE_TYPES.has(type) ? 'purchases.write' : 'inventory.write');
+    this.requireDocumentPermission(actor, type, 'create');
     return this.withTenant(actor, (tx) => this.createDocumentTx(tx, actor, type, body));
   }
 
   async updateDocument(actor: Actor, id: bigint, body: any) {
     return this.withTenant(actor, async (tx) => {
-      const current = await tx.document.findUnique({ where: { id } });
+      const current = await this.documentInScope(tx, actor, id);
       if (!current) throw new NotFoundException('Document not found');
-      if (SALES_TYPES.has(current.type)) this.requireAny(actor, 'quotations.edit', 'sales.write');
-      else requirePermission(actor, PURCHASE_TYPES.has(current.type) ? 'purchases.write' : 'inventory.write');
+      this.requireDocumentPermission(actor, current.type, 'edit');
       const hasStock = await tx.stockMovement.count({ where: { sourceType: { startsWith: current.type }, sourceId: current.id } });
       const state = documentEditState(current.status, Boolean(current.journalEntryId || current.postedAt || current.paidMinor > 0n || hasStock));
       if (!state.editable) throw new BadRequestException(state.reason || 'This document is locked.');
@@ -755,7 +974,7 @@ export class ErpService {
       let manualExchangeRate = false;
       if (currency !== tenant.baseCurrency) {
         if (body.manualExchangeRate) {
-          this.requireAny(actor, 'exchange-rates.override');
+          requirePermission(actor, 'sales.exchange_rate.edit');
           exchangeRateMicros = parseFixed(body.exchangeRate, 6, 'exchange rate');
           exchangeRateDate = body.exchangeRateDate ? this.date(body.exchangeRateDate, 'exchange rate date') : documentDate;
           manualExchangeRate = true;
@@ -783,7 +1002,7 @@ export class ErpService {
           const lineQuantity = quantity(line.quantity, `line ${index + 1} quantity`);
           const standardPrice = currency === tenant.baseCurrency ? item.salePriceMinor : roundDiv(item.salePriceMinor * 1_000_000n, exchangeRateMicros);
           const unitPrice = line.unitPrice === undefined ? standardPrice : money(line.unitPrice, `line ${index + 1} unit price`);
-          if (unitPrice !== standardPrice && !actor.permissions.includes('*') && !actor.permissions.includes('prices.override')) throw new ForbiddenException(`Line ${index + 1}: you do not have permission to override the selling price.`);
+          if (unitPrice !== standardPrice && !can(actor, 'sales.price.edit')) throw new ForbiddenException(`Line ${index + 1}: you do not have permission to override the selling price.`);
           if (unitPrice !== standardPrice) priceOverride = true;
           const lineDiscount = money(line.discount || '0', `line ${index + 1} discount`);
           const taxMode = String(body.taxMode || current.taxMode);
@@ -899,7 +1118,7 @@ export class ErpService {
         exchangeRateDate = body.exchangeRateDate ? this.date(body.exchangeRateDate, 'exchange rate date') : date;
         if (exchangeRateMicros <= 0n) throw new BadRequestException('Exchange rate must be greater than zero.');
       } else if (body.manualExchangeRate) {
-        this.requireAny(actor, 'exchange-rates.override');
+        requirePermission(actor, 'sales.exchange_rate.edit');
         exchangeRateMicros = parseFixed(body.exchangeRate, 6, 'exchange rate');
         if (exchangeRateMicros <= 0n) throw new BadRequestException('Exchange rate must be greater than zero.');
         exchangeRateDate = body.exchangeRateDate ? this.date(body.exchangeRateDate, 'exchange rate date') : date;
@@ -958,7 +1177,7 @@ export class ErpService {
       const baseStandardPrice = PURCHASE_TYPES.has(type) ? item.purchasePriceMinor : item.salePriceMinor;
       const standardPrice = documentCurrency === tenant.baseCurrency ? baseStandardPrice : roundDiv(baseStandardPrice * 1_000_000n, exchangeRateMicros);
       const unitPrice = line.unitPrice === undefined ? standardPrice : money(line.unitPrice, `line ${index + 1} unit price`);
-      if (SALES_TYPES.has(type) && unitPrice !== standardPrice && !trustedSourceConversion && !actor.permissions.includes('*') && !actor.permissions.includes('prices.override')) {
+      if (SALES_TYPES.has(type) && unitPrice !== standardPrice && !trustedSourceConversion && !can(actor, 'sales.price.edit')) {
         throw new ForbiddenException(`Line ${index + 1}: you do not have permission to override the selling price.`);
       }
       if (SALES_TYPES.has(type) && unitPrice !== standardPrice) priceOverride = true;
@@ -1007,20 +1226,29 @@ export class ErpService {
 
   async convertDocument(actor: Actor, id: bigint, body: any) {
     return this.withTenant(actor, async (tx) => {
-      const source = await tx.document.findUnique({ where: { id }, include: { lines: { include: { targetLines: { include: { document: true } } } } } });
+      const source = await this.documentInScope(tx, actor, id, { lines: { include: { targetLines: { include: { document: true } } } } });
       if (!source) throw new NotFoundException('Source document not found');
       this.assertBranch(actor, source.branchId);
-      if (source.status !== WorkflowStatus.APPROVED && source.status !== WorkflowStatus.POSTED) throw new BadRequestException('Source document must be approved or posted');
+      const sourceType = source.type as DocumentType;
       const targetType = body.targetType as DocumentType;
-      if (!CONVERSIONS[source.type]?.includes(targetType)) throw new BadRequestException(`Cannot convert ${source.type} to ${targetType}`);
+      if (!CONVERSIONS[sourceType]?.includes(targetType)) throw new BadRequestException(`Cannot convert ${sourceType} to ${targetType}`);
+      this.requireDocumentPermission(actor, sourceType, 'convert');
+      this.requireDocumentPermission(actor, targetType, 'create');
+      if (!documentConversionAllowed(sourceType, source.status, targetType)) {
+        throw new BadRequestException('Source document must be an approved or posted document, except a draft quotation converted directly to a sales order');
+      }
+      const directQuotationConversion = sourceType === DocumentType.QUOTATION
+        && targetType === DocumentType.SALES_ORDER
+        && source.status === WorkflowStatus.DRAFT;
       const requested: Map<string, bigint> | null = Array.isArray(body.lines) ? new Map<string, bigint>(body.lines.map((line: any) => [String(line.sourceLineId), quantity(line.quantity)])) : null;
-      const lines = source.lines.map((line) => {
-        const consumed = line.targetLines.filter((target) => target.document.status !== WorkflowStatus.REJECTED && target.document.status !== WorkflowStatus.CANCELLED).reduce((sum, target) => sum + target.quantityMilli, 0n);
-        const remaining = line.quantityMilli - consumed;
+      const lines = source.lines.map((line: any) => {
+        const consumed = line.targetLines.filter((target: any) => target.document.status !== WorkflowStatus.REJECTED && target.document.status !== WorkflowStatus.CANCELLED).reduce((sum: bigint, target: any) => sum + BigInt(target.quantityMilli), 0n);
+        const lineQuantity = BigInt(line.quantityMilli), unitPrice = BigInt(line.unitPriceMinor), lineDiscount = BigInt(line.discountMinor);
+        const remaining = lineQuantity - consumed;
         const qty = requested?.get(line.id.toString()) ?? remaining;
         if (qty <= 0n || qty > remaining) throw new BadRequestException(`Source line ${line.id}: requested quantity exceeds remaining ${remaining}`);
-        const convertedDiscount = roundDiv(line.discountMinor * qty, line.quantityMilli);
-        return { itemId: line.itemId.toString(), sourceLineId: line.id.toString(), quantity: `${qty / 1000n}.${(qty % 1000n).toString().padStart(3, '0')}`, unitPrice: `${line.unitPriceMinor / 100n}.${(line.unitPriceMinor % 100n).toString().padStart(2, '0')}`, discount: `${convertedDiscount / 100n}.${(convertedDiscount % 100n).toString().padStart(2, '0')}` };
+        const convertedDiscount = roundDiv(lineDiscount * qty, lineQuantity);
+        return { itemId: line.itemId.toString(), sourceLineId: line.id.toString(), quantity: `${qty / 1000n}.${(qty % 1000n).toString().padStart(3, '0')}`, unitPrice: `${unitPrice / 100n}.${(unitPrice % 100n).toString().padStart(2, '0')}`, discount: `${convertedDiscount / 100n}.${(convertedDiscount % 100n).toString().padStart(2, '0')}` };
       });
       const target = await this.createDocumentTx(tx, actor, targetType, {
         ...body, type: targetType, branchId: source.branchId.toString(), warehouseId: body.warehouseId || source.warehouseId?.toString(),
@@ -1032,35 +1260,41 @@ export class ErpService {
         notes: source.notes,
         dueDate: body.dueDate,
         documentDate: body.documentDate || new Date().toISOString().slice(0, 10),
-        priceOverrideReason: `Preserved from approved source ${source.number}`,
+        priceOverrideReason: `Preserved from source ${source.number}`,
         lines,
       }, true);
       await this.receivables.assertCreditWithinRemaining(tx, target);
-      await this.audit(tx, actor, 'CONVERT', 'DOCUMENT', source.id, { targetId: target.id.toString(), targetNumber: target.number, targetType });
+      if (directQuotationConversion) {
+        await tx.document.update({ where: { id: source.id }, data: { status: WorkflowStatus.POSTED, postedById: actor.userId, postedAt: new Date() } });
+      }
+      await this.audit(tx, actor, 'CONVERT', 'DOCUMENT', source.id, {
+        targetId: target.id.toString(), targetNumber: target.number, targetType,
+        sourceStatus: directQuotationConversion ? WorkflowStatus.POSTED : source.status,
+      });
       return target;
     });
   }
 
   async workflow(actor: Actor, id: bigint, action: 'submit' | 'approve' | 'reject' | 'request-changes', body: any = {}) {
     return this.withTenant(actor, async (tx) => {
-      const document = await tx.document.findUnique({ where: { id } });
+      const document = await this.documentInScope(tx, actor, id);
       if (!document) throw new NotFoundException('Document not found');
       this.assertBranch(actor, document.branchId);
       const now = new Date();
       if (action === 'submit') {
-        if (SALES_TYPES.has(document.type)) this.requireAny(actor, 'quotations.submit', 'sales.write');
-        else requirePermission(actor, PURCHASE_TYPES.has(document.type) ? 'purchases.write' : 'inventory.write');
+        this.requireDocumentPermission(actor, document.type, 'edit');
         if (document.status !== WorkflowStatus.DRAFT && document.status !== WorkflowStatus.REJECTED) throw new BadRequestException('Only a draft or returned document can be submitted.');
         const updated = await tx.document.update({ where: { id }, data: { status: WorkflowStatus.SUBMITTED, submittedById: actor.userId, submittedAt: now, approvedById: null, approvedAt: null } });
         await tx.approvalEvent.create({ data: { tenantId: actor.tenantId, entityType: 'DOCUMENT', entityId: id, action: 'SUBMIT', actorId: actor.userId, comment: body.comment || null } });
         await this.audit(tx, actor, 'SUBMIT', 'DOCUMENT', id, { approvalReference: updated.number });
         return updated;
       }
-      if (action === 'request-changes') this.requireAny(actor, 'approvals.request-changes', 'approvals.act');
-      else requirePermission(actor, 'approvals.act');
+      if (action === 'request-changes') requirePermission(actor, 'approvals.queue.edit');
+      else this.requireDocumentPermission(actor, document.type, action);
       if (document.status !== WorkflowStatus.SUBMITTED) throw new BadRequestException('Only a submitted document can be approved or rejected');
       const tenant = await tx.tenant.findUniqueOrThrow({ where: { id: actor.tenantId } });
       if (action === 'approve' && tenant.makerChecker && document.submittedById === actor.userId) throw new ForbiddenException('Maker-checker control: submitter cannot approve this document');
+      if (action === 'approve') this.assertApprovalLimit(actor, document.type, document.totalMinor, document.subtotalMinor, document.discountMinor);
       const comment = String(body.comment || '').trim();
       if ((action === 'reject' || action === 'request-changes') && !comment) {
         throw new BadRequestException(action === 'reject' ? 'A rejection reason is required.' : 'Describe the changes required before sending the document back.');
@@ -1075,9 +1309,9 @@ export class ErpService {
   }
 
   async commentDocument(actor: Actor, id: bigint, body: any = {}) {
-    requirePermission(actor, 'approvals.read');
+    requirePermission(actor, 'approvals.queue.history');
     return this.withTenant(actor, async (tx) => {
-      const document = await tx.document.findUnique({ where: { id } });
+      const document = await this.documentInScope(tx, actor, id);
       if (!document) throw new NotFoundException('Document not found');
       this.assertBranch(actor, document.branchId);
       if (document.status !== WorkflowStatus.SUBMITTED) throw new BadRequestException('Comments can only be added while a document is awaiting approval.');
@@ -1093,10 +1327,10 @@ export class ErpService {
   }
 
   async postDocument(actor: Actor, id: bigint) {
-    requirePermission(actor, 'posting.execute');
     return this.withTenant(actor, async (tx) => {
-      const doc = await tx.document.findUnique({ where: { id }, include: { lines: { include: { item: true } }, sourceDocument: true } });
+      const doc = await this.documentInScope(tx, actor, id, { lines: { include: { item: true } }, sourceDocument: true });
       if (!doc) throw new NotFoundException('Document not found');
+      this.requireDocumentPermission(actor, doc.type, 'post');
       this.assertBranch(actor, doc.branchId); this.assertWarehouse(actor, doc.warehouseId);
       if (doc.status !== WorkflowStatus.APPROVED) throw new BadRequestException('Only an approved document can be posted');
       await this.assertOpenPeriod(tx, actor, doc.documentDate);
@@ -1135,19 +1369,19 @@ export class ErpService {
         }
         journalLines.push({ code: '1200', debit: cost, description: `Inventory receipt ${doc.number}` }, { code: '2100', credit: cost, description: `Goods received not invoiced ${doc.number}` });
       } else if (doc.type === DocumentType.PURCHASE_BILL) {
-        journalLines.push({ code: '2100', debit: doc.subtotalMinor - doc.discountMinor, description: `Clear GRNI ${doc.number}` });
-        if (doc.taxMinor) journalLines.push({ code: '1300', debit: doc.taxMinor, description: `Recoverable VAT ${doc.number}` });
-        journalLines.push({ code: '2000', credit: doc.totalMinor, description: `Supplier payable ${doc.number}` });
+        journalLines.push({ code: '2100', debit: BigInt(doc.subtotalMinor) - BigInt(doc.discountMinor), description: `Clear GRNI ${doc.number}` });
+        if (doc.taxMinor) journalLines.push({ code: '1300', debit: BigInt(doc.taxMinor), description: `Recoverable VAT ${doc.number}` });
+        journalLines.push({ code: '2000', credit: BigInt(doc.totalMinor), description: `Supplier payable ${doc.number}` });
       } else if (doc.type === DocumentType.PURCHASE_RETURN) {
         for (const line of doc.lines) {
           const movement = await this.stock(tx, actor, { branchId: doc.branchId, warehouseId: doc.warehouseId!, itemId: line.itemId, qtyMilli: line.quantityMilli, direction: 'OUT', date: doc.documentDate, sourceType: doc.type, sourceId: doc.id, sourceNumber: doc.number });
           cost += movement.totalCostMinor;
         }
         if (doc.sourceDocument?.type === DocumentType.PURCHASE_BILL) {
-          journalLines.push({ code: '2000', debit: doc.totalMinor, description: `Supplier debit ${doc.number}` });
-          if (doc.taxMinor) journalLines.push({ code: '1300', credit: doc.taxMinor, description: `VAT reversal ${doc.number}` });
+          journalLines.push({ code: '2000', debit: BigInt(doc.totalMinor), description: `Supplier debit ${doc.number}` });
+          if (doc.taxMinor) journalLines.push({ code: '1300', credit: BigInt(doc.taxMinor), description: `VAT reversal ${doc.number}` });
           journalLines.push({ code: '1200', credit: cost, description: `Inventory return ${doc.number}` });
-          const variance = doc.totalMinor - doc.taxMinor - cost;
+          const variance = BigInt(doc.totalMinor) - BigInt(doc.taxMinor) - cost;
           if (variance > 0n) journalLines.push({ code: '5100', credit: variance, description: `Purchase return price variance ${doc.number}` });
           if (variance < 0n) journalLines.push({ code: '5100', debit: -variance, description: `Purchase return price variance ${doc.number}` });
         } else journalLines.push({ code: '2100', debit: cost, description: `Reverse GRNI ${doc.number}` }, { code: '1200', credit: cost, description: `Inventory return ${doc.number}` });
@@ -1174,12 +1408,12 @@ export class ErpService {
   }
 
   async payments(actor: Actor) {
-    requirePermission(actor, 'payments.read');
+    this.requireAny(actor, 'payments.receipt.view', 'payments.payment.view');
     return this.withTenant(actor, (tx) => tx.payment.findMany({ include: { customer: true, supplier: true, bankAccount: true, journalEntry: true, allocations: { include: { document: true } } }, orderBy: { createdAt: 'desc' }, take: 200 }));
   }
 
   async createPayment(actor: Actor, body: any) {
-    requirePermission(actor, 'payments.write');
+    requirePermission(actor, body.kind === PaymentKind.PAYMENT ? 'payments.payment.create' : 'payments.receipt.create');
     return this.withTenant(actor, async (tx) => {
       const kind = body.kind as PaymentKind;
       if (!Object.values(PaymentKind).includes(kind)) throw new BadRequestException('Payment kind is invalid');
@@ -1243,12 +1477,12 @@ export class ErpService {
   }
 
   async journals(actor: Actor) {
-    requirePermission(actor, 'accounting.read');
-    return this.withTenant(actor, (tx) => tx.journalEntry.findMany({ include: { lines: { include: { account: true } }, createdBy: publicUser, approvedBy: publicUser }, orderBy: { createdAt: 'desc' }, take: 200 }));
+    requirePermission(actor, 'accounting.journal.view');
+    return this.withTenant(actor, (tx) => tx.journalEntry.findMany({ where: this.journalScope(actor), include: { lines: { include: { account: true } }, createdBy: publicUser, approvedBy: publicUser }, orderBy: { createdAt: 'desc' }, take: 200 }));
   }
 
   async createJournal(actor: Actor, body: any) {
-    requirePermission(actor, 'journals.write');
+    requirePermission(actor, 'accounting.journal.create');
     return this.withTenant(actor, async (tx) => {
       const branchId = BigInt(body.branchId || 0); this.assertBranch(actor, branchId);
       const date = this.date(body.postingDate || new Date().toISOString().slice(0, 10), 'posting date');
@@ -1281,7 +1515,7 @@ export class ErpService {
   }
 
   async updateJournal(actor: Actor, id: bigint, body: any) {
-    requirePermission(actor, 'journals.write');
+    requirePermission(actor, 'accounting.journal.edit');
     return this.withTenant(actor, async (tx) => {
       const journal = await tx.journalEntry.findUnique({ where: { id } });
       if (!journal) throw new NotFoundException('Journal not found');
@@ -1300,21 +1534,21 @@ export class ErpService {
       this.assertBranch(actor, journal.branchId);
       const now = new Date();
       if (action === 'submit') {
-        requirePermission(actor, 'journals.write');
+        requirePermission(actor, 'accounting.journal.edit');
         if (journal.status !== JournalStatus.DRAFT) throw new BadRequestException('Only draft journals can be submitted');
         const updated = await tx.journalEntry.update({ where: { id }, data: { status: JournalStatus.SUBMITTED, submittedById: actor.userId, submittedAt: now } });
         await tx.approvalEvent.create({ data: { tenantId: actor.tenantId, entityType: 'JOURNAL', entityId: id, action: 'SUBMIT', actorId: actor.userId, comment: body.comment || null } });
         await this.audit(tx, actor, 'SUBMIT', 'JOURNAL', id, { approvalReference: journal.number }); return updated;
       }
       if (action === 'approve' || action === 'reject') {
-        requirePermission(actor, 'approvals.act');
+        requirePermission(actor, action === 'approve' ? 'accounting.journal.approve' : 'accounting.journal.reject');
         if (journal.status !== JournalStatus.SUBMITTED) throw new BadRequestException('Only submitted journals can be approved or rejected');
         if (action === 'approve' && journal.submittedById === actor.userId) throw new ForbiddenException('Maker-checker control: submitter cannot approve this journal');
         const updated = await tx.journalEntry.update({ where: { id }, data: action === 'approve' ? { status: JournalStatus.APPROVED, approvedById: actor.userId, approvedAt: now } : { status: JournalStatus.REJECTED } });
         await tx.approvalEvent.create({ data: { tenantId: actor.tenantId, entityType: 'JOURNAL', entityId: id, action: action.toUpperCase(), actorId: actor.userId, comment: body.comment || null } });
         await this.audit(tx, actor, action.toUpperCase(), 'JOURNAL', id, { approvalReference: journal.number }); return updated;
       }
-      requirePermission(actor, 'posting.execute');
+      requirePermission(actor, 'accounting.journal.post');
       if (journal.status !== JournalStatus.APPROVED) throw new BadRequestException('Only approved journals can be posted');
       await this.assertOpenPeriod(tx, actor, journal.postingDate);
       const updated = await tx.journalEntry.update({ where: { id }, data: { status: JournalStatus.POSTED, postedById: actor.userId, postedAt: now } });
@@ -1323,7 +1557,7 @@ export class ErpService {
   }
 
   async reverseJournal(actor: Actor, id: bigint, body: any) {
-    requirePermission(actor, 'posting.execute');
+    requirePermission(actor, 'accounting.journal.create');
     return this.withTenant(actor, async (tx) => {
       const original = await tx.journalEntry.findUnique({ where: { id }, include: { lines: { include: { account: true } }, reversedBy: true } });
       if (!original || original.status !== JournalStatus.POSTED) throw new BadRequestException('Only posted journals can be reversed');
@@ -1347,7 +1581,7 @@ export class ErpService {
   }
 
   async updatePeriod(actor: Actor, id: bigint, status: string) {
-    requirePermission(actor, 'periods.manage');
+    requirePermission(actor, 'accounting.period.manage');
     if (!['OPEN', 'CLOSED', 'LOCKED'].includes(status)) throw new BadRequestException('Period status is invalid');
     return this.withTenant(actor, async (tx) => {
       const period = await tx.fiscalPeriod.update({ where: { id }, data: { status } });
@@ -1357,7 +1591,7 @@ export class ErpService {
   }
 
   async posState(actor: Actor) {
-    requirePermission(actor, 'pos.use');
+    requirePermission(actor, 'pos.register.view');
     return this.withTenant(actor, async (tx) => ({
       shifts: await tx.posShift.findMany({ include: { openedBy: publicUser, closedBy: publicUser, _count: { select: { sales: true } } }, orderBy: { openedAt: 'desc' }, take: 30 }),
       sales: await tx.posSale.findMany({ include: { lines: { include: { item: true } }, tenders: true, shift: true, journalEntry: true }, orderBy: { createdAt: 'desc' }, take: 100 }),
@@ -1365,7 +1599,7 @@ export class ErpService {
   }
 
   async posSaleDetail(actor: Actor, id: bigint) {
-    requirePermission(actor, 'pos.use');
+    requirePermission(actor, 'pos.sale.view');
     return this.withTenant(actor, async (tx) => {
       const sale = await tx.posSale.findUnique({ where: { id }, include: {
         customer: true, shift: { include: { branch: true, warehouse: true } }, lines: { include: { item: true } }, tenders: true,
@@ -1378,7 +1612,7 @@ export class ErpService {
   }
 
   async openShift(actor: Actor, body: any) {
-    requirePermission(actor, 'pos.use');
+    requirePermission(actor, 'pos.shift.create');
     return this.withTenant(actor, async (tx) => {
       const branchId = BigInt(body.branchId || 0), warehouseId = BigInt(body.warehouseId || 0);
       this.assertBranch(actor, branchId); this.assertWarehouse(actor, warehouseId);
@@ -1391,7 +1625,7 @@ export class ErpService {
   }
 
   async createPosSale(actor: Actor, body: any) {
-    requirePermission(actor, 'pos.use');
+    requirePermission(actor, 'pos.sale.create');
     return this.withTenant(actor, async (tx) => {
       const shift = await tx.posShift.findUnique({ where: { id: BigInt(body.shiftId || 0) } });
       if (!shift || shift.status !== PosShiftStatus.OPEN) throw new BadRequestException('An open shift is required');
@@ -1406,7 +1640,8 @@ export class ErpService {
         const unitPrice = line.unitPrice === undefined ? item.salePriceMinor : money(line.unitPrice, 'unit price');
         const lineDiscount = money(line.discount || 0, 'discount'), gross = roundDiv(qty * unitPrice, 1000n);
         if (lineDiscount < 0n || lineDiscount > gross) throw new BadRequestException(`Line ${index + 1}: discount is invalid`);
-        if (!actor.permissions.includes('*') && lineDiscount * 100n > gross * 20n) throw new ForbiddenException('POS discount exceeds the cashier limit of 20%');
+        const discountLimit = this.limit(actor, 'sales.discount_percent', 0);
+        if (!can(actor, 'system.super_admin') && lineDiscount * 100n > gross * BigInt(Math.round(discountLimit))) throw new ForbiddenException(`Discount exceeds your configured limit of ${discountLimit}%.`);
         const taxable = gross - lineDiscount;
         const lineTax = roundDiv(taxable * BigInt(item.taxRateBps), 10_000n), lineTotal = taxable + lineTax;
         subtotal += gross; discount += lineDiscount; tax += lineTax; total += lineTotal;
@@ -1423,7 +1658,7 @@ export class ErpService {
   }
 
   async resumePosSale(actor: Actor, id: bigint, body: any) {
-    requirePermission(actor, 'pos.use');
+    requirePermission(actor, 'pos.sale.edit');
     return this.withTenant(actor, async (tx) => {
       const sale = await tx.posSale.findUnique({ where: { id }, include: { tenders: true } });
       if (!sale || sale.status !== PosSaleStatus.HELD) throw new BadRequestException('Held sale not found');
@@ -1451,7 +1686,7 @@ export class ErpService {
   }
 
   async returnPosSale(actor: Actor, id: bigint, body: any) {
-    requirePermission(actor, 'pos.returns');
+    requirePermission(actor, 'pos.return.create');
     return this.withTenant(actor, async (tx) => {
       const original = await tx.posSale.findUnique({ where: { id }, include: { lines: true, tenders: true, shift: true } });
       if (!original || original.status !== PosSaleStatus.COMPLETED) throw new BadRequestException('Only a completed sale can be returned');
@@ -1470,7 +1705,7 @@ export class ErpService {
   }
 
   async closeShift(actor: Actor, id: bigint, body: any) {
-    requirePermission(actor, 'pos.close');
+    requirePermission(actor, 'pos.shift.edit');
     return this.withTenant(actor, async (tx) => {
       const shift = await tx.posShift.findUnique({ where: { id } });
       if (!shift || shift.status !== PosShiftStatus.OPEN) throw new BadRequestException('Open shift not found');
@@ -1483,16 +1718,24 @@ export class ErpService {
   }
 
   async banking(actor: Actor) {
-    requirePermission(actor, 'banking.read');
-    return this.withTenant(actor, async (tx) => ({
-      accounts: await tx.bankAccount.findMany({ include: { glAccount: true }, orderBy: { code: 'asc' } }),
-      transactions: await tx.bankTransaction.findMany({ include: { bankAccount: true, counterpartyAccount: true, journalEntry: true }, orderBy: { postingDate: 'desc' }, take: 200 }),
-      statements: await tx.bankStatement.findMany({ include: { bankAccount: true, lines: { include: { transaction: true } } }, orderBy: { statementDate: 'desc' }, take: 50 }),
-    }));
+    this.requireAny(actor, 'banking.account.view', 'banking.transaction.view', 'banking.statement.view');
+    return this.withTenant(actor, async (tx) => {
+      const branchScope = can(actor, 'system.super_admin') ? {} : { branchId: { in: actor.branchIds.map(BigInt) } };
+      const [accounts, transactions, statements] = await Promise.all([
+        tx.bankAccount.findMany({ include: { glAccount: true }, orderBy: { code: 'asc' } }),
+        tx.bankTransaction.findMany({ where: branchScope, include: { bankAccount: true, counterpartyAccount: true, journalEntry: true }, orderBy: { postingDate: 'desc' }, take: 200 }),
+        tx.bankStatement.findMany({ include: { bankAccount: true, lines: { include: { transaction: true } } }, orderBy: { statementDate: 'desc' }, take: 50 }),
+      ]);
+      return {
+        accounts: accounts.map((account) => this.bankAccountForActor(actor, account)),
+        transactions: transactions.map((transaction) => ({ ...transaction, bankAccount: this.bankAccountForActor(actor, transaction.bankAccount) })),
+        statements: statements.map((statement) => ({ ...statement, bankAccount: this.bankAccountForActor(actor, statement.bankAccount) })),
+      };
+    });
   }
 
   async createBankTransaction(actor: Actor, body: any) {
-    requirePermission(actor, 'banking.write');
+    requirePermission(actor, 'banking.transaction.create');
     return this.withTenant(actor, async (tx) => {
       const branchId = BigInt(body.branchId || 0); this.assertBranch(actor, branchId);
       const bank = await tx.bankAccount.findUnique({ where: { id: BigInt(body.bankAccountId || 0) }, include: { glAccount: true } });
@@ -1512,7 +1755,7 @@ export class ErpService {
   }
 
   async createStatement(actor: Actor, body: any) {
-    requirePermission(actor, 'banking.reconcile');
+    requirePermission(actor, 'banking.statement.create');
     return this.withTenant(actor, async (tx) => {
       const bank = await tx.bankAccount.findUnique({ where: { id: BigInt(body.bankAccountId || 0) } });
       if (!bank) throw new BadRequestException('Bank account is invalid');
@@ -1523,7 +1766,7 @@ export class ErpService {
   }
 
   async matchStatementLine(actor: Actor, lineId: bigint, transactionId: bigint) {
-    requirePermission(actor, 'banking.reconcile');
+    requirePermission(actor, 'banking.statement.reconcile');
     return this.withTenant(actor, async (tx) => {
       const line = await tx.bankStatementLine.findUnique({ where: { id: lineId }, include: { statement: true } });
       const transaction = await tx.bankTransaction.findUnique({ where: { id: transactionId } });
@@ -1537,42 +1780,52 @@ export class ErpService {
   }
 
   async approvals(actor: Actor) {
-    requirePermission(actor, 'approvals.read');
+    requirePermission(actor, 'approvals.queue.view');
     return this.withTenant(actor, async (tx) => {
-      const branchScope = actor.permissions.includes('*') ? {} : { branchId: { in: actor.branchIds.map(BigInt) } };
+      const branchScope = can(actor, 'system.super_admin') ? {} : { branchId: { in: actor.branchIds.map(BigInt) } };
+      const allowedTypes = Object.values(DocumentType).filter((type) => {
+        const module = this.documentModule(type);
+        const resource = this.documentResource(type);
+        return can(actor, `${module}.${resource}.view`) && (can(actor, `${module}.${resource}.approve`) || can(actor, `${module}.${resource}.reject`));
+      });
       const [documents, journals] = await Promise.all([
         tx.document.findMany({
-        where: { status: WorkflowStatus.SUBMITTED, ...(actor.permissions.includes('*') ? {} : { branchId: { in: actor.branchIds.map(BigInt) } }) },
+        where: { status: WorkflowStatus.SUBMITTED, type: { in: allowedTypes }, ...(can(actor, 'system.super_admin') ? {} : { branchId: { in: actor.branchIds.map(BigInt) } }) },
         include: { customer: true, supplier: true, branch: true, salesEmployee: true, createdBy: publicUser, submittedBy: publicUser, lines: { include: { item: true } } },
         orderBy: { submittedAt: 'asc' },
       }),
-        tx.journalEntry.findMany({ where: { status: JournalStatus.SUBMITTED, ...branchScope }, include: { createdBy: publicUser, submittedBy: publicUser, lines: { include: { account: true } } }, orderBy: { submittedAt: 'asc' } }),
+        can(actor, 'accounting.journal.view') && (can(actor, 'accounting.journal.approve') || can(actor, 'accounting.journal.reject'))
+          ? tx.journalEntry.findMany({ where: { status: JournalStatus.SUBMITTED, ...branchScope, ...this.journalScope(actor) }, include: { createdBy: publicUser, submittedBy: publicUser, lines: { include: { account: true } } }, orderBy: { submittedAt: 'asc' } })
+          : Promise.resolve([]),
       ]);
       return {
-        documents: documents.map((document) => ({ ...document, customer: document.customer ? this.customerForActor(actor, document.customer) : null })),
+        documents: documents.map((document) => this.documentForActor(actor, { ...document, customer: document.customer ? this.customerForActor(actor, document.customer) : null })),
         journals,
       };
     });
   }
 
   async auditLog(actor: Actor) {
-    requirePermission(actor, 'audit.read');
+    requirePermission(actor, 'audit.business.view');
     return this.withTenant(actor, (tx) => tx.auditEvent.findMany({ include: { user: publicUser }, orderBy: { createdAt: 'desc' }, take: 500 }));
   }
 
   async referenceEvidence(actor: Actor, reference: string) {
-    requirePermission(actor, 'reports.read');
+    this.requireAny(actor, 'audit.business.view', 'approvals.queue.history');
     return this.withTenant(actor, async (tx) => {
-      const document = await tx.document.findFirst({ where: { number: reference }, include: { customer: true, supplier: true, lines: { include: { item: true } }, journalEntry: { include: { lines: { include: { account: true } } } } } });
+      const documentHeader = await tx.document.findFirst({ where: { number: reference }, select: { id: true, type: true } });
+      const document = documentHeader && can(actor, `${this.documentModule(documentHeader.type)}.${this.documentResource(documentHeader.type)}.view`)
+        ? await this.documentInScope(tx, actor, documentHeader.id, { customer: true, supplier: true, lines: { include: { item: true } }, journalEntry: { include: { lines: { include: { account: true } } } } })
+        : null;
       if (document) {
         const stockMovements = await tx.stockMovement.findMany({ where: { sourceNumber: reference }, include: { item: true, warehouse: true } });
-        return { kind: 'DOCUMENT', reference, status: document.status, description: `${document.type} · ${document.customer?.name || document.supplier?.name || 'Internal'}`, totalMinor: document.totalMinor, lines: document.lines.map((line) => `${line.item.sku} × ${line.quantityMilli}`), journal: document.journalEntry?.number || null, stockMovements: stockMovements.map((move) => `${move.item.sku} · ${move.warehouse.name} · in ${move.quantityInMilli} · out ${move.quantityOutMilli}`) };
+        return { kind: 'DOCUMENT', reference, status: document.status, description: `${document.type} · ${document.customer?.name || document.supplier?.name || 'Internal'}`, totalMinor: document.totalMinor, lines: document.lines.map((line: any) => `${line.item.sku} × ${line.quantityMilli}`), journal: document.journalEntry?.number || null, stockMovements: stockMovements.map((move) => `${move.item.sku} · ${move.warehouse.name} · in ${move.quantityInMilli} · out ${move.quantityOutMilli}`) };
       }
-      const journal = await tx.journalEntry.findFirst({ where: { number: reference }, include: { lines: { include: { account: true } }, reversesEntry: true, reversedBy: true } });
+      const journal = can(actor, 'accounting.journal.view') ? await tx.journalEntry.findFirst({ where: { number: reference, ...this.journalScope(actor) }, include: { lines: { include: { account: true } }, reversesEntry: true, reversedBy: true } }) : null;
       if (journal) return { kind: 'JOURNAL', reference, status: journal.status, description: journal.description, source: journal.sourceNumber, reverses: journal.reversesEntry?.number || null, reversedBy: journal.reversedBy?.number || null, lines: journal.lines.map((line) => `${line.account.code} ${line.account.name} · Dr ${line.debitMinor} · Cr ${line.creditMinor}`) };
-      const payment = await tx.payment.findFirst({ where: { number: reference }, include: { journalEntry: true, customer: true, supplier: true, allocations: { include: { document: true } } } });
+      const payment = can(actor, 'payments.receipt.view') || can(actor, 'payments.payment.view') ? await tx.payment.findFirst({ where: { number: reference, journalEntry: this.journalScope(actor) }, include: { journalEntry: true, customer: true, supplier: true, allocations: { include: { document: true } } } }) : null;
       if (payment) return { kind: 'PAYMENT', reference, status: 'POSTED', description: `${payment.kind} · ${payment.customer?.name || payment.supplier?.name}`, totalMinor: payment.amountMinor, journal: payment.journalEntry.number, lines: payment.allocations.map((allocation) => `${allocation.document.number} · ${allocation.amountMinor}`) };
-      const pos = await tx.posSale.findFirst({ where: { number: reference }, include: { journalEntry: true, lines: { include: { item: true } } } });
+      const pos = can(actor, 'pos.sale.view') ? await tx.posSale.findFirst({ where: { number: reference, ...(can(actor, 'system.super_admin') ? {} : { branchId: { in: actor.branchIds.map(BigInt) } }) }, include: { journalEntry: true, lines: { include: { item: true } } } }) : null;
       if (pos) return { kind: 'POS_SALE', reference, status: pos.status, description: 'Point-of-sale transaction', totalMinor: pos.totalMinor, journal: pos.journalEntry?.number || null, lines: pos.lines.map((line) => `${line.item.sku} × ${line.quantityMilli}`) };
       throw new NotFoundException('Referenced source document or journal was not found');
     });
@@ -1583,11 +1836,27 @@ export class ErpService {
   }
 
   async report(actor: Actor, name: string) {
-    requirePermission(actor, 'reports.read');
-    if (['income-statement', 'balance-sheet', 'sales-profitability'].includes(name)) requirePermission(actor, 'reports.profitability');
+    requirePermission(actor, ['income-statement', 'balance-sheet', 'sales-profitability'].includes(name) ? 'reports.profitability.view' : 'reports.standard.view');
+    const accountingReports = ['trial-balance', 'general-ledger', 'account-ledger', 'income-statement', 'balance-sheet', 'tax-report', 'cash-flow', 'reconciliation'];
+    const customerReports = ['ar-aging', 'customer-balances', 'customer-statement'];
+    const purchasingReports = ['ap-aging', 'supplier-statement', 'purchase-analysis'];
+    const inventoryReports = ['inventory-valuation', 'stock-movements'];
+    if (accountingReports.includes(name)) requirePermission(actor, 'accounting.journal.view');
+    if (customerReports.includes(name)) this.requireAny(actor, 'sales.customer.view', 'sales.invoice.view');
+    if (purchasingReports.includes(name)) this.requireAny(actor, 'purchasing.supplier.view', 'purchasing.bill.view');
+    if (inventoryReports.includes(name)) this.requireAny(actor, 'inventory.overview.view', 'inventory.item.view');
+    if (name === 'pos-shifts') requirePermission(actor, 'pos.shift.view');
+    if (name === 'sales-profitability') this.requireAny(actor, 'sales.invoice.view', 'sales.overview.view');
+    if (accountingReports.includes(name) && this.fieldAccess(actor, 'journal', 'lines') === 'HIDDEN') throw new ForbiddenException('Journal details are hidden for your role.');
+    if (['inventory-valuation', 'sales-profitability'].includes(name) && this.fieldAccess(actor, 'document', 'costMinor') === 'HIDDEN' && this.fieldAccess(actor, 'item', 'costPriceMinor') === 'HIDDEN') {
+      throw new ForbiddenException('Cost and profitability values are hidden for your role.');
+    }
     return this.withTenant(actor, async (tx) => {
+      const reportScope = this.documentScope(actor, 'report');
+      const branchIds = can(actor, 'system.super_admin') ? undefined : actor.branchIds.map(BigInt);
+      const warehouseIds = can(actor, 'system.super_admin') ? undefined : actor.warehouseIds.map(BigInt);
       const accounts = await tx.account.findMany({ orderBy: { code: 'asc' } });
-      const journalLines = await tx.journalLine.findMany({ where: { journalEntry: { status: JournalStatus.POSTED } }, include: { account: true, journalEntry: true } });
+      const journalLines = await tx.journalLine.findMany({ where: { journalEntry: { status: JournalStatus.POSTED, ...this.journalScope(actor, 'report') } }, include: { account: true, journalEntry: true } });
       const byAccount = accounts.map((account) => {
         const lines = journalLines.filter((line) => line.accountId === account.id);
         const debitMinor = lines.reduce((sum, line) => sum + line.debitMinor, 0n), creditMinor = lines.reduce((sum, line) => sum + line.creditMinor, 0n);
@@ -1608,20 +1877,18 @@ export class ErpService {
         return { name: 'Balance sheet', rows, totals: { assetsMinor: rows.filter((row) => row.type === AccountType.ASSET).reduce((sum, row) => sum + row.balanceMinor, 0n), liabilitiesMinor: -rows.filter((row) => row.type === AccountType.LIABILITY).reduce((sum, row) => sum + row.balanceMinor, 0n), equityMinor: -rows.filter((row) => row.type === AccountType.EQUITY).reduce((sum, row) => sum + row.balanceMinor, 0n) } };
       }
       if (name === 'ar-aging') {
-        const branchIds = actor.permissions.includes('*') ? undefined : actor.branchIds.map(BigInt);
         const rows = await this.receivables.ageing(tx, { branchIds });
         return { name: 'Accounts receivable aging', rows, totals: { outstandingMinor: rows.reduce((sum, row) => sum + row.outstandingMinor, 0n) } };
       }
       if (name === 'ap-aging') {
-        const docs = await tx.document.findMany({ where: { type: DocumentType.PURCHASE_BILL, status: WorkflowStatus.POSTED, totalMinor: { gt: 0 } }, include: { supplier: true, targetDocuments: true } });
+        const docs = await tx.document.findMany({ where: { ...reportScope, type: DocumentType.PURCHASE_BILL, status: WorkflowStatus.POSTED, totalMinor: { gt: 0 } }, include: { supplier: true, targetDocuments: true } });
         const today = Date.now();
         const rows = docs.map((doc) => { const credits = doc.targetDocuments.filter((target) => target.status === WorkflowStatus.POSTED && target.type === DocumentType.PURCHASE_RETURN).reduce((sum, target) => sum + target.totalMinor, 0n); const outstandingMinor = doc.totalMinor - doc.paidMinor - credits; const days = Math.max(0, Math.floor((today - (doc.dueDate || doc.documentDate).valueOf()) / 86_400_000)); return { number: doc.number, party: doc.supplier?.name, dueDate: doc.dueDate, outstandingMinor, bucket: days <= 0 ? 'Current' : days <= 30 ? '1–30 days' : days <= 60 ? '31–60 days' : days <= 90 ? '61–90 days' : 'More than 90 days' }; }).filter((row) => row.outstandingMinor > 0n);
         return { name: 'Accounts payable aging', rows, totals: { outstandingMinor: rows.reduce((sum, row) => sum + row.outstandingMinor, 0n) } };
       }
       if (name === 'customer-balances') {
-        const branchIds = actor.permissions.includes('*') ? undefined : actor.branchIds.map(BigInt);
         const customers = await tx.customer.findMany({
-          where: actor.permissions.includes('*') ? {} : { defaultBranchId: { in: branchIds } },
+          where: this.customerScope(actor),
           orderBy: { code: 'asc' },
         });
         const balances = await this.receivables.customerBalances(tx, customers.map((customer) => customer.id), branchIds);
@@ -1638,13 +1905,12 @@ export class ErpService {
       if (name === 'customer-statement' || name === 'supplier-statement') {
         const customerSide = name === 'customer-statement';
         if (customerSide) {
-          const branchIds = actor.permissions.includes('*') ? undefined : actor.branchIds.map(BigInt);
           const statement = await this.receivables.customerStatement(tx, { branchIds });
           const rows = statement.map(({ customerId: _customerId, ...row }) => row);
           return { name: 'Customer statement', rows, totals: { balanceMinor: rows.reduce((sum, row) => sum + row.debitMinor - row.creditMinor, 0n) } };
         }
-        const documents = await tx.document.findMany({ where: { type: customerSide ? { in: [DocumentType.SALES_INVOICE, DocumentType.SALES_RETURN, DocumentType.CREDIT_NOTE] } : { in: [DocumentType.PURCHASE_BILL, DocumentType.PURCHASE_RETURN] }, status: WorkflowStatus.POSTED }, include: { customer: true, supplier: true } });
-        const payments = await tx.payment.findMany({ where: { kind: customerSide ? PaymentKind.RECEIPT : PaymentKind.PAYMENT }, include: { customer: true, supplier: true } });
+        const documents = await tx.document.findMany({ where: { ...reportScope, type: customerSide ? { in: [DocumentType.SALES_INVOICE, DocumentType.SALES_RETURN, DocumentType.CREDIT_NOTE] } : { in: [DocumentType.PURCHASE_BILL, DocumentType.PURCHASE_RETURN] }, status: WorkflowStatus.POSTED }, include: { customer: true, supplier: true } });
+        const payments = await tx.payment.findMany({ where: { kind: customerSide ? PaymentKind.RECEIPT : PaymentKind.PAYMENT, ...(branchIds ? { journalEntry: { branchId: { in: branchIds } } } : {}) }, include: { customer: true, supplier: true } });
         const rows = [
           ...documents.map((doc) => { const credit = new Set<DocumentType>([DocumentType.SALES_RETURN, DocumentType.CREDIT_NOTE, DocumentType.PURCHASE_RETURN]).has(doc.type); return { date: doc.documentDate, party: doc.customer?.name || doc.supplier?.name, reference: doc.number, transaction: credit ? doc.type.replaceAll('_', ' ') : customerSide ? 'Invoice' : 'Supplier bill', debitMinor: credit ? 0n : doc.totalMinor, creditMinor: credit ? doc.totalMinor : 0n }; }),
           ...payments.map((payment) => ({ date: payment.postingDate, party: payment.customer?.name || payment.supplier?.name, reference: payment.number, transaction: customerSide ? 'Receipt' : 'Supplier payment', debitMinor: 0n, creditMinor: payment.amountMinor })),
@@ -1652,21 +1918,30 @@ export class ErpService {
         return { name: 'Supplier statement', rows, totals: { balanceMinor: rows.reduce((sum, row) => sum + row.debitMinor - row.creditMinor, 0n) } };
       }
       if (name === 'inventory-valuation') {
-        const rows = await tx.stockBalance.findMany({ include: { item: true, warehouse: true }, orderBy: [{ warehouse: { code: 'asc' } }, { item: { sku: 'asc' } }] });
+        const rows = await tx.stockBalance.findMany({ where: warehouseIds ? { warehouseId: { in: warehouseIds } } : {}, include: { item: true, warehouse: true }, orderBy: [{ warehouse: { code: 'asc' } }, { item: { sku: 'asc' } }] });
         return { name: 'Inventory valuation', rows: rows.map((row) => ({ warehouse: row.warehouse.name, sku: row.item.sku, item: row.item.name, quantityMilli: row.quantityMilli, valueMinor: row.valueMinor })), totals: { valueMinor: rows.reduce((sum, row) => sum + row.valueMinor, 0n) } };
       }
-      if (name === 'stock-movements') return { name: 'Stock movements', rows: await tx.stockMovement.findMany({ include: { item: true, warehouse: true }, orderBy: [{ postingDate: 'desc' }, { id: 'desc' }], take: 500 }) };
+      if (name === 'stock-movements') {
+        const movements = await tx.stockMovement.findMany({ where: warehouseIds ? { warehouseId: { in: warehouseIds } } : {}, include: { item: true, warehouse: true }, orderBy: [{ postingDate: 'desc' }, { id: 'desc' }], take: 500 });
+        return { name: 'Stock movements', rows: movements.map((movement) => {
+          const visible: any = { ...movement, item: this.itemForActor(actor, movement.item) };
+          if (this.fieldAccess(actor, 'document', 'costMinor') === 'HIDDEN') {
+            delete visible.unitCostMinor; delete visible.totalCostMinor; delete visible.runningValueMinor;
+          }
+          return visible;
+        }) };
+      }
       if (name === 'tax-report') {
         const output = byAccount.find((row) => row.code === '2200'), input = byAccount.find((row) => row.code === '1300');
         return { name: 'VAT report', rows: [output, input].filter(Boolean), totals: { outputVatMinor: -(output?.balanceMinor || 0n), inputVatMinor: input?.balanceMinor || 0n, netPayableMinor: -(output?.balanceMinor || 0n) - (input?.balanceMinor || 0n) } };
       }
       if (name === 'sales-profitability') {
-        const docs = await tx.document.findMany({ where: { type: DocumentType.SALES_INVOICE, status: WorkflowStatus.POSTED }, include: { customer: true, sourceDocument: true } });
+        const docs = await tx.document.findMany({ where: { ...reportScope, type: DocumentType.SALES_INVOICE, status: WorkflowStatus.POSTED }, include: { customer: true, sourceDocument: true } });
         const rows = docs.map((doc) => ({ number: doc.number, customer: doc.customer?.name, revenueMinor: doc.subtotalMinor - doc.discountMinor, costMinor: doc.sourceDocument?.costMinor || 0n, marginMinor: doc.subtotalMinor - doc.discountMinor - (doc.sourceDocument?.costMinor || 0n) }));
         return { name: 'Sales and profitability', rows, totals: { revenueMinor: rows.reduce((sum, row) => sum + row.revenueMinor, 0n), costMinor: rows.reduce((sum, row) => sum + row.costMinor, 0n), marginMinor: rows.reduce((sum, row) => sum + row.marginMinor, 0n) } };
       }
       if (name === 'purchase-analysis') {
-        const docs = await tx.document.findMany({ where: { type: { in: [DocumentType.PURCHASE_BILL, DocumentType.PURCHASE_RETURN] }, status: WorkflowStatus.POSTED }, include: { supplier: true } });
+        const docs = await tx.document.findMany({ where: { ...reportScope, type: { in: [DocumentType.PURCHASE_BILL, DocumentType.PURCHASE_RETURN] }, status: WorkflowStatus.POSTED }, include: { supplier: true } });
         return { name: 'Purchase analysis', rows: docs.map((doc) => ({ number: doc.number, supplier: doc.supplier?.name, type: doc.type, amountMinor: doc.type === DocumentType.PURCHASE_RETURN ? -doc.totalMinor : doc.totalMinor })) };
       }
       if (name === 'cash-flow') {
@@ -1674,16 +1949,16 @@ export class ErpService {
         return { name: 'Cash and bank position', rows, totals: { cashMinor: rows.reduce((sum, row) => sum + row.balanceMinor, 0n) } };
       }
       if (name === 'pos-shifts') {
-        const shifts = await tx.posShift.findMany({ include: { branch: true, openedBy: publicUser, closedBy: publicUser, sales: { where: { status: { in: [PosSaleStatus.COMPLETED, PosSaleStatus.RETURNED] } } } }, orderBy: { openedAt: 'desc' }, take: 100 });
+        const shifts = await tx.posShift.findMany({ where: branchIds ? { branchId: { in: branchIds } } : {}, include: { branch: true, openedBy: publicUser, closedBy: publicUser, sales: { where: { status: { in: [PosSaleStatus.COMPLETED, PosSaleStatus.RETURNED] } } } }, orderBy: { openedAt: 'desc' }, take: 100 });
         const rows = shifts.map((shift) => ({ register: shift.registerCode, branch: shift.branch.name, openedAt: shift.openedAt, closedAt: shift.closedAt, openedBy: shift.openedBy.name, closedBy: shift.closedBy?.name || 'Open', salesCount: shift.sales.length, openingCashMinor: shift.openingCashMinor, expectedCashMinor: shift.expectedCashMinor, actualCashMinor: shift.actualCashMinor || 0n, differenceMinor: shift.differenceMinor || 0n, status: shift.status }));
         return { name: 'POS shift closing report', rows, totals: { differenceMinor: rows.reduce((sum, row) => sum + row.differenceMinor, 0n) } };
       }
       if (name === 'reconciliation') {
         const arLedger = byAccount.find((row) => row.code === '1100')?.balanceMinor || 0n, apLedger = -(byAccount.find((row) => row.code === '2000')?.balanceMinor || 0n), inventoryLedger = byAccount.find((row) => row.code === '1200')?.balanceMinor || 0n;
-        const arSubledger = await this.receivables.totalReceivables(tx);
-        const apDocs = await tx.document.aggregate({ where: { type: DocumentType.PURCHASE_BILL, status: WorkflowStatus.POSTED }, _sum: { totalMinor: true, paidMinor: true } });
-        const apCredits = await tx.document.aggregate({ where: { type: DocumentType.PURCHASE_RETURN, status: WorkflowStatus.POSTED, sourceDocument: { type: DocumentType.PURCHASE_BILL } }, _sum: { totalMinor: true } });
-        const stock = await tx.stockBalance.aggregate({ _sum: { valueMinor: true } });
+        const arSubledger = await this.receivables.totalReceivables(tx, branchIds);
+        const apDocs = await tx.document.aggregate({ where: { ...reportScope, type: DocumentType.PURCHASE_BILL, status: WorkflowStatus.POSTED }, _sum: { totalMinor: true, paidMinor: true } });
+        const apCredits = await tx.document.aggregate({ where: { ...reportScope, type: DocumentType.PURCHASE_RETURN, status: WorkflowStatus.POSTED, sourceDocument: { type: DocumentType.PURCHASE_BILL } }, _sum: { totalMinor: true } });
+        const stock = await tx.stockBalance.aggregate({ where: warehouseIds ? { warehouseId: { in: warehouseIds } } : {}, _sum: { valueMinor: true } });
         const apSubledger = (apDocs._sum.totalMinor || 0n) - (apDocs._sum.paidMinor || 0n) - (apCredits._sum.totalMinor || 0n), inventorySubledger = stock._sum.valueMinor || 0n;
         return { name: 'Control account reconciliation', rows: [{ control: 'Accounts receivable', ledgerMinor: arLedger, subledgerMinor: arSubledger, differenceMinor: arLedger - arSubledger }, { control: 'Accounts payable', ledgerMinor: apLedger, subledgerMinor: apSubledger, differenceMinor: apLedger - apSubledger }, { control: 'Inventory', ledgerMinor: inventoryLedger, subledgerMinor: inventorySubledger, differenceMinor: inventoryLedger - inventorySubledger }] };
       }
@@ -1692,42 +1967,63 @@ export class ErpService {
   }
 
   async dashboard(actor: Actor) {
-    requirePermission(actor, 'dashboard.read');
+    requirePermission(actor, 'dashboard.overview.view');
     return this.withTenant(actor, async (tx) => {
+      const reportScope = this.documentScope(actor, 'report');
+      const journalScope = this.journalScope(actor, 'report');
+      const branchIds = can(actor, 'system.super_admin') ? undefined : actor.branchIds.map(BigInt);
+      const warehouseIds = can(actor, 'system.super_admin') ? undefined : actor.warehouseIds.map(BigInt);
+      const canSeeSales = can(actor, 'sales.invoice.view') || can(actor, 'sales.overview.view');
+      const canSeePurchases = can(actor, 'purchasing.bill.view') || can(actor, 'purchasing.overview.view');
+      const canSeeInventory = can(actor, 'inventory.overview.view') || can(actor, 'inventory.item.view');
+      const canSeeInventoryValue = canSeeInventory && (this.fieldAccess(actor, 'document', 'costMinor') !== 'HIDDEN' || this.fieldAccess(actor, 'item', 'costPriceMinor') !== 'HIDDEN');
+      const canSeeCash = (can(actor, 'banking.account.view') || can(actor, 'accounting.journal.view')) && this.fieldAccess(actor, 'bankAccount', 'accountNumber') !== 'HIDDEN';
+      const canSeeReceivables = (can(actor, 'sales.customer.view') || canSeeSales) && this.fieldAccess(actor, 'customer', 'balanceMinor') !== 'HIDDEN';
+      const scopedReceivables = async () => {
+        if (!canSeeReceivables) return 0n;
+        if (this.scope(actor, 'report') !== 'OWN' && this.scope(actor, 'report') !== 'ASSIGNED') return this.receivables.totalReceivables(tx, branchIds);
+        const customers = await tx.customer.findMany({ where: this.customerScope(actor), select: { id: true } });
+        const balances = await this.receivables.customerBalances(tx, customers.map(({ id }) => id), branchIds);
+        return [...balances.values()].reduce((sum, value) => sum + value, 0n);
+      };
       const [sales, salesCredits, purchases, purchaseCredits, inventory, pending, lowStock, activity, bankAccounts, receivablesMinor] = await Promise.all([
-        tx.document.aggregate({ where: { type: DocumentType.SALES_INVOICE, status: WorkflowStatus.POSTED }, _sum: { totalMinor: true, paidMinor: true } }),
-        tx.document.aggregate({ where: { type: { in: [DocumentType.SALES_RETURN, DocumentType.CREDIT_NOTE] }, status: WorkflowStatus.POSTED }, _sum: { totalMinor: true } }),
-        tx.document.aggregate({ where: { type: DocumentType.PURCHASE_BILL, status: WorkflowStatus.POSTED }, _sum: { totalMinor: true, paidMinor: true } }),
-        tx.document.aggregate({ where: { type: DocumentType.PURCHASE_RETURN, status: WorkflowStatus.POSTED, sourceDocument: { type: DocumentType.PURCHASE_BILL } }, _sum: { totalMinor: true } }),
-        tx.stockBalance.aggregate({ _sum: { valueMinor: true } }),
-        tx.document.count({ where: { status: WorkflowStatus.SUBMITTED } }),
-        tx.stockBalance.findMany({ include: { item: true, warehouse: true }, orderBy: { quantityMilli: 'asc' }, take: 8 }),
-        tx.auditEvent.findMany({ include: { user: publicUser }, orderBy: { createdAt: 'desc' }, take: 8 }),
+        tx.document.aggregate({ where: { ...reportScope, type: DocumentType.SALES_INVOICE, status: WorkflowStatus.POSTED }, _sum: { totalMinor: true, paidMinor: true } }),
+        tx.document.aggregate({ where: { ...reportScope, type: { in: [DocumentType.SALES_RETURN, DocumentType.CREDIT_NOTE] }, status: WorkflowStatus.POSTED }, _sum: { totalMinor: true } }),
+        tx.document.aggregate({ where: { ...reportScope, type: DocumentType.PURCHASE_BILL, status: WorkflowStatus.POSTED }, _sum: { totalMinor: true, paidMinor: true } }),
+        tx.document.aggregate({ where: { ...reportScope, type: DocumentType.PURCHASE_RETURN, status: WorkflowStatus.POSTED, sourceDocument: { type: DocumentType.PURCHASE_BILL } }, _sum: { totalMinor: true } }),
+        tx.stockBalance.aggregate({ where: warehouseIds ? { warehouseId: { in: warehouseIds } } : {}, _sum: { valueMinor: true } }),
+        can(actor, 'approvals.queue.view') ? tx.document.count({ where: { ...reportScope, status: WorkflowStatus.SUBMITTED } }) : Promise.resolve(0),
+        canSeeInventory ? tx.stockBalance.findMany({ where: warehouseIds ? { warehouseId: { in: warehouseIds } } : {}, include: { item: true, warehouse: true }, orderBy: { quantityMilli: 'asc' }, take: 8 }) : Promise.resolve([]),
+        tx.auditEvent.findMany({ where: can(actor, 'system.super_admin') || this.scope(actor, 'report') === 'ALL' ? {} : { userId: actor.userId }, include: { user: publicUser }, orderBy: { createdAt: 'desc' }, take: 8 }),
         tx.bankAccount.findMany({ where: { active: true }, select: { glAccountId: true } }),
-        this.receivables.totalReceivables(tx),
+        scopedReceivables(),
       ]);
       const cashLedger = await tx.journalLine.aggregate({
-        where: { accountId: { in: bankAccounts.map((account) => account.glAccountId) }, journalEntry: { status: JournalStatus.POSTED } },
+        where: { accountId: { in: bankAccounts.map((account) => account.glAccountId) }, journalEntry: { status: JournalStatus.POSTED, ...journalScope } },
         _sum: { debitMinor: true, creditMinor: true },
       });
       return {
         kpis: {
-          salesMinor: (sales._sum.totalMinor || 0n) - (salesCredits._sum.totalMinor || 0n),
-          purchasesMinor: (purchases._sum.totalMinor || 0n) - (purchaseCredits._sum.totalMinor || 0n),
-          cashMinor: (cashLedger._sum.debitMinor || 0n) - (cashLedger._sum.creditMinor || 0n),
-          receivablesMinor,
-          payablesMinor: (purchases._sum.totalMinor || 0n) - (purchases._sum.paidMinor || 0n) - (purchaseCredits._sum.totalMinor || 0n),
-          inventoryMinor: inventory._sum.valueMinor || 0n,
+          salesMinor: canSeeSales ? (sales._sum.totalMinor || 0n) - (salesCredits._sum.totalMinor || 0n) : 0n,
+          purchasesMinor: canSeePurchases ? (purchases._sum.totalMinor || 0n) - (purchaseCredits._sum.totalMinor || 0n) : 0n,
+          cashMinor: canSeeCash ? (cashLedger._sum.debitMinor || 0n) - (cashLedger._sum.creditMinor || 0n) : 0n,
+          receivablesMinor: canSeeReceivables ? receivablesMinor : 0n,
+          payablesMinor: canSeePurchases ? (purchases._sum.totalMinor || 0n) - (purchases._sum.paidMinor || 0n) - (purchaseCredits._sum.totalMinor || 0n) : 0n,
+          inventoryMinor: canSeeInventoryValue ? inventory._sum.valueMinor || 0n : 0n,
           pendingApprovals: pending,
         },
-        lowStock,
+        lowStock: lowStock.map((row) => {
+          const visible: any = { ...row, item: this.itemForActor(actor, row.item) };
+          if (!canSeeInventoryValue) delete visible.valueMinor;
+          return visible;
+        }),
         activity,
       };
     });
   }
 
   async reset(actor: Actor, body: any) {
-    requirePermission(actor, 'system.reset');
+    requirePermission(actor, 'settings.system.reset');
     if (body.confirmation !== 'RESET ODIN') throw new BadRequestException('Type RESET ODIN to confirm');
     const user = await this.db.admin.user.findUnique({ where: { id: actor.userId } });
     if (!user || !(await compare(String(body.password || ''), user.passwordHash))) throw new ForbiddenException('Administrator password is incorrect');

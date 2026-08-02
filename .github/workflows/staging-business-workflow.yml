@@ -10,7 +10,6 @@ jobs:
     env:
       CI: true
       STAGING_BASE_URL: https://odin-erp-web.vercel.app
-      ODIN_DEMO_PASSWORD: ${{ secrets.ODIN_DEMO_PASSWORD }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

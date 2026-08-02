@@ -1537,6 +1537,19 @@
   height: 16px;
 }
 
+.login-options {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 16px;
+  flex-wrap: wrap;
+  margin: 12px 0;
+}
+
+.login-options .remember-session {
+  margin: 0;
+}
+
 @media (max-width: 1180px) {
   .sales-overview-layout,
   .document-view-layout,

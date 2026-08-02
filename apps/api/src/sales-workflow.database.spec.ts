@@ -61,11 +61,17 @@ describe('Sales workflow PostgreSQL integration', () => {
       email: user.email,
       name: user.name,
       role: role.name,
-      permissions: ['*'],
+      roleIds: [role.id.toString()],
+      permissions: ['system.super_admin'],
+      deniedPermissions: [],
+      legacyPermissions: ['*'],
+      dataScopes: [],
+      fieldPermissions: [],
+      limits: {},
       branchIds: [branch.id.toString()],
       warehouseIds: [],
     };
-    return { tenant, branch, user, actor };
+    return { tenant, branch, role, user, actor };
   }
 
   it('allocates unique customer codes concurrently and preserves nullable credit terms', async () => {
@@ -109,7 +115,8 @@ describe('Sales workflow PostgreSQL integration', () => {
     const { tenant, branch, actor } = await fixture('credit-permission');
     const limitedActor = {
       ...actor,
-      permissions: ['customers.create', 'customers.view', 'customers.edit'],
+      permissions: ['sales.customer.create', 'sales.customer.view', 'sales.customer.edit'],
+      legacyPermissions: [],
     };
     try {
       const customer: any = await erp.createCustomer(limitedActor, {
@@ -121,7 +128,135 @@ describe('Sales workflow PostgreSQL integration', () => {
       expect(result.rows[0]).not.toHaveProperty('creditLimitMinor');
       expect(result.rows[0]).not.toHaveProperty('paymentTermsDays');
       expect(result.rows[0]).not.toHaveProperty('creditHold');
-      await expect(erp.updateCustomer(limitedActor, BigInt(customer.id), { creditLimit: '1000.00' })).rejects.toThrow(/customers.edit-credit/);
+      await expect(erp.updateCustomer(limitedActor, BigInt(customer.id), { creditLimit: '1000.00' })).rejects.toThrow(/read-only/i);
+    } finally {
+      await cleanup(tenant.id);
+    }
+  });
+
+  it('applies owner data scope in the backend query instead of returning other users records', async () => {
+    const { tenant, branch, user, actor } = await fixture('owner-scope');
+    try {
+      const otherRole = await admin.role.create({ data: { tenantId: tenant.id, name: 'Other sales role', permissions: [] } });
+      const otherUser = await admin.user.create({ data: {
+        tenantId: tenant.id,
+        roleId: otherRole.id,
+        email: `other-${tenant.id}@odin.test`,
+        name: 'Other Salesperson',
+        passwordHash: await hash('WorkflowTest2026!', 4),
+        branchIds: [branch.id.toString()],
+        warehouseIds: [],
+      } });
+      await admin.customer.createMany({ data: [
+        { tenantId: tenant.id, code: 'OWN-001', name: 'Owned customer', city: 'Cairo', defaultBranchId: branch.id, ownerUserId: user.id },
+        { tenantId: tenant.id, code: 'OTHER-001', name: 'Other customer', city: 'Cairo', defaultBranchId: branch.id, ownerUserId: otherUser.id },
+      ] });
+      const scopedActor: Actor = {
+        ...actor,
+        permissions: ['sales.customer.view'],
+        legacyPermissions: [],
+        dataScopes: [{ resource: 'customer', scope: 'OWN' }],
+        fieldPermissions: [{ resource: 'customer', field: 'balanceMinor', access: 'VIEW' }],
+      };
+      const result: any = await erp.listCustomers(scopedActor, { status: 'ALL' });
+      expect(result.rows.map((customer: any) => customer.code)).toEqual(['OWN-001']);
+    } finally {
+      await cleanup(tenant.id);
+    }
+  });
+
+  it('resolves team data scope from shared role membership without widening to the branch', async () => {
+    const { tenant, branch, role, user, actor } = await fixture('team-scope');
+    try {
+      const outsideRole = await admin.role.create({ data: { tenantId: tenant.id, name: 'Outside team role', permissions: [] } });
+      const teammate = await admin.user.create({ data: {
+        tenantId: tenant.id,
+        roleId: role.id,
+        email: `teammate-${tenant.id}@odin.test`,
+        name: 'Sales Teammate',
+        passwordHash: await hash('WorkflowTest2026!', 4),
+        branchIds: [branch.id.toString()],
+        warehouseIds: [],
+      } });
+      const outsider = await admin.user.create({ data: {
+        tenantId: tenant.id,
+        roleId: outsideRole.id,
+        email: `outsider-${tenant.id}@odin.test`,
+        name: 'Branch Outsider',
+        passwordHash: await hash('WorkflowTest2026!', 4),
+        branchIds: [branch.id.toString()],
+        warehouseIds: [],
+      } });
+      await admin.customer.createMany({ data: [
+        { tenantId: tenant.id, code: 'TEAM-OWN', name: 'Own team customer', city: 'Cairo', defaultBranchId: branch.id, ownerUserId: user.id },
+        { tenantId: tenant.id, code: 'TEAM-MATE', name: 'Teammate customer', city: 'Cairo', defaultBranchId: branch.id, ownerUserId: teammate.id },
+        { tenantId: tenant.id, code: 'TEAM-OUT', name: 'Outside team customer', city: 'Cairo', defaultBranchId: branch.id, ownerUserId: outsider.id },
+      ] });
+      const scopedActor: Actor = {
+        ...actor,
+        permissions: ['sales.customer.view'],
+        legacyPermissions: [],
+        dataScopes: [{ resource: 'customer', scope: 'TEAM' }],
+        fieldPermissions: [],
+      };
+      const result: any = await erp.listCustomers(scopedActor, { status: 'ALL' });
+      expect(result.rows.map((customer: any) => customer.code).sort()).toEqual(['TEAM-MATE', 'TEAM-OWN']);
+    } finally {
+      await cleanup(tenant.id);
+    }
+  });
+
+  it('enforces role approval limits before changing a submitted document', async () => {
+    const { tenant, branch, user, actor } = await fixture('approval-limit');
+    try {
+      const makerRole = await admin.role.create({ data: { tenantId: tenant.id, name: 'Maker role', permissions: [] } });
+      const maker = await admin.user.create({ data: {
+        tenantId: tenant.id,
+        roleId: makerRole.id,
+        email: `maker-${tenant.id}@odin.test`,
+        name: 'Quotation Maker',
+        passwordHash: await hash('WorkflowTest2026!', 4),
+        branchIds: [branch.id.toString()],
+        warehouseIds: [],
+      } });
+      const document = await admin.document.create({ data: {
+        tenantId: tenant.id,
+        type: 'SALES_ORDER',
+        number: `SO-LIMIT-${tenant.id}`,
+        status: 'SUBMITTED',
+        branchId: branch.id,
+        documentDate: new Date('2026-07-31T00:00:00.000Z'),
+        totalMinor: 10_001n,
+        createdById: maker.id,
+        submittedById: maker.id,
+        submittedAt: new Date(),
+      } });
+      const approver: Actor = {
+        ...actor,
+        userId: user.id,
+        permissions: ['sales.order.approve'],
+        legacyPermissions: [],
+        dataScopes: [{ resource: 'order', scope: 'BRANCH' }],
+        limits: { 'sales.credit_amount_minor': 10_000, 'sales.discount_percent': 15 },
+      };
+      await expect(erp.workflow(approver, document.id, 'approve', { comment: 'Within policy review' })).rejects.toThrow(/approval limit/i);
+      expect((await admin.document.findUniqueOrThrow({ where: { id: document.id } })).status).toBe('SUBMITTED');
+      const discounted = await admin.document.create({ data: {
+        tenantId: tenant.id,
+        type: 'SALES_ORDER',
+        number: `SO-DISCOUNT-${tenant.id}`,
+        status: 'SUBMITTED',
+        branchId: branch.id,
+        documentDate: new Date('2026-07-31T00:00:00.000Z'),
+        subtotalMinor: 10_000n,
+        discountMinor: 2_000n,
+        totalMinor: 8_000n,
+        createdById: maker.id,
+        submittedById: maker.id,
+        submittedAt: new Date(),
+      } });
+      await expect(erp.workflow(approver, discounted.id, 'approve', { comment: 'Discount review' })).rejects.toThrow(/discount.*approval limit/i);
+      expect((await admin.document.findUniqueOrThrow({ where: { id: discounted.id } })).status).toBe('SUBMITTED');
     } finally {
       await cleanup(tenant.id);
     }
@@ -350,7 +485,13 @@ describe('Sales workflow PostgreSQL integration', () => {
       email: submitter.email,
       name: submitter.name,
       role: submitter.role.name,
-      permissions: ['*'],
+      roleIds: [submitter.role.id.toString()],
+      permissions: ['system.super_admin'],
+      deniedPermissions: [],
+      legacyPermissions: ['*'],
+      dataScopes: [],
+      fieldPermissions: [],
+      limits: {},
       branchIds: submitter.branchIds as string[],
       warehouseIds: submitter.warehouseIds as string[],
     };

@@ -9,15 +9,22 @@ describe('PostgreSQL accounting controls', () => {
   let admin: PrismaClient;
   let app: PrismaClient;
 
-  beforeAll(() => {
+  beforeAll(async () => {
     admin = new PrismaClient({ adapter: new PrismaPg(process.env.DATABASE_ADMIN_URL!) });
     app = new PrismaClient({ adapter: new PrismaPg(process.env.DATABASE_URL!) });
+    await admin.$transaction(async (tx) => {
+      await tx.$executeRawUnsafe('SET LOCAL session_replication_role = replica');
+      await tx.tenant.deleteMany({ where: { name: { startsWith: 'Access isolation ' } } });
+    });
   });
 
   afterAll(async () => { await admin.$disconnect(); await app.$disconnect(); });
 
   it('returns no tenant rows to the runtime role without a tenant scope', async () => {
     expect(await app.tenant.count()).toBe(0);
+    expect(await app.role.count()).toBe(0);
+    expect(await app.permission.count()).toBe(0);
+    expect(await app.accessAuditLog.count()).toBe(0);
   });
 
   it('enforces tenant row-level security for explicit tenant scopes', async () => {
@@ -31,6 +38,50 @@ describe('PostgreSQL accounting controls', () => {
     });
     expect(visible).toBe(1);
     expect(foreign).toBe(0);
+  });
+
+  it('isolates roles, permissions, user assignments, and access audit logs between tenants', async () => {
+    const primaryTenant = await admin.tenant.findFirstOrThrow({ orderBy: { id: 'asc' } });
+    const foreignTenant = await admin.tenant.create({ data: { name: `Access isolation ${Date.now()}` } });
+    try {
+      const foreignRole = await admin.role.create({ data: { tenantId: foreignTenant.id, name: 'Foreign role', permissions: [] } });
+      const foreignPermission = await admin.permission.create({ data: {
+        tenantId: foreignTenant.id,
+        key: 'foreign.resource.view',
+        module: 'foreign',
+        resource: 'resource',
+        action: 'view',
+      } });
+      await admin.rolePermission.create({ data: { tenantId: foreignTenant.id, roleId: foreignRole.id, permissionId: foreignPermission.id } });
+      await admin.accessAuditLog.create({ data: { tenantId: foreignTenant.id, action: 'FOREIGN_SECURITY_EVENT' } });
+
+      const primary = await app.$transaction(async (tx) => {
+        await tx.$executeRaw`SELECT set_config('app.current_tenant_id', ${primaryTenant.id.toString()}, true)`;
+        return {
+          foreignRole: await tx.role.count({ where: { id: foreignRole.id } }),
+          foreignPermission: await tx.permission.count({ where: { id: foreignPermission.id } }),
+          foreignAssignment: await tx.rolePermission.count({ where: { roleId: foreignRole.id } }),
+          foreignAudit: await tx.accessAuditLog.count({ where: { action: 'FOREIGN_SECURITY_EVENT' } }),
+        };
+      });
+      expect(primary).toEqual({ foreignRole: 0, foreignPermission: 0, foreignAssignment: 0, foreignAudit: 0 });
+
+      const foreign = await app.$transaction(async (tx) => {
+        await tx.$executeRaw`SELECT set_config('app.current_tenant_id', ${foreignTenant.id.toString()}, true)`;
+        return {
+          roles: await tx.role.count(),
+          permissions: await tx.permission.count(),
+          assignments: await tx.rolePermission.count(),
+          audit: await tx.accessAuditLog.count(),
+        };
+      });
+      expect(foreign).toEqual({ roles: 1, permissions: 1, assignments: 1, audit: 1 });
+    } finally {
+      await admin.$transaction(async (tx) => {
+        await tx.$executeRawUnsafe('SET LOCAL session_replication_role = replica');
+        await tx.tenant.delete({ where: { id: foreignTenant.id } });
+      });
+    }
   });
 
   it('keeps every posted journal and the complete ledger balanced', async () => {
@@ -91,5 +142,18 @@ describe('PostgreSQL accounting controls', () => {
       const event = await tx.auditEvent.findFirstOrThrow();
       await tx.auditEvent.update({ where: { id: event.id }, data: { action: 'forbidden mutation' } });
     })).rejects.toThrow(/append-only/i);
+    await admin.accessAuditLog.create({ data: { tenantId: 1n, action: 'APPEND_ONLY_TEST' } });
+    try {
+      await expect(app.$transaction(async (tx) => {
+        await tx.$executeRaw`SELECT set_config('app.current_tenant_id', '1', true)`;
+        const event = await tx.accessAuditLog.findFirstOrThrow({ where: { action: 'APPEND_ONLY_TEST' } });
+        await tx.accessAuditLog.delete({ where: { id: event.id } });
+      })).rejects.toThrow(/append-only/i);
+    } finally {
+      await admin.$transaction(async (tx) => {
+        await tx.$executeRawUnsafe('SET LOCAL session_replication_role = replica');
+        await tx.accessAuditLog.deleteMany({ where: { tenantId: 1n, action: 'APPEND_ONLY_TEST' } });
+      });
+    }
   });
 });

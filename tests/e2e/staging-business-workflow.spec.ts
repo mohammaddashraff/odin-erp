@@ -3,11 +3,10 @@ import { APIRequestContext, APIResponse, expect, request, test } from '@playwrig
 type Session = { context: APIRequestContext; token: string };
 
 const stagingBaseUrl = process.env.STAGING_BASE_URL?.replace(/\/$/, '');
-const localPassword = process.env.NODE_ENV !== 'production' && !process.env.CI ? 'OdinLocalOnly2026!' : undefined;
-const demoPassword = process.env.ODIN_DEMO_PASSWORD || localPassword;
+const demoPassword = 'password';
 
-if (process.env.CI && (!stagingBaseUrl || !process.env.ODIN_DEMO_PASSWORD)) {
-  throw new Error('STAGING_BASE_URL and ODIN_DEMO_PASSWORD must be configured in CI.');
+if (process.env.CI && !stagingBaseUrl) {
+  throw new Error('STAGING_BASE_URL must be configured in CI.');
 }
 
 async function json(response: APIResponse, action: string) {
@@ -78,7 +77,7 @@ function expectJournalSource(document: any) {
 test.use({ trace: 'off' });
 
 test.describe('deployed Odin ERP business workflow', () => {
-  test.skip(!stagingBaseUrl || !demoPassword, 'STAGING_BASE_URL and ODIN_DEMO_PASSWORD are required for deployed workflow testing.');
+  test.skip(!stagingBaseUrl, 'STAGING_BASE_URL is required for deployed workflow testing.');
 
   test('Customer → Quotation → Approval → Order → Delivery → Invoice → Payment → Return/Credit Note', async () => {
     const [sales, cfo, admin] = await Promise.all([

@@ -1,7 +1,6 @@
 # Odin ERP client demonstration
 
-Use the browser only after starting the stack. All demo users use the password configured through
-`ODIN_DEMO_PASSWORD`.
+Use the browser only after starting the stack. All demo users use the password `password`.
 
 ## 1. Light mode, dashboard, and language
 
@@ -15,7 +14,7 @@ Use the browser only after starting the stack. All demo users use the password c
 1. In **Masters**, create a customer if desired.
 2. In **Sales**, create a quotation with customer, branch, warehouse, dates, payment terms, tax
    mode, notes, and one or more item lines.
-3. Submit and convert it to a sales order. Submit the order.
+3. Convert the draft quotation directly to a sales order, then submit the order for approval.
 4. Switch to `finance@odin.demo`, open **Approvals**, add a comment, and approve the order.
 5. Convert only the required remaining quantity to a delivery note; submit, approve, and post it.
 6. Convert the delivered quantity to a sales invoice; submit, approve, and post it.

@@ -36,8 +36,8 @@ npm run build
 npm run start
 ```
 
-Set `ODIN_DEMO_PASSWORD` in `.env` before seeding. `ODIN_ALLOWED_ORIGINS` is a comma-separated
-allowlist. Swagger is disabled unless `ENABLE_SWAGGER=true`.
+The shared demo password is `password`. `ODIN_ALLOWED_ORIGINS` is a comma-separated allowlist.
+Swagger is disabled unless `ENABLE_SWAGGER=true`.
 The API emits one JSON log record per handled request with request ID, route, status, duration,
 user, tenant, and safe error metadata; it never serializes request headers, cookies, tokens,
 passwords, request bodies, or database URLs.
@@ -53,19 +53,22 @@ For development, use `npm run dev` after the database steps. Stop the database w
 
 ## Demo users
 
-Every account uses the password supplied through `ODIN_DEMO_PASSWORD`.
+Every account uses the password `password`.
 
 | Role | Email |
 |---|---|
-| Administrator | `admin@odin.demo` |
+| Super Admin | `admin@odin.demo` |
 | CFO | `cfo@odin.demo` |
 | Finance Manager | `finance@odin.demo` |
 | Accountant | `accountant@odin.demo` |
 | Auditor (read only) | `auditor@odin.demo` |
 | Sales Manager | `sales@odin.demo` |
+| Sales Employee | `sales.employee@odin.demo` |
 | Purchasing Manager | `purchasing@odin.demo` |
-| Warehouse Manager | `warehouse@odin.demo` |
+| Warehouse Keeper | `warehouse@odin.demo` |
 | POS Cashier | `cashier@odin.demo` |
+| HR Manager | `hr@odin.demo` |
+| Branch Manager | `branch@odin.demo` |
 
 ## Browser workflows
 
@@ -93,8 +96,9 @@ Every account uses the password supplied through `ODIN_DEMO_PASSWORD`.
 - Output: professional browser print CSS, CSV for table reports, and server-generated PDFs for
   business documents, POS receipts, and financial reports.
 - Administration: approval inbox/history/comments, role-aware navigation/actions, append-only
-  audit trail, and an administrator-only selected-tenant reset with password confirmation and an
-  integrity result.
+  business and access audit trails, Super Admin-only Users & Access management, data/field scopes,
+  role limits and overrides, and an administrator-only selected-tenant reset with password
+  confirmation and an integrity result.
 
 ## Verification commands
 
@@ -102,6 +106,7 @@ Run these while PostgreSQL is available; start the application before the Playwr
 
 ```bash
 npm run lint
+npm run i18n:audit
 npm run build
 npm test
 npm run test:e2e
@@ -114,6 +119,9 @@ story. See [docs/VERIFICATION.md](docs/VERIFICATION.md) for the acceptance matri
 evidence. See [DEMO_WALKTHROUGH.md](DEMO_WALKTHROUGH.md) for the client demonstration sequence.
 The signed AR movement model and no-implicit-credit rule are documented in
 [docs/customer-receivables.md](docs/customer-receivables.md).
+The access-control architecture, role matrix, Arabic terminology, migration procedure, and demo
+account handoff are documented in
+[docs/ACCESS_CONTROL_AND_ARABIC_RTL.md](docs/ACCESS_CONTROL_AND_ARABIC_RTL.md).
 
 ## Optional production extensions
 

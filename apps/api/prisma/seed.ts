@@ -1,42 +1,87 @@
 import { PrismaPg } from '@prisma/adapter-pg';
-import { AccountType, DocumentType, JournalStatus, PrismaClient, WorkflowStatus } from '@prisma/client';
+import { AccountType, DataScopeType, DocumentType, FieldAccessLevel, JournalStatus, PrismaClient, WorkflowStatus } from '@prisma/client';
 import { hash } from 'bcryptjs';
 import { config } from 'dotenv';
 import { resolve } from 'node:path';
 import { enforceTlsVerification } from '../src/database-url';
+import { DATA_SCOPE_RESOURCES, FIELD_REGISTRY, PERMISSION_REGISTRY } from '../src/permissions';
 
 config({ path: resolve(process.cwd(), '.env'), quiet: true });
 config({ path: resolve(process.cwd(), '../../.env'), quiet: true });
 
 const d = (value: string) => new Date(`${value}T00:00:00.000Z`);
 
+const keys = (module: string, actions?: string[]) => PERMISSION_REGISTRY
+  .filter((permission) => permission.module === module && (!actions || actions.includes(permission.action)))
+  .map((permission) => permission.key);
+const pick = (...permissionKeys: string[]) => [...new Set(permissionKeys)];
+
 const rolePermissions: Record<string, string[]> = {
-  'Company Administrator': ['*'],
-  'Chief Financial Officer': ['dashboard.read', 'accounting.read', 'journals.write', 'approvals.read', 'approvals.act', 'approvals.request-changes', 'posting.execute', 'periods.manage', 'reports.read', 'reports.profitability', 'payments.read', 'payments.write', 'banking.read', 'banking.write', 'banking.reconcile', 'customers.view-credit', 'invoices.view-accounting', 'audit.read'],
-  'Finance Manager': ['dashboard.read', 'accounting.read', 'journals.write', 'approvals.read', 'approvals.act', 'approvals.request-changes', 'posting.execute', 'reports.read', 'reports.profitability', 'payments.read', 'payments.write', 'banking.read', 'banking.write', 'banking.reconcile', 'customers.view-credit', 'invoices.view-accounting'],
-  Accountant: ['dashboard.read', 'accounting.read', 'journals.write', 'reports.read', 'reports.profitability', 'payments.read', 'payments.write', 'banking.read'],
-  Auditor: ['dashboard.read', 'accounting.read', 'reports.read', 'reports.profitability', 'audit.read', 'payments.read', 'banking.read'],
-  'Sales Manager': ['dashboard.read', 'sales.write', 'customers.view', 'customers.create', 'customers.edit', 'customers.view-credit', 'customers.edit-credit', 'quotations.view', 'quotations.create', 'quotations.edit', 'quotations.submit', 'quotations.convert', 'prices.override', 'exchange-rates.override', 'invoices.view', 'approvals.read', 'approvals.act', 'approvals.request-changes', 'employees.sales.read', 'reports.read', 'reports.profitability', 'payments.read'],
-  'Purchasing Manager': ['dashboard.read', 'purchases.write', 'approvals.read', 'approvals.act', 'reports.read', 'payments.read'],
-  'Warehouse Manager': ['dashboard.read', 'inventory.write', 'approvals.read', 'approvals.act', 'reports.read'],
-  'POS Cashier': ['dashboard.read', 'pos.use', 'pos.returns', 'pos.close'],
-  'Branch Manager': ['dashboard.read', 'sales.write', 'customers.view', 'customers.create', 'customers.edit', 'quotations.view', 'quotations.create', 'quotations.edit', 'quotations.submit', 'quotations.convert', 'invoices.view', 'purchases.write', 'inventory.write', 'approvals.read', 'approvals.act', 'approvals.request-changes', 'employees.sales.read', 'reports.read'],
-  'AR Clerk': ['dashboard.read', 'sales.write', 'customers.view', 'customers.create', 'customers.edit', 'quotations.view', 'quotations.create', 'quotations.edit', 'quotations.submit', 'invoices.view', 'payments.read', 'payments.write', 'reports.read'],
-  'AP Clerk': ['dashboard.read', 'purchases.write', 'payments.read', 'payments.write', 'reports.read'],
-  'Inventory Clerk': ['dashboard.read', 'inventory.write', 'reports.read'],
-  'Read Only': ['dashboard.read', 'reports.read'],
+  'Super Admin': ['system.super_admin'],
+  Administrator: pick(...PERMISSION_REGISTRY.filter(({ key }) => key !== 'system.super_admin' && !key.startsWith('settings.users_access.') && !key.startsWith('audit.access.')).map(({ key }) => key)),
+  'Sales Manager': pick(...keys('dashboard'), ...keys('sales'), ...keys('approvals'), ...keys('reports'), 'payments.receipt.view'),
+  'Sales Employee': pick(
+    ...keys('dashboard'), 'sales.overview.view',
+    'sales.customer.view', 'sales.customer.create', 'sales.customer.edit', 'sales.customer.print', 'sales.customer.export', 'sales.customer.history',
+    'sales.quotation.view', 'sales.quotation.create', 'sales.quotation.edit', 'sales.quotation.delete', 'sales.quotation.cancel', 'sales.quotation.print', 'sales.quotation.export', 'sales.quotation.reopen', 'sales.quotation.history', 'sales.quotation.convert',
+    'sales.order.view', 'sales.order.create', 'sales.order.edit', 'sales.order.print', 'sales.order.history',
+    'sales.delivery.view', 'sales.delivery.history', 'sales.invoice.view', 'sales.invoice.history',
+    'reports.standard.view',
+  ),
+  Accountant: pick(...keys('dashboard'), ...keys('accounting'), ...keys('payments'), ...keys('banking', ['view']), 'sales.invoice.view', 'sales.invoice.post', 'purchasing.bill.view', 'purchasing.bill.post', ...keys('reports')),
+  'Warehouse Keeper': pick(
+    ...keys('dashboard'), 'inventory.overview.view', 'inventory.item.view', 'inventory.item.history', 'inventory.warehouse.view',
+    ...['transfer', 'adjustment', 'stock_count'].flatMap((resource) => ['view', 'create', 'edit', 'process', 'post', 'print', 'history'].map((action) => `inventory.${resource}.${action}`)),
+    'sales.delivery.view', 'sales.delivery.process', 'sales.delivery.post', 'sales.delivery.print', 'sales.delivery.history',
+    'purchasing.receipt.view', 'purchasing.receipt.process', 'purchasing.receipt.post', 'purchasing.receipt.print', 'purchasing.receipt.history',
+  ),
+  'HR Manager': pick(...keys('dashboard'), ...keys('hr')),
+  'Branch Manager': pick(...keys('dashboard'), ...keys('sales'), ...keys('purchasing'), ...keys('inventory'), ...keys('approvals'), ...keys('reports')),
+  Auditor: pick(...keys('dashboard'), ...keys('accounting', ['view', 'history']), ...keys('reports'), ...keys('audit'), ...keys('payments', ['view']), ...keys('banking', ['view']), ...PERMISSION_REGISTRY.filter((permission) => ['view', 'history', 'print', 'export'].includes(permission.action)).map((permission) => permission.key)),
+  'Finance Manager': pick(
+    ...keys('dashboard'), ...keys('accounting'), ...keys('payments'), ...keys('banking'), ...keys('approvals'), ...keys('reports'),
+    ...['quotation', 'order', 'delivery', 'invoice', 'return', 'credit_note'].flatMap((resource) => ['view', 'approve', 'reject'].map((action) => `sales.${resource}.${action}`)),
+    'sales.invoice.post',
+    ...['request', 'rfq', 'order', 'receipt', 'bill', 'return'].flatMap((resource) => ['view', 'approve', 'reject'].map((action) => `purchasing.${resource}.${action}`)),
+    'purchasing.bill.post',
+  ),
+  'Purchasing Manager': pick(...keys('dashboard'), ...keys('purchasing'), ...keys('approvals'), ...keys('reports'), 'payments.payment.view'),
+  'Warehouse Manager': pick(...keys('dashboard'), ...keys('inventory'), ...keys('approvals'), ...keys('reports'), 'sales.delivery.view', 'sales.delivery.process', 'sales.delivery.post', 'purchasing.receipt.view', 'purchasing.receipt.process', 'purchasing.receipt.post'),
+  'POS Cashier': pick(...keys('dashboard'), ...keys('pos')),
+  'Read Only User': pick(...PERMISSION_REGISTRY.filter(({ action, key }) => action === 'view' && !key.startsWith('settings.users_access.') && !key.startsWith('audit.access.')).map(({ key }) => key)),
+};
+
+const roleKeys: Record<string, string> = Object.fromEntries(Object.keys(rolePermissions).map((name) => [name, name.toLowerCase().replaceAll(/[^a-z0-9]+/g, '_').replaceAll(/^_|_$/g, '')]));
+
+const roleScopes: Record<string, DataScopeType> = {
+  'Super Admin': DataScopeType.ALL, Administrator: DataScopeType.ALL, 'Sales Manager': DataScopeType.TEAM, 'Sales Employee': DataScopeType.OWN,
+  Accountant: DataScopeType.ALL, 'Warehouse Keeper': DataScopeType.WAREHOUSE, 'HR Manager': DataScopeType.DEPARTMENT,
+  'Branch Manager': DataScopeType.BRANCH, Auditor: DataScopeType.ALL, 'Finance Manager': DataScopeType.ALL,
+  'Purchasing Manager': DataScopeType.BRANCH, 'Warehouse Manager': DataScopeType.WAREHOUSE, 'POS Cashier': DataScopeType.BRANCH,
+  'Read Only User': DataScopeType.ALL,
+};
+
+const roleLimits: Record<string, Record<string, number>> = {
+  'Super Admin': { 'sales.discount_percent': 100, 'sales.quotation_amount_minor': 9_000_000_000_000, 'sales.credit_amount_minor': 9_000_000_000_000, 'sales.return_amount_minor': 9_000_000_000_000 },
+  'Sales Manager': { 'sales.discount_percent': 15, 'sales.quotation_amount_minor': 50_000_000, 'sales.credit_amount_minor': 25_000_000, 'sales.return_amount_minor': 10_000_000 },
+  'Sales Employee': { 'sales.discount_percent': 5, 'sales.quotation_amount_minor': 5_000_000, 'sales.credit_amount_minor': 0, 'sales.return_amount_minor': 0 },
+  'Branch Manager': { 'sales.discount_percent': 15, 'sales.quotation_amount_minor': 75_000_000, 'sales.credit_amount_minor': 50_000_000, 'sales.return_amount_minor': 15_000_000 },
+  'POS Cashier': { 'sales.discount_percent': 5 },
 };
 
 const users: Array<[string, string, string]> = [
-  ['admin@odin.demo', 'Odin Administrator', 'Company Administrator'],
-  ['cfo@odin.demo', 'Mariam Nassar', 'Chief Financial Officer'],
+  ['admin@odin.demo', 'Odin Administrator', 'Super Admin'],
+  ['cfo@odin.demo', 'Mariam Nassar', 'Finance Manager'],
   ['finance@odin.demo', 'Omar Selim', 'Finance Manager'],
   ['accountant@odin.demo', 'Nour Adel', 'Accountant'],
   ['auditor@odin.demo', 'Karim Fawzy', 'Auditor'],
   ['sales@odin.demo', 'Salma Hafez', 'Sales Manager'],
+  ['sales.employee@odin.demo', 'Ahmed Hassan', 'Sales Employee'],
   ['purchasing@odin.demo', 'Hassan Youssef', 'Purchasing Manager'],
-  ['warehouse@odin.demo', 'Tarek Mansour', 'Warehouse Manager'],
+  ['warehouse@odin.demo', 'Tarek Mansour', 'Warehouse Keeper'],
   ['cashier@odin.demo', 'Dina Samir', 'POS Cashier'],
+  ['hr@odin.demo', 'Mona El-Sayed', 'HR Manager'],
+  ['branch@odin.demo', 'Youssef Hamdy', 'Branch Manager'],
 ];
 
 const accountData: Array<[string, string, AccountType, string?]> = [
@@ -66,11 +111,12 @@ export async function seed(initiatedBy = 'CLI', targetTenantId?: bigint) {
       if (!existing) throw new Error('Selected demo tenant no longer exists');
       resetVersion = existing.resetVersion + 1;
       const tenantTables = [
+        'access_audit_logs', 'user_permission_overrides', 'user_roles', 'role_limits', 'role_data_scopes', 'role_field_permissions', 'role_permissions',
         'refresh_sessions', 'currency_rates', 'currencies', 'employees', 'departments', 'master_sequences',
         'bank_statement_lines', 'bank_statements', 'bank_transactions', 'bank_accounts', 'pos_tenders', 'pos_sale_lines', 'pos_sales', 'pos_shifts',
         'payment_allocations', 'payments', 'journal_lines', 'journal_entries', 'document_lines', 'documents', 'stock_movements', 'stock_balances',
         'items', 'units_of_measure', 'item_categories', 'suppliers', 'customers', 'document_sequences', 'accounts', 'fiscal_periods',
-        'approval_events', 'audit_events', 'idempotency_keys', 'users', 'roles', 'warehouses', 'branches',
+        'approval_events', 'audit_events', 'idempotency_keys', 'users', 'roles', 'permissions', 'warehouses', 'branches',
       ];
       for (const table of tenantTables) await tx.$executeRawUnsafe(`DELETE FROM ${table} WHERE tenant_id = $1`, targetTenantId);
       await tx.$executeRaw`DELETE FROM tenants WHERE id = ${targetTenantId}`;
@@ -86,19 +132,44 @@ export async function seed(initiatedBy = 'CLI', targetTenantId?: bigint) {
   const retail = await db.warehouse.create({ data: { tenantId: tenant.id, branchId: branch.id, code: 'CAI-RTL', name: 'Cairo Retail Store' } });
   const alexWarehouse = await db.warehouse.create({ data: { tenantId: tenant.id, branchId: alex.id, code: 'ALX-MAIN', name: 'Alexandria Warehouse' } });
 
+  await db.permission.createMany({ data: PERMISSION_REGISTRY.map((permission) => ({ tenantId: tenant.id, ...permission })) });
+  const permissionRows = await db.permission.findMany({ where: { tenantId: tenant.id } });
+  const permissionIds = new Map(permissionRows.map((permission) => [permission.key, permission.id]));
   const roles = new Map<string, bigint>();
   for (const [name, permissions] of Object.entries(rolePermissions)) {
-    const role = await db.role.create({ data: { tenantId: tenant.id, name, permissions } }); roles.set(name, role.id);
+    const role = await db.role.create({ data: { tenantId: tenant.id, key: roleKeys[name], name, description: `${name} access policy`, permissions } });
+    roles.set(name, role.id);
+    await db.rolePermission.createMany({ data: permissions.map((permission) => ({ tenantId: tenant.id, roleId: role.id, permissionId: permissionIds.get(permission)! })) });
+    await db.roleDataScope.createMany({ data: DATA_SCOPE_RESOURCES.map((resource) => ({ tenantId: tenant.id, roleId: role.id, resource, scope: roleScopes[name] || DataScopeType.BRANCH })) });
+    const financialEditor = ['Super Admin', 'Finance Manager', 'Accountant'].includes(name);
+    const financialViewer = financialEditor || ['Sales Manager', 'Branch Manager', 'Auditor', 'Purchasing Manager'].includes(name);
+    const salaryEditor = ['Super Admin', 'HR Manager'].includes(name);
+    await db.roleFieldPermission.createMany({ data: FIELD_REGISTRY.map(([resource, field]) => {
+      let access: FieldAccessLevel = FieldAccessLevel.HIDDEN;
+      if (name === 'Super Admin' || name === 'Administrator' || name === 'Auditor') access = name === 'Auditor' ? FieldAccessLevel.VIEW : FieldAccessLevel.EDIT;
+      else if (resource === 'employee' && field === 'salaryMinor') access = salaryEditor ? FieldAccessLevel.EDIT : FieldAccessLevel.HIDDEN;
+      else if (resource === 'customer' && ['creditLimitMinor', 'paymentTermsDays'].includes(field)) access = ['Sales Manager', 'Branch Manager', 'Finance Manager'].includes(name) ? FieldAccessLevel.EDIT : financialViewer || name === 'Sales Employee' ? FieldAccessLevel.VIEW : FieldAccessLevel.HIDDEN;
+      else if (resource === 'customer' && field === 'balanceMinor') access = financialViewer || name === 'Sales Employee' ? FieldAccessLevel.VIEW : FieldAccessLevel.HIDDEN;
+      else if (resource === 'party' && field === 'taxNumber') access = financialEditor || ['Sales Manager', 'Sales Employee', 'Purchasing Manager', 'Branch Manager'].includes(name) ? FieldAccessLevel.EDIT : FieldAccessLevel.HIDDEN;
+      else if (resource === 'bankAccount') access = financialEditor ? FieldAccessLevel.EDIT : financialViewer ? FieldAccessLevel.VIEW : FieldAccessLevel.HIDDEN;
+      else if (resource === 'journal') access = financialEditor ? FieldAccessLevel.EDIT : financialViewer ? FieldAccessLevel.VIEW : FieldAccessLevel.HIDDEN;
+      else if (resource === 'item') access = financialEditor || ['Purchasing Manager', 'Warehouse Manager', 'Branch Manager'].includes(name) ? FieldAccessLevel.EDIT : name === 'Sales Manager' ? FieldAccessLevel.VIEW : FieldAccessLevel.HIDDEN;
+      else if (resource === 'document') access = financialEditor || ['Purchasing Manager', 'Sales Manager', 'Warehouse Manager', 'Branch Manager'].includes(name) ? FieldAccessLevel.VIEW : FieldAccessLevel.HIDDEN;
+      return { tenantId: tenant.id, roleId: role.id, resource, field, access };
+    }) });
+    const configuredLimits = roleLimits[name] || {};
+    if (Object.keys(configuredLimits).length) await db.roleLimit.createMany({ data: Object.entries(configuredLimits).map(([key, value]) => ({ tenantId: tenant.id, roleId: role.id, key, value })) });
   }
-  const demoPassword = process.env.ODIN_DEMO_PASSWORD
-    || (process.env.NODE_ENV !== 'production' && !process.env.CI ? 'OdinLocalOnly2026!' : '');
-  if (!demoPassword) throw new Error('ODIN_DEMO_PASSWORD is required when seeding in production or CI');
-  const passwordHash = await hash(demoPassword, 12);
+  const passwordHash = await hash('password', 12);
   const createdUsers = new Map<string, bigint>();
   for (const [email, name, role] of users) {
     const user = await db.user.create({ data: { tenantId: tenant.id, roleId: roles.get(role)!, email, name, passwordHash, branchIds: [branch.id.toString(), alex.id.toString()], warehouseIds: [main.id.toString(), retail.id.toString(), alexWarehouse.id.toString()] } });
     createdUsers.set(email, user.id);
   }
+  await db.roleDataScope.updateMany({
+    where: { tenantId: tenant.id, roleId: roles.get('Sales Manager')! },
+    data: { config: { userIds: [createdUsers.get('sales@odin.demo')!.toString(), createdUsers.get('sales.employee@odin.demo')!.toString()] } },
+  });
   const adminId = createdUsers.get('admin@odin.demo')!;
 
   const salesDepartment = await db.department.create({ data: { tenantId: tenant.id, code: 'SALES', name: 'Sales' } });
@@ -115,6 +186,8 @@ export async function seed(initiatedBy = 'CLI', targetTenantId?: bigint) {
   for (const [code, name, jobTitle, departmentId, salesEligible, active] of employeeRows) {
     const employee = await db.employee.create({ data: {
       tenantId: tenant.id, departmentId, code, name, jobTitle, salesEligible, active,
+      userId: code === 'EMP-0015' ? createdUsers.get('sales.employee@odin.demo') : code === 'EMP-0032' ? createdUsers.get('hr@odin.demo') : null,
+      salaryMinor: active ? 2_500_000n : null,
       branchIds: code === 'EMP-0027' ? [alex.id.toString()] : [branch.id.toString(), alex.id.toString()],
     } });
     employees.set(code, employee.id);
@@ -146,9 +219,9 @@ export async function seed(initiatedBy = 'CLI', targetTenantId?: bigint) {
   await db.bankAccount.create({ data: { tenantId: tenant.id, code: 'CIB-EGP', name: 'CIB Current Account', type: 'BANK', glAccountId: accounts.get('1010')!, bankName: 'Commercial International Bank', accountNumber: 'ODIN-001-EGP' } });
   await db.bankAccount.create({ data: { tenantId: tenant.id, code: 'CARD-EGP', name: 'Card Settlement Clearing', type: 'CARD_CLEARING', glAccountId: accounts.get('1020')! } });
 
-  const customer = await db.customer.create({ data: { tenantId: tenant.id, code: 'CUS-000001', name: 'Nile Retail Group', taxNumber: '200-111-901', registrationNumber: 'CR-458219', email: 'ap@nileretail.example', phone: '+20 2 5550 1000', address: 'New Cairo', billingAddress: '90th Street, New Cairo', shippingAddress: 'Nile Logistics Hub, Obour City', city: 'Cairo', defaultBranchId: branch.id, defaultCurrency: 'EGP', creditLimitMinor: 2_000_000_00n, paymentTermsDays: 30 } });
-  const alexCustomer = await db.customer.create({ data: { tenantId: tenant.id, code: 'CUS-000002', name: 'Alexandria Office Supplies', taxNumber: '200-111-902', email: 'finance@alexoffice.example', phone: '+20 3 555 1880', city: 'Alexandria', defaultBranchId: alex.id, defaultCurrency: 'EGP', creditLimitMinor: null, paymentTermsDays: null } });
-  const meridianCustomer = await db.customer.create({ data: { tenantId: tenant.id, code: 'CUS-000003', name: 'Meridian Facilities Management', taxNumber: '200-111-903', email: 'accounts@meridianfm.example', phone: '+20 2 5550 2110', city: 'Giza', defaultBranchId: branch.id, defaultCurrency: 'USD', creditLimitMinor: 1_250_000_00n, paymentTermsDays: null } });
+  const customer = await db.customer.create({ data: { tenantId: tenant.id, code: 'CUS-000001', name: 'Nile Retail Group', taxNumber: '200-111-901', registrationNumber: 'CR-458219', email: 'ap@nileretail.example', phone: '+20 2 5550 1000', address: 'New Cairo', billingAddress: '90th Street, New Cairo', shippingAddress: 'Nile Logistics Hub, Obour City', city: 'Cairo', defaultBranchId: branch.id, ownerUserId: createdUsers.get('sales.employee@odin.demo'), defaultCurrency: 'EGP', creditLimitMinor: 2_000_000_00n, paymentTermsDays: 30 } });
+  const alexCustomer = await db.customer.create({ data: { tenantId: tenant.id, code: 'CUS-000002', name: 'Alexandria Office Supplies', taxNumber: '200-111-902', email: 'finance@alexoffice.example', phone: '+20 3 555 1880', city: 'Alexandria', defaultBranchId: alex.id, ownerUserId: createdUsers.get('sales@odin.demo'), defaultCurrency: 'EGP', creditLimitMinor: null, paymentTermsDays: null } });
+  const meridianCustomer = await db.customer.create({ data: { tenantId: tenant.id, code: 'CUS-000003', name: 'Meridian Facilities Management', taxNumber: '200-111-903', email: 'accounts@meridianfm.example', phone: '+20 2 5550 2110', city: 'Giza', defaultBranchId: branch.id, ownerUserId: createdUsers.get('sales.employee@odin.demo'), defaultCurrency: 'USD', creditLimitMinor: 1_250_000_00n, paymentTermsDays: null } });
   await db.masterSequence.create({ data: { tenantId: tenant.id, key: 'CUSTOMER', prefix: tenant.customerCodePrefix, nextValue: 4n } });
   const supplier = await db.supplier.create({ data: { tenantId: tenant.id, code: 'SUP-001', name: 'Delta Technology Imports', taxNumber: '100-222-701', email: 'sales@deltatech.example', city: 'Cairo', paymentTermsDays: 30 } });
   await db.supplier.create({ data: { tenantId: tenant.id, code: 'SUP-002', name: 'Sphinx Office Systems', taxNumber: '100-222-702', city: 'Giza', paymentTermsDays: 45 } });

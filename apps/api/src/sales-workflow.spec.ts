@@ -1,6 +1,6 @@
 import { BadRequestException } from '@nestjs/common';
-import { WorkflowStatus } from '@prisma/client';
-import { calculateDocumentLine, documentEditState } from './erp.service';
+import { DocumentType, WorkflowStatus } from '@prisma/client';
+import { calculateDocumentLine, documentConversionAllowed, documentEditState } from './erp.service';
 
 describe('Sales workflow business rules', () => {
   it('calculates exclusive, inclusive, and exempt tax with exact fixed-point arithmetic', () => {
@@ -39,5 +39,12 @@ describe('Sales workflow business rules', () => {
     [WorkflowStatus.DRAFT, true, false],
   ])('derives the persisted edit lock for %s with operational effects=%s', (status, effects, editable) => {
     expect(documentEditState(status, effects).editable).toBe(editable);
+  });
+
+  it('lets Sales convert a draft quotation before requesting approval on the sales order', () => {
+    expect(documentConversionAllowed(DocumentType.QUOTATION, WorkflowStatus.DRAFT, DocumentType.SALES_ORDER)).toBe(true);
+    expect(documentConversionAllowed(DocumentType.SALES_ORDER, WorkflowStatus.DRAFT, DocumentType.DELIVERY_NOTE)).toBe(false);
+    expect(documentConversionAllowed(DocumentType.QUOTATION, WorkflowStatus.SUBMITTED, DocumentType.SALES_ORDER)).toBe(false);
+    expect(documentConversionAllowed(DocumentType.QUOTATION, WorkflowStatus.APPROVED, DocumentType.SALES_ORDER)).toBe(true);
   });
 });

@@ -3,9 +3,7 @@ import { mkdirSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { t } from '../../apps/web/src/app/i18n';
 
-const password = process.env.ODIN_DEMO_PASSWORD
-  || (process.env.NODE_ENV !== 'production' && !process.env.CI ? 'OdinLocalOnly2026!' : '');
-if (!password) throw new Error('ODIN_DEMO_PASSWORD is required for browser tests in production or CI.');
+const password = 'password';
 const screenshots = resolve(process.cwd(), 'artifacts/screenshots');
 mkdirSync(screenshots, { recursive: true });
 
@@ -64,15 +62,15 @@ test('Arabic purchasing is complete across the route, RFQ form, supplier form, v
   ]) await expect(page.getByText(text, { exact: false }).first()).toBeVisible();
 
   await page.getByTestId('account-menu').click();
-  await expect(page.getByText('مسؤول الشركة', { exact: true }).first()).toBeVisible();
+  await expect(page.getByText('المسؤول العام', { exact: true }).first()).toBeVisible();
   await expect(page.getByText('تسجيل الخروج', { exact: true })).toBeVisible();
-  await expect(page.getByText('Company Administrator', { exact: true })).toHaveCount(0);
+  await expect(page.getByText('Super Admin', { exact: true })).toHaveCount(0);
   await expect(page.getByText('Sign out', { exact: true })).toHaveCount(0);
   await page.getByTestId('account-menu').click();
 
   for (const english of [
     'Odin Administrator',
-    'Company Administrator',
+    'Super Admin',
     'Sign out',
     'New Quotation',
     'New Request for Quotation',
@@ -144,9 +142,9 @@ test('English performs the inverse localization and persists on direct reload', 
   await expect(page.getByTestId('new-supplier')).toContainText('New Supplier');
 
   await page.getByTestId('account-menu').click();
-  await expect(page.getByText('Company Administrator', { exact: true }).first()).toBeVisible();
+  await expect(page.getByText('Super Admin', { exact: true }).first()).toBeVisible();
   await expect(page.getByText('Sign out', { exact: true })).toBeVisible();
-  await expect(page.getByText('مسؤول الشركة', { exact: true })).toHaveCount(0);
+  await expect(page.getByText('المسؤول العام', { exact: true })).toHaveCount(0);
   await expect(page.getByText('تسجيل الخروج', { exact: true })).toHaveCount(0);
   await page.getByTestId('account-menu').click();
 
@@ -164,7 +162,7 @@ test('English performs the inverse localization and persists on direct reload', 
     'مورد جديد',
     'السجلات المحفوظة',
     'الأحدث أولًا',
-    'مسؤول الشركة',
+    'المسؤول العام',
     'تسجيل الخروج',
   ]) await expect(page.getByText(arabic, { exact: false })).toHaveCount(0);
 

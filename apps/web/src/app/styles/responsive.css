@@ -73,9 +73,9 @@
   }
 
   .mobile-nav-close {
-    border-color: rgba(184, 192, 204, .18);
-    background: transparent;
-    color: #c8d1df;
+    border-color: var(--surface-border);
+    background: var(--surface-strong);
+    color: var(--text);
   }
 
   .sidebar-collapse {

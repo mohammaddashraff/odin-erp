@@ -8,17 +8,17 @@ This record maps the acceptance briefs to executable evidence. The authoritative
 
 | Check | Result |
 |---|---|
-| Playwright real-UI acceptance | PASS — 12 serialized scenarios, 0 failed (1.2 minutes) |
+| Playwright real-UI acceptance | PASS — 21 local Chromium scenarios, 0 failed; 2 deployment-only staging scenarios skipped without staging configuration |
 | Browser server responses | PASS — no HTTP 5xx responses captured |
 | Browser console | PASS — no unexpected console errors |
 | English direct-route audit | PASS — all 55 routes, headings, and breadcrumbs |
 | Arabic direct-route audit | PASS — all 55 routes, headings, breadcrumbs, `lang="ar"`, and `dir="rtl"` |
 | Purchasing localization | PASS — route, RFQ/supplier forms, validation, dialogs, dropdowns, reload, inverse English |
 | Dynamic localization | PASS — finance forms, audit actions/entities, technical labels, and toast templates |
-| NestJS/Jest backend controls | PASS — 2 suites, 9 tests |
+| NestJS/Jest backend controls | PASS — 8 suites, 49 tests |
 | TypeScript lint | PASS |
 | Next.js and NestJS production builds | PASS |
-| PostgreSQL migrations | PASS — 4 migrations applied, including the additive `PURCHASE_RFQ` enum migration |
+| PostgreSQL migrations | PASS — all 9 migrations applied in sequence to a clean database, including the additive enterprise access-control migration |
 | Trial balance | PASS — total debit equals total credit |
 | Negative stock | PASS — no negative quantity or value |
 | Inventory control reconciliation | PASS — ledger equals perpetual valuation |
@@ -67,6 +67,12 @@ This record maps the acceptance briefs to executable evidence. The authoritative
 | Auditor/cashier/warehouse permissions | PASS | UI test 7 and API checks |
 | Cross-tenant isolation | PASS | backend test plus PostgreSQL RLS query |
 | Append-only audit trail | PASS | UI test 7; screenshot 11; DB trigger test |
+| Super Admin-only Users & Access | PASS | Direct route, hidden navigation, professional 403, and independent API 403 assertions |
+| Multiple roles and explicit user overrides | PASS | Permission unit tests, effective-policy API tests, and Users page controls |
+| Own/team record visibility | PASS | PostgreSQL integration tests, including team compatibility without branch widening |
+| Sensitive-field redaction and write denial | PASS | PostgreSQL integration tests and browser/API checks |
+| Responsive Arabic access administration | PASS | Dark-theme tablet/mobile RTL Playwright scenario with overflow assertions |
+| Quotation conversion before order approval | PASS | Sales Manager Chromium workflow creates a draft quotation, converts it directly, then submits the resulting order for approval |
 | Selected-tenant UI reset | PASS | UI test 1, password confirmation, integrity response |
 | Persistence across refresh/user change | PASS | all serialized UI tests navigate and change sessions |
 

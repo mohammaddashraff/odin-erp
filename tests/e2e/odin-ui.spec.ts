@@ -3,9 +3,7 @@ import { mkdirSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { t } from '../../apps/web/src/app/i18n';
 
-const password = process.env.ODIN_DEMO_PASSWORD
-  || (process.env.NODE_ENV !== 'production' && !process.env.CI ? 'OdinLocalOnly2026!' : '');
-if (!password) throw new Error('ODIN_DEMO_PASSWORD is required for browser tests in production or CI.');
+const password = 'password';
 const screenshots = resolve(process.cwd(), 'artifacts/screenshots');
 mkdirSync(screenshots, { recursive: true });
 
@@ -35,6 +33,24 @@ async function login(page: Page, email = 'admin@odin.demo', language: 'en' | 'ar
   await page.getByTestId('login-submit').click();
   await expect(page.getByRole('heading', { name: language === 'ar' ? 'مركز الإدارة' : 'Command Center', exact: true })).toBeVisible();
 }
+
+test('login password visibility is opt-in', async ({ page }) => {
+  await page.context().clearCookies();
+  await page.goto('/dashboard');
+  await page.evaluate(() => localStorage.clear());
+  await page.reload();
+
+  const passwordInput = page.getByTestId('login-password');
+  await passwordInput.fill('VisiblePasswordExample!');
+  await expect(passwordInput).toHaveAttribute('type', 'password');
+
+  await page.getByTestId('show-password').check();
+  await expect(passwordInput).toHaveAttribute('type', 'text');
+  await expect(passwordInput).toHaveValue('VisiblePasswordExample!');
+
+  await page.getByTestId('show-password').uncheck();
+  await expect(passwordInput).toHaveAttribute('type', 'password');
+});
 
 const modules = [
   ['command', 'Command Center'],
@@ -106,6 +122,10 @@ const routes = [
   ['/reports/pos', 'POS Reports', 'Reports & Analytics', 'POS Reports'],
   ['/admin/overview', 'Administration & Control', 'Administration & Control', 'Administration Overview'],
   ['/admin/audit', 'Audit Log', 'Administration & Control', 'Audit Log'],
+  ['/settings/access/users', 'Users & Access', 'Administration & Control', 'Users'],
+  ['/settings/access/roles', 'Users & Access', 'Administration & Control', 'Roles'],
+  ['/settings/access/permissions', 'Users & Access', 'Administration & Control', 'Permissions'],
+  ['/settings/access/audit', 'Users & Access', 'Administration & Control', 'Access Audit Log'],
   ['/admin/system-health', 'System Health', 'Administration & Control', 'System Health'],
 ] as const;
 
@@ -233,15 +253,86 @@ test('role-based navigation exposes business domains instead of disabled unautho
 
   await login(page, 'warehouse@odin.demo');
   await expect(page.getByTestId('nav-inventory')).toBeVisible();
-  await expect(page.getByTestId('nav-sales')).toHaveCount(0);
-  await expect(page.getByTestId('nav-purchasing')).toHaveCount(0);
+  await expect(page.getByTestId('nav-sales')).toBeVisible();
+  await page.getByTestId('nav-sales').click();
+  await expect(page.getByTestId('nav-deliveries')).toBeVisible();
+  await expect(page.getByTestId('nav-customers')).toHaveCount(0);
+  await expect(page.getByTestId('nav-sales-orders')).toHaveCount(0);
+  await expect(page.getByTestId('nav-sales-invoices')).toHaveCount(0);
+  await page.getByTestId('nav-purchasing').click();
+  await expect(page.getByTestId('nav-goods-receipts')).toBeVisible();
+  await expect(page.getByTestId('nav-suppliers')).toHaveCount(0);
+  await expect(page.getByTestId('nav-purchase-orders')).toHaveCount(0);
+  await expect(page.getByTestId('nav-supplier-bills')).toHaveCount(0);
+
+  await login(page, 'sales@odin.demo');
+  await expect(page.getByTestId('nav-sales')).toBeVisible();
+  await expect(page.getByTestId('nav-hr')).toHaveCount(0);
+  await page.goto('/hr/employees');
+  await expect(page.locator('.access-denied')).toContainText('403');
 
   await login(page, 'accountant@odin.demo');
   await expect(page.getByTestId('nav-accounting')).toBeVisible();
   await expect(page.getByTestId('nav-banking')).toBeVisible();
   await expect(page.getByTestId('nav-reports')).toBeVisible();
-  await expect(page.getByTestId('nav-sales')).toHaveCount(0);
-  await expect(page.getByTestId('nav-purchasing')).toHaveCount(0);
+  await expect(page.getByTestId('nav-sales')).toBeVisible();
+  await page.getByTestId('nav-sales').click();
+  await expect(page.getByTestId('nav-sales-invoices')).toBeVisible();
+  await expect(page.getByTestId('nav-sales-orders')).toHaveCount(0);
+  await expect(page.getByTestId('nav-deliveries')).toHaveCount(0);
+  await expect(page.getByTestId('nav-purchasing')).toBeVisible();
+  await page.getByTestId('nav-purchasing').click();
+  await expect(page.getByTestId('nav-supplier-bills')).toBeVisible();
+  await expect(page.getByTestId('nav-purchase-orders')).toHaveCount(0);
+  await expect(page.getByTestId('nav-goods-receipts')).toHaveCount(0);
+});
+
+test('Users & Access is complete for Super Admin and denied in both UI and API for other roles', async ({ page, request }) => {
+  await login(page);
+  await page.goto('/settings/access/roles');
+  await expect(page.getByRole('heading', { name: 'Users & Access', exact: true })).toBeVisible();
+  await expect(page.locator('.access-role-card')).toHaveCount(14);
+  await expect(page.getByRole('button', { name: 'Create Role', exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Create Role', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Create Role', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Modules', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Scopes', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Fields', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Limits', exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Close dialog' }).click();
+
+  await login(page, 'sales.employee@odin.demo');
+  await expect(page.getByTestId('nav-access-roles')).toHaveCount(0);
+  await page.goto('/settings/access/roles');
+  await expect(page.locator('.access-denied')).toBeVisible();
+  await expect(page.locator('.access-denied')).toContainText('403');
+
+  const loginResponse = await request.post('/api/auth/login', { data: { email: 'sales.employee@odin.demo', password } });
+  expect(loginResponse.status()).toBe(201);
+  const token = (await loginResponse.json()).token as string;
+  const accessResponse = await request.get('/api/access', { headers: { Authorization: `Bearer ${token}` } });
+  expect(accessResponse.status()).toBe(403);
+});
+
+test('Users & Access remains usable in dark theme, Arabic RTL, tablet, and mobile layouts', async ({ page }) => {
+  await login(page);
+  await page.setViewportSize({ width: 1024, height: 768 });
+  await page.goto('/settings/access/permissions');
+  await expect(page.locator('.access-permission-groups')).toBeVisible();
+  await page.getByTestId('account-menu').click();
+  await page.locator('.account-menu > button').filter({ hasText: 'Toggle light mode' }).click();
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
+  await page.getByTestId('language-toggle').click();
+  await expect(page.locator('html')).toHaveAttribute('lang', 'ar');
+  await expect(page.locator('html')).toHaveAttribute('dir', 'rtl');
+  await expect(page.locator('.access-permission-groups code').first()).toHaveAttribute('dir', 'ltr');
+  expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(1);
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(page.getByRole('heading', { name: 'المستخدمون والصلاحيات', exact: true })).toBeVisible();
+  await expect(page.locator('.access-tabs')).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(1);
+  await page.screenshot({ path: resolve(screenshots, 'access-permissions-mobile-ar-dark.png'), fullPage: true });
 });
 
 test('Purchase Request and supplier RFQ are distinct routes and document types', async ({ page, request }) => {
@@ -302,8 +393,8 @@ test('customer creation generates the code server-side and keeps credit settings
   await expect(page.getByText('Not specified', { exact: true }).first()).toBeVisible();
 });
 
-test('guided quotation enforces branch warehouse and active HR salesperson references with a dated exchange rate', async ({ page }) => {
-  await login(page);
+test('Sales creates and converts a quotation before the sales order approval step', async ({ page }) => {
+  await login(page, 'sales@odin.demo');
   await page.goto('/sales/quotations?new=1');
   await expect(page.getByRole('heading', { name: 'New Quotation', exact: true })).toBeVisible();
   const salesperson = page.getByLabel('Salesperson');
@@ -318,13 +409,21 @@ test('guided quotation enforces branch warehouse and active HR salesperson refer
   await page.getByRole('button', { name: /Continue to Payment & Delivery/ }).click();
   await page.getByLabel('Currency').first().selectOption('USD');
   await expect(page.getByLabel('Exchange rate')).toHaveValue('49.250000');
-  await expect(page.getByText(/18 Jul 2026/)).toBeVisible();
+  await expect(page.getByText(/Jul 18, 2026/)).toBeVisible();
   await page.getByRole('button', { name: /Review Quotation/ }).click();
   await expect(page.locator('.document-paper')).toBeVisible();
-  await page.getByRole('button', { name: /Submit for Approval/ }).click();
+  await page.getByRole('button', { name: 'Create Quotation', exact: true }).click();
   await expect(page.locator('.document-detail')).toBeVisible();
+  await expect(page.locator('.sales-status.DRAFT')).toContainText('Draft');
+  await page.getByRole('button', { name: 'Convert to Sales Order', exact: true }).click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Create linked draft', exact: true }).click();
+  await expect(page).toHaveURL(/\/sales\/orders\?document=/);
+  await expect(page.locator('.document-detail')).toBeVisible();
+  await expect(page.locator('.sales-status.DRAFT')).toContainText('Draft');
+  await page.getByRole('button', { name: 'Submit for Approval', exact: true }).click();
   await expect(page.locator('.sales-status.SUBMITTED')).toContainText('Pending Approval');
-  await expect(page.getByRole('button', { name: 'Approve', exact: true })).toBeDisabled();
+  await expect(page.getByTestId('approval-waiting')).toContainText('Awaiting approval from another authorized user');
+  await expect(page.getByRole('button', { name: 'Approve', exact: true })).toHaveCount(0);
 });
 
 test('approval decisions use an explicit required-reason dialog instead of browser prompts', async ({ page }) => {
@@ -337,7 +436,8 @@ test('approval decisions use an explicit required-reason dialog instead of brows
   await expect(commentDialog.getByRole('button', { name: 'Add Comment', exact: true })).toBeDisabled();
   await commentDialog.getByLabel('Reason or requested changes').fill('Commercial context confirmed for the next reviewer.');
   await commentDialog.getByRole('button', { name: 'Add Comment', exact: true }).click();
-  await expect(page.getByText('Commercial context confirmed for the next reviewer.', { exact: true })).toBeVisible();
+  await expect(commentDialog).toHaveCount(0);
+  await expect(page.locator('.approval-steps p').filter({ hasText: 'Commercial context confirmed for the next reviewer.' }).last()).toBeVisible();
   await page.getByRole('button', { name: 'Request Changes', exact: true }).click();
   const dialog = page.getByRole('dialog');
   await expect(dialog.getByRole('button', { name: 'Send Back for Changes', exact: true })).toBeDisabled();

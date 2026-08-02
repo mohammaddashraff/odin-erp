@@ -3,7 +3,9 @@
 import { FormEvent, ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { AppIcon, IconButton } from './ui-icons';
-import { Language, locale, t } from './i18n';
+import { Language, t } from './i18n';
+import { formatCurrency, formatDate, formatDateTime } from './formatters';
+import { canAccess } from './navigation';
 
 type Json = any;
 type Requester = (path: string, options?: RequestInit) => Promise<Json>;
@@ -13,6 +15,17 @@ const SALES_CONVERSIONS: Record<string, string[]> = {
   DELIVERY_NOTE: ['SALES_INVOICE'],
   SALES_INVOICE: ['SALES_RETURN', 'CREDIT_NOTE'],
 };
+const SALES_DOCUMENT_ROUTES: Record<string, string> = {
+  QUOTATION: '/sales/quotations',
+  SALES_ORDER: '/sales/orders',
+  DELIVERY_NOTE: '/sales/deliveries',
+  SALES_INVOICE: '/sales/invoices',
+  SALES_RETURN: '/sales/returns',
+  CREDIT_NOTE: '/sales/credit-notes',
+};
+const salesResource: Record<string, string> = { QUOTATION: 'quotation', SALES_ORDER: 'order', DELIVERY_NOTE: 'delivery', SALES_INVOICE: 'invoice', SALES_RETURN: 'return', CREDIT_NOTE: 'credit_note' };
+const documentPermission = (type: string, action: string) => `sales.${salesResource[type] || 'quotation'}.${action}`;
+const fieldAccess = (user: Json, resource: string, field: string) => canAccess(user.permissions, 'system.super_admin') ? 'EDIT' : user.fieldPermissions?.find((item: Json) => item.resource === resource && item.field === field)?.access || 'HIDDEN';
 const documentTypeName = (type: string) => ({
   SALES_ORDER: 'Sales Order',
   DELIVERY_NOTE: 'Delivery Note',
@@ -44,15 +57,9 @@ const fixed = (value: string, decimals: number) => {
   return BigInt(match[1]) * 10n ** BigInt(decimals) + BigInt((match[2] || '').slice(0, decimals).padEnd(decimals, '0') || '0');
 };
 const decimal = (value: bigint, decimals = 2) => `${value / 10n ** BigInt(decimals)}.${(value % 10n ** BigInt(decimals)).toString().padStart(decimals, '0')}`;
-const money = (minor: unknown, currency = 'EGP', language: Language = 'en') => new Intl.NumberFormat(locale(language), {
-  style: 'currency', currency, minimumFractionDigits: 2,
-}).format(Number(asBigInt(minor)) / 100);
-const displayDate = (value: string | undefined, language: Language) => value ? new Intl.DateTimeFormat(language === 'ar' ? locale(language) : 'en-GB', {
-  day: '2-digit', month: 'short', year: 'numeric',
-}).format(new Date(value)) : '—';
-const displayDateTime = (value: string | undefined, language: Language) => value ? new Intl.DateTimeFormat(locale(language), {
-  dateStyle: 'medium', timeStyle: 'short',
-}).format(new Date(value)) : '—';
+const money = (minor: unknown, currency = 'EGP', language: Language = 'en') => formatCurrency(minor, currency, language);
+const displayDate = (value: string | undefined, language: Language) => formatDate(value, language);
+const displayDateTime = (value: string | undefined, language: Language) => formatDateTime(value, language);
 
 const statusLabel = (value: string, type: string, language: Language) => {
   const labels: Record<string, string> = {
@@ -110,7 +117,7 @@ function ReasonDialog({ title, description, confirmLabel, tone, close, confirm, 
     event.preventDefault();
     if (!reason.trim()) return;
     setBusy(true);
-    try { await confirm(reason.trim()); } finally { setBusy(false); }
+    try { await confirm(reason.trim()); close(); } finally { setBusy(false); }
   };
   return <div className="modal-layer" onMouseDown={(event) => event.target === event.currentTarget && close()}>
     <section className="sales-reason-dialog" role="dialog" aria-modal="true" aria-labelledby="reason-title">
@@ -122,7 +129,7 @@ function ReasonDialog({ title, description, confirmLabel, tone, close, confirm, 
   </div>;
 }
 
-function SalesConversionDialog({ document, targetType, request, notify, close, converted, language }: { document: Json; targetType: string; request: Requester; notify: (message: string, error?: boolean) => void; close: () => void; converted: () => Promise<void>; language: Language }) {
+function SalesConversionDialog({ document, targetType, request, notify, close, converted, language }: { document: Json; targetType: string; request: Requester; notify: (message: string, error?: boolean) => void; close: () => void; converted: (target: Json) => Promise<void>; language: Language }) {
   const rows = useMemo<Array<{ line: Json; remaining: bigint }>>(() => document.lines.map((line: Json) => {
     const consumed = (line.targetLines || [])
       .filter((target: Json) => !['REJECTED', 'CANCELLED'].includes(target.document?.status))
@@ -135,7 +142,7 @@ function SalesConversionDialog({ document, targetType, request, notify, close, c
   const submit = async () => {
     setBusy(true); setError('');
     try {
-      await request(`/documents/${document.id}/convert`, { method: 'POST', body: JSON.stringify({
+      const target = await request(`/documents/${document.id}/convert`, { method: 'POST', body: JSON.stringify({
         targetType,
         documentDate: isoToday(),
         warehouseId: document.warehouseId,
@@ -143,7 +150,7 @@ function SalesConversionDialog({ document, targetType, request, notify, close, c
       }) });
       notify(`${document.number} converted to ${documentTypeName(targetType)}`);
       close();
-      await converted();
+      await converted(target);
     } catch (reason: any) { setError(reason.message); } finally { setBusy(false); }
   };
   return <div className="modal-layer" onMouseDown={(event) => event.target === event.currentTarget && close()}>
@@ -164,8 +171,8 @@ export function SalesOverviewPage({ user, refs, request, notify, navigate, langu
   const metrics = data.metrics;
   return <div className="page sales-v2-page">
     <SalesPageHead title={t('Sales Overview', language)} subtitle={t('Your team’s current work, approvals, and customer follow-up in one place.', language)}>
-      {user.permissions.includes('*') || user.permissions.includes('customers.create') ? <button className="button" onClick={() => navigate('/sales/customers?new=1')}><AppIcon name="customer"/>{t('New Customer', language)}</button> : null}
-      {user.permissions.includes('*') || user.permissions.includes('quotations.create') ? <button className="button primary" onClick={() => navigate('/sales/quotations?new=1')}><AppIcon name="add"/>{t('New Quotation', language)}</button> : null}
+      {canAccess(user.permissions, 'sales.customer.create') ? <button className="button" onClick={() => navigate('/sales/customers?new=1')}><AppIcon name="customer"/>{t('New Customer', language)}</button> : null}
+      {canAccess(user.permissions, 'sales.quotation.create') ? <button className="button primary" onClick={() => navigate('/sales/quotations?new=1')}><AppIcon name="add"/>{t('New Quotation', language)}</button> : null}
     </SalesPageHead>
     <section className="sales-metric-rail">
       <button onClick={() => navigate('/approvals/inbox')}><i><AppIcon name="pending"/></i><span>{t('Awaiting approval', language)}<strong>{metrics.awaitingApproval}</strong></span></button>
@@ -208,15 +215,15 @@ export function CustomerWorkspace({ user, refs, request, notify, refreshRefs, na
     if (requestedCustomer) void open(requestedCustomer);
     else if (searchParams.get('new') === '1') setMode('create');
   }, [searchParams, open]);
-  if (mode === 'create') return <CustomerForm canEditCredit={user.permissions.includes('*') || user.permissions.includes('customers.edit-credit')} refs={refs} request={request} language={language} close={() => setMode('list')} saved={async (customer) => { await refreshRefs(); await load(); notify(`${customer.code} · ${customer.name} created`); await open(customer.id); }}/>;
+  if (mode === 'create') return <CustomerForm creditAccess={fieldAccess(user, 'customer', 'creditLimitMinor')} termsAccess={fieldAccess(user, 'customer', 'paymentTermsDays')} taxAccess={fieldAccess(user, 'party', 'taxNumber')} refs={refs} request={request} language={language} close={() => setMode('list')} saved={async (customer) => { await refreshRefs(); await load(); notify(`${customer.code} · ${customer.name} created`); await open(customer.id); }}/>;
   if (mode === 'detail' && selected) return <CustomerDetail customer={selected} user={user} refs={refs} navigate={navigate} language={language} close={() => { setMode('list'); setSelected(null); }} request={request} notify={notify} reload={() => open(selected.id)}/>;
   return <div className="page sales-v2-page">
     <SalesPageHead title={t('Customers', language)} subtitle={t('Find customer contacts, credit settings, balances, and related sales documents.', language)}>
-      {user.permissions.includes('*') || user.permissions.includes('customers.create') ? <button data-testid="new-customer" className="button primary" onClick={() => setMode('create')}><AppIcon name="add"/>{t('New Customer', language)}</button> : null}
+      {canAccess(user.permissions, 'sales.customer.create') ? <button data-testid="new-customer" className="button primary" onClick={() => setMode('create')}><AppIcon name="add"/>{t('New Customer', language)}</button> : null}
     </SalesPageHead>
     <section className="sales-data-panel">
       <div className="sales-filter-bar">
-        <label className="sales-search"><AppIcon name="search" size={16}/><input value={search} onChange={(event) => { setPage(1); setSearch(event.target.value); }} placeholder={t('Search code, name, phone, email, or tax number…', language)} aria-label={t('Search customers', language)}/></label>
+        <label className="sales-search"><AppIcon name="search" size={16}/><input value={search} onChange={(event) => { setPage(1); setSearch(event.target.value); }} placeholder={t(fieldAccess(user, 'party', 'taxNumber') === 'HIDDEN' ? 'Search code, name, phone, or email…' : 'Search code, name, phone, email, or tax number…', language)} aria-label={t('Search customers', language)}/></label>
         <label><span>{t('Status', language)}</span><select value={status} onChange={(event) => { setPage(1); setStatus(event.target.value); }}><option value="ACTIVE">{t('Active', language)}</option><option value="INACTIVE">{t('Inactive', language)}</option><option value="ALL">{t('All statuses', language)}</option></select></label>
         <label><span>{t('Branch', language)}</span><select value={branchId} onChange={(event) => { setPage(1); setBranchId(event.target.value); }}><option value="">{t('All branches', language)}</option>{refs.branches.map((branch: Json) => <option key={branch.id} value={branch.id}>{branch.name}</option>)}</select></label>
         {(search || branchId || status !== 'ACTIVE') ? <button className="text-action" onClick={() => { setSearch(''); setBranchId(''); setStatus('ACTIVE'); }}>{t('Clear filters', language)}</button> : null}
@@ -229,14 +236,16 @@ export function CustomerWorkspace({ user, refs, request, notify, refreshRefs, na
   </div>;
 }
 
-function CustomerForm({ refs, request, language, close, saved, customer, canEditCredit }: { refs: Json; request: Requester; language: Language; close: () => void; saved: (customer: Json) => Promise<void>; customer?: Json; canEditCredit: boolean }) {
+function CustomerForm({ refs, request, language, close, saved, customer, creditAccess, termsAccess, taxAccess }: { refs: Json; request: Requester; language: Language; close: () => void; saved: (customer: Json) => Promise<void>; customer?: Json; creditAccess: string; termsAccess: string; taxAccess: string }) {
   const [form, setForm] = useState<Json>(() => ({ name: customer?.name || '', customerType: customer?.customerType || 'BUSINESS', city: customer?.city || 'Cairo', phone: customer?.phone || '', email: customer?.email || '', taxNumber: customer?.taxNumber || '', registrationNumber: customer?.registrationNumber || '', defaultBranchId: customer?.defaultBranchId || refs.branches[0]?.id || '', billingAddress: customer?.billingAddress || '', shippingAddress: customer?.shippingAddress || '', paymentTermsDays: customer?.paymentTermsDays ?? '', creditLimit: customer?.creditLimitMinor === null || customer?.creditLimitMinor === undefined ? '' : decimal(asBigInt(customer.creditLimitMinor)), defaultCurrency: customer?.defaultCurrency || '', taxTreatment: customer?.taxTreatment || 'STANDARD', creditHold: Boolean(customer?.creditHold) }));
   const [busy, setBusy] = useState(false), [error, setError] = useState('');
   const set = (key: string, value: unknown) => setForm((current: Json) => ({ ...current, [key]: value }));
   const submit = async (event: FormEvent) => {
     event.preventDefault(); setBusy(true); setError('');
-    const { creditLimit, paymentTermsDays, creditHold, ...standardFields } = form;
-    const payload = canEditCredit ? form : standardFields;
+    const payload = { ...form };
+    if (creditAccess !== 'EDIT') { delete payload.creditLimit; delete payload.creditHold; }
+    if (termsAccess !== 'EDIT') delete payload.paymentTermsDays;
+    if (taxAccess !== 'EDIT') { delete payload.taxNumber; delete payload.registrationNumber; }
     try { await saved(await request(customer ? `/masters/customers/${customer.id}` : '/masters/customers', { method: customer ? 'PATCH' : 'POST', body: JSON.stringify(payload) })); } catch (reason: any) { setError(reason.message); } finally { setBusy(false); }
   };
   return <div className="page sales-v2-page sales-form-surface">
@@ -250,19 +259,18 @@ function CustomerForm({ refs, request, language, close, saved, customer, canEdit
           <label>{t('Phone', language)}<input value={form.phone} onChange={(event) => set('phone', event.target.value)}/></label>
           <label>{t('Email', language)}<input type="email" value={form.email} onChange={(event) => set('email', event.target.value)}/></label>
           <label>{t('City', language)}<input value={form.city} onChange={(event) => set('city', event.target.value)} required/></label>
-          <label>{t('Tax number', language)}<input value={form.taxNumber} onChange={(event) => set('taxNumber', event.target.value)}/></label>
-          <label>{t('Registration number', language)}<input value={form.registrationNumber} onChange={(event) => set('registrationNumber', event.target.value)}/></label>
+          {taxAccess !== 'HIDDEN' ? <><label>{t('Tax number', language)}<input value={form.taxNumber} readOnly={taxAccess !== 'EDIT'} onChange={(event) => set('taxNumber', event.target.value)}/></label><label>{t('Registration number', language)}<input value={form.registrationNumber} readOnly={taxAccess !== 'EDIT'} onChange={(event) => set('registrationNumber', event.target.value)}/></label></> : null}
           <label className="wide">{t('Billing address', language)}<textarea value={form.billingAddress} onChange={(event) => set('billingAddress', event.target.value)}/></label>
           <label className="wide">{t('Shipping address', language)}<textarea value={form.shippingAddress} onChange={(event) => set('shippingAddress', event.target.value)}/></label>
         </div>
       </section>
-      {canEditCredit ? <details className="advanced-section" open><summary><span><AppIcon name="money"/><b>{t('Credit and Payment Settings', language)}</b><small>{t('Optional', language)}</small></span><AppIcon name="next" size={15}/></summary>
+      {creditAccess !== 'HIDDEN' || termsAccess !== 'HIDDEN' ? <details className="advanced-section" open><summary><span><AppIcon name="money"/><b>{t('Credit and Payment Settings', language)}</b><small>{t('Optional', language)}</small></span><AppIcon name="next" size={15}/></summary>
         <div className="sales-form-grid">
-          <label>{t('Payment terms (days)', language)}<input type="number" min="0" value={form.paymentTermsDays} onChange={(event) => set('paymentTermsDays', event.target.value)} placeholder={t('Not specified', language)}/><small>{t('Leave blank when no standard terms apply.', language)}</small></label>
-          <label>{t('Credit limit', language)}<input inputMode="decimal" value={form.creditLimit} onChange={(event) => set('creditLimit', event.target.value)} placeholder={t('No credit limit configured', language)}/><small>{t('Blank is different from a zero credit limit.', language)}</small></label>
+          {termsAccess !== 'HIDDEN' ? <label>{t('Payment terms (days)', language)}<input type="number" min="0" value={form.paymentTermsDays} readOnly={termsAccess !== 'EDIT'} onChange={(event) => set('paymentTermsDays', event.target.value)} placeholder={t('Not specified', language)}/><small>{t('Leave blank when no standard terms apply.', language)}</small></label> : null}
+          {creditAccess !== 'HIDDEN' ? <label>{t('Credit limit', language)}<input inputMode="decimal" value={form.creditLimit} readOnly={creditAccess !== 'EDIT'} onChange={(event) => set('creditLimit', event.target.value)} placeholder={t('No credit limit configured', language)}/><small>{t('Blank is different from a zero credit limit.', language)}</small></label> : null}
           <label>{t('Default currency', language)}<select value={form.defaultCurrency} onChange={(event) => set('defaultCurrency', event.target.value)}><option value="">{t('Not specified', language)}</option>{refs.currencies.map((currency: Json) => <option key={currency.id} value={currency.code}>{currency.code} · {currency.name}</option>)}</select></label>
           <label>{t('Tax treatment', language)}<select value={form.taxTreatment} onChange={(event) => set('taxTreatment', event.target.value)}><option value="STANDARD">{t('Standard taxable', language)}</option><option value="EXEMPT">{t('Tax exempt', language)}</option></select></label>
-          <label className="check-field wide"><input type="checkbox" checked={form.creditHold} onChange={(event) => set('creditHold', event.target.checked)}/><span><b>{t('Place customer on credit hold', language)}</b><small>{t('New sales documents will require review.', language)}</small></span></label>
+          {creditAccess !== 'HIDDEN' ? <label className="check-field wide"><input type="checkbox" checked={form.creditHold} disabled={creditAccess !== 'EDIT'} onChange={(event) => set('creditHold', event.target.checked)}/><span><b>{t('Place customer on credit hold', language)}</b><small>{t('New sales documents will require review.', language)}</small></span></label> : null}
         </div>
       </details> : null}
       {error ? <p className="sales-form-error" role="alert"><AppIcon name="error" size={15}/>{error}</p> : null}
@@ -274,20 +282,24 @@ function CustomerForm({ refs, request, language, close, saved, customer, canEdit
 function CustomerDetail({ customer, user, refs, navigate, language, close, request, notify, reload }: { customer: Json; user: Json; refs: Json; navigate: (route: string) => void; language: Language; close: () => void; request: Requester; notify: (message: string, error?: boolean) => void; reload: () => Promise<void> }) {
   const [tab, setTab] = useState('overview'), [editCredit, setEditCredit] = useState(false), [credit, setCredit] = useState({ creditLimit: customer.creditLimitMinor === null ? '' : decimal(asBigInt(customer.creditLimitMinor)), paymentTermsDays: customer.paymentTermsDays ?? '', creditHold: customer.creditHold });
   const [editing, setEditing] = useState(false);
-  const allowed = (permission: string) => user.permissions.includes('*') || user.permissions.includes(permission);
-  const tabs = ['overview', 'quotations', 'invoices', 'payments', 'statement', 'ageing', 'activity'];
+  const allowed = (permission: string) => canAccess(user.permissions, permission);
+  const creditAccess = fieldAccess(user, 'customer', 'creditLimitMinor'), termsAccess = fieldAccess(user, 'customer', 'paymentTermsDays'), balanceAccess = fieldAccess(user, 'customer', 'balanceMinor'), taxAccess = fieldAccess(user, 'party', 'taxNumber');
+  const tabs = ['overview', 'quotations', 'invoices', 'payments', ...(balanceAccess === 'HIDDEN' ? [] : ['statement', 'ageing']), 'activity'];
   const saveCredit = async () => {
-    try { await request(`/masters/customers/${customer.id}`, { method: 'PATCH', body: JSON.stringify(credit) }); notify('Customer credit settings updated'); setEditCredit(false); await reload(); } catch (error: any) { notify(error.message, true); }
+    const payload: Json = {};
+    if (creditAccess === 'EDIT') { payload.creditLimit = credit.creditLimit; payload.creditHold = credit.creditHold; }
+    if (termsAccess === 'EDIT') payload.paymentTermsDays = credit.paymentTermsDays;
+    try { await request(`/masters/customers/${customer.id}`, { method: 'PATCH', body: JSON.stringify(payload) }); notify('Customer credit settings updated'); setEditCredit(false); await reload(); } catch (error: any) { notify(error.message, true); }
   };
   const documents = (type: string) => customer.documents.filter((document: Json) => document.type === type);
-  if (editing) return <CustomerForm customer={customer} canEditCredit={allowed('customers.edit-credit')} refs={refs} request={request} language={language} close={() => setEditing(false)} saved={async () => { notify('Customer details updated'); setEditing(false); await reload(); }}/>;
+  if (editing) return <CustomerForm customer={customer} creditAccess={creditAccess} termsAccess={termsAccess} taxAccess={taxAccess} refs={refs} request={request} language={language} close={() => setEditing(false)} saved={async () => { notify('Customer details updated'); setEditing(false); await reload(); }}/>;
   return <div className="page sales-v2-page record-surface">
-    <SalesPageHead title={customer.name} subtitle={`${customer.code} · ${customer.city}`} back={close}><StatusBadge value={customer.active ? 'APPROVED' : 'CANCELLED'} language={language}/>{allowed('customers.edit') ? <button className="button" onClick={() => setEditing(true)}><AppIcon name="edit"/>{t('Edit Customer', language)}</button> : null}{allowed('quotations.create') ? <button className="button primary" onClick={() => navigate(`/sales/quotations?new=1&customer=${customer.id}`)}><AppIcon name="add"/>{t('New Quotation', language)}</button> : null}</SalesPageHead>
-    <section className="record-summary"><div><span>{t('Phone', language)}</span><strong>{customer.phone || '—'}</strong></div><div><span>{t('Email', language)}</span><strong>{customer.email || '—'}</strong></div><div><span>{t('Default branch', language)}</span><strong>{customer.defaultBranch?.name || t('Not assigned', language)}</strong></div><div><span>{t('Outstanding balance', language)}</span><strong>{money(customer.outstandingMinor, refs.tenant.baseCurrency, language)}</strong></div></section>
+    <SalesPageHead title={customer.name} subtitle={`${customer.code} · ${customer.city}`} back={close}><StatusBadge value={customer.active ? 'APPROVED' : 'CANCELLED'} language={language}/>{allowed('sales.customer.edit') ? <button className="button" onClick={() => setEditing(true)}><AppIcon name="edit"/>{t('Edit Customer', language)}</button> : null}{allowed('sales.quotation.create') ? <button className="button primary" onClick={() => navigate(`/sales/quotations?new=1&customer=${customer.id}`)}><AppIcon name="add"/>{t('New Quotation', language)}</button> : null}</SalesPageHead>
+    <section className="record-summary"><div><span>{t('Phone', language)}</span><strong>{customer.phone || '—'}</strong></div><div><span>{t('Email', language)}</span><strong>{customer.email || '—'}</strong></div><div><span>{t('Default branch', language)}</span><strong>{customer.defaultBranch?.name || t('Not assigned', language)}</strong></div>{balanceAccess !== 'HIDDEN' ? <div><span>{t('Outstanding balance', language)}</span><strong>{money(customer.outstandingMinor, refs.tenant.baseCurrency, language)}</strong></div> : null}</section>
     <nav className="record-tabs" aria-label={t('Customer sections', language)}>{tabs.map((item) => <button key={item} className={tab === item ? 'active' : ''} onClick={() => setTab(item)}>{t(item[0].toUpperCase() + item.slice(1), language)}{['quotations','invoices','payments'].includes(item) ? <b>{item === 'payments' ? customer.payments.length : documents(item === 'quotations' ? 'QUOTATION' : 'SALES_INVOICE').length}</b> : null}</button>)}</nav>
-    {tab === 'overview' ? <div className="customer-detail-grid"><section className="sales-data-panel"><div className="sales-panel-title"><div><h2>{t('Customer information', language)}</h2><p>{t('Contact, registration, and delivery details', language)}</p></div></div><dl className="record-fields"><div><dt>{t('Customer type', language)}</dt><dd>{t(customer.customerType, language)}</dd></div><div><dt>{t('Tax number', language)}</dt><dd>{customer.taxNumber || '—'}</dd></div><div><dt>{t('Registration number', language)}</dt><dd>{customer.registrationNumber || '—'}</dd></div><div><dt>{t('Billing address', language)}</dt><dd>{customer.billingAddress || '—'}</dd></div><div><dt>{t('Shipping address', language)}</dt><dd>{customer.shippingAddress || '—'}</dd></div></dl></section>
-      {allowed('customers.view-credit') ? <section className="sales-data-panel credit-panel"><div className="sales-panel-title"><div><h2>{t('Credit and payment', language)}</h2><p>{customer.creditLimitMinor === null ? t('No credit limit configured', language) : t('Configured account terms', language)}</p></div>{allowed('customers.edit-credit') ? <button className="row-button" onClick={() => setEditCredit(!editCredit)}>{t(editCredit ? 'Close' : 'Edit', language)}</button> : null}</div>
-        {editCredit ? <div className="credit-edit"><label>{t('Credit limit', language)}<input value={credit.creditLimit} onChange={(event) => setCredit({ ...credit, creditLimit: event.target.value })} placeholder={t('Not specified', language)}/></label><label>{t('Payment terms (days)', language)}<input value={credit.paymentTermsDays} onChange={(event) => setCredit({ ...credit, paymentTermsDays: event.target.value })} placeholder={t('Not specified', language)}/></label><label className="check-field"><input type="checkbox" checked={credit.creditHold} onChange={(event) => setCredit({ ...credit, creditHold: event.target.checked })}/><span>{t('Credit hold', language)}</span></label><button className="button primary" onClick={saveCredit}>{t('Save changes', language)}</button></div> : <dl className="record-fields"><div><dt>{t('Credit limit', language)}</dt><dd>{customer.creditLimitMinor === null ? t('Not specified', language) : money(customer.creditLimitMinor, customer.defaultCurrency || 'EGP', language)}</dd></div><div><dt>{t('Payment terms', language)}</dt><dd>{customer.paymentTermsDays === null ? t('Not specified', language) : `${customer.paymentTermsDays} ${t('days', language)}`}</dd></div><div><dt>{t('Default currency', language)}</dt><dd>{customer.defaultCurrency || t('Not specified', language)}</dd></div><div><dt>{t('Credit hold', language)}</dt><dd>{t(customer.creditHold ? 'Active' : 'Not active', language)}</dd></div></dl>}
+    {tab === 'overview' ? <div className="customer-detail-grid"><section className="sales-data-panel"><div className="sales-panel-title"><div><h2>{t('Customer information', language)}</h2><p>{t('Contact, registration, and delivery details', language)}</p></div></div><dl className="record-fields"><div><dt>{t('Customer type', language)}</dt><dd>{t(customer.customerType, language)}</dd></div>{taxAccess !== 'HIDDEN' ? <><div><dt>{t('Tax number', language)}</dt><dd>{customer.taxNumber || '—'}</dd></div><div><dt>{t('Registration number', language)}</dt><dd>{customer.registrationNumber || '—'}</dd></div></> : null}<div><dt>{t('Billing address', language)}</dt><dd>{customer.billingAddress || '—'}</dd></div><div><dt>{t('Shipping address', language)}</dt><dd>{customer.shippingAddress || '—'}</dd></div></dl></section>
+      {creditAccess !== 'HIDDEN' || termsAccess !== 'HIDDEN' ? <section className="sales-data-panel credit-panel"><div className="sales-panel-title"><div><h2>{t('Credit and payment', language)}</h2><p>{customer.creditLimitMinor === null ? t('No credit limit configured', language) : t('Configured account terms', language)}</p></div>{creditAccess === 'EDIT' || termsAccess === 'EDIT' ? <button className="row-button" onClick={() => setEditCredit(!editCredit)}>{t(editCredit ? 'Close' : 'Edit', language)}</button> : null}</div>
+        {editCredit ? <div className="credit-edit">{creditAccess !== 'HIDDEN' ? <label>{t('Credit limit', language)}<input value={credit.creditLimit} readOnly={creditAccess !== 'EDIT'} onChange={(event) => setCredit({ ...credit, creditLimit: event.target.value })} placeholder={t('Not specified', language)}/></label> : null}{termsAccess !== 'HIDDEN' ? <label>{t('Payment terms (days)', language)}<input value={credit.paymentTermsDays} readOnly={termsAccess !== 'EDIT'} onChange={(event) => setCredit({ ...credit, paymentTermsDays: event.target.value })} placeholder={t('Not specified', language)}/></label> : null}{creditAccess !== 'HIDDEN' ? <label className="check-field"><input type="checkbox" checked={credit.creditHold} disabled={creditAccess !== 'EDIT'} onChange={(event) => setCredit({ ...credit, creditHold: event.target.checked })}/><span>{t('Credit hold', language)}</span></label> : null}<button className="button primary" onClick={saveCredit}>{t('Save changes', language)}</button></div> : <dl className="record-fields">{creditAccess !== 'HIDDEN' ? <div><dt>{t('Credit limit', language)}</dt><dd>{customer.creditLimitMinor === null ? t('Not specified', language) : money(customer.creditLimitMinor, customer.defaultCurrency || 'EGP', language)}</dd></div> : null}{termsAccess !== 'HIDDEN' ? <div><dt>{t('Payment terms', language)}</dt><dd>{customer.paymentTermsDays === null ? t('Not specified', language) : `${customer.paymentTermsDays} ${t('days', language)}`}</dd></div> : null}<div><dt>{t('Default currency', language)}</dt><dd>{customer.defaultCurrency || t('Not specified', language)}</dd></div>{creditAccess !== 'HIDDEN' ? <div><dt>{t('Credit hold', language)}</dt><dd>{t(customer.creditHold ? 'Active' : 'Not active', language)}</dd></div> : null}</dl>}
       </section> : null}</div> : null}
     {tab === 'quotations' || tab === 'invoices' ? <DocumentRows rows={documents(tab === 'quotations' ? 'QUOTATION' : 'SALES_INVOICE')} language={language}/> : null}
     {tab === 'payments' ? <section className="sales-data-panel"><DocumentRows rows={customer.payments.map((payment: Json) => ({ ...payment, type: payment.kind, documentDate: payment.postingDate, totalMinor: payment.amountMinor, status: 'POSTED', currency: 'EGP' }))} language={language}/></section> : null}
@@ -306,7 +318,7 @@ function AuditTimeline({ rows, language }: { rows: Json[]; language: Language })
 }
 
 export function SalesDocumentsWorkspace({ selectedType, ...props }: SalesWorkspaceProps & { selectedType: string }) {
-  const { refs, request, notify, language } = props;
+  const { refs, request, notify, language, user } = props;
   const searchParams = useSearchParams();
   const [result, setResult] = useState<Json>(null), [page, setPage] = useState(1), [search, setSearch] = useState(''), [status, setStatus] = useState('');
   const [branchId, setBranchId] = useState(''), [salespersonId, setSalespersonId] = useState(''), [currency, setCurrency] = useState('');
@@ -330,9 +342,9 @@ export function SalesDocumentsWorkspace({ selectedType, ...props }: SalesWorkspa
     if (requestedDocument) void openDetail(requestedDocument);
     else if (searchParams.get('new') === '1' && ['QUOTATION', 'SALES_ORDER'].includes(selectedType)) setMode('create');
   }, [searchParams, selectedType, openDetail]);
-  if (mode === 'create') return <QuotationWizard type={selectedType} initialCustomerId={searchParams.get('customer') || undefined} {...props} close={() => setMode('list')} saved={async (document) => { await load(); await openDetail(document.id); }}/>;
+  const directCreate = ['QUOTATION', 'SALES_ORDER'].includes(selectedType) && canAccess(user.permissions, documentPermission(selectedType, 'create'));
+  if (mode === 'create' && directCreate) return <QuotationWizard type={selectedType} initialCustomerId={searchParams.get('customer') || undefined} {...props} close={() => setMode('list')} saved={async (document) => { await load(); await openDetail(document.id); }}/>;
   if (mode === 'detail' && detail) return <SalesDocumentDetail document={detail} {...props} close={() => { setMode('list'); setDetail(null); }} reload={() => openDetail(detail.id)}/>;
-  const directCreate = ['QUOTATION', 'SALES_ORDER'].includes(selectedType);
   return <div className="page sales-v2-page">
     <SalesPageHead title={t(pageNames[selectedType] || selectedType, language)} subtitle={t(selectedType === 'QUOTATION' ? 'Create clear offers, follow approvals, and convert accepted quotations.' : selectedType === 'SALES_INVOICE' ? 'Track issued invoices, due dates, payments, and delivery links.' : 'Review each document and its place in the sales workflow.', language)}>
       {directCreate ? <button data-testid="new-document" className="button primary" onClick={() => setMode('create')}><AppIcon name="add"/>{t(selectedType === 'QUOTATION' ? 'New Quotation' : 'New Sales Order', language)}</button> : <span className="auto-code"><AppIcon name="approve" size={14}/>{t('Created from an approved source document', language)}</span>}
@@ -408,7 +420,7 @@ function QuotationWizard({ type, initialCustomerId, user, refs, request, notify,
     return { item, quantityMilli, unitPriceMinor, gross, subtotal, discount, taxable, tax, total };
   }), [lines, refs.items, fields.taxMode, defaultPrice]);
   const totals = calculations.reduce((sum, line) => ({ subtotal: sum.subtotal + line.subtotal, discount: sum.discount + line.discount, tax: sum.tax + line.tax, total: sum.total + line.total }), { subtotal: 0n, discount: 0n, tax: 0n, total: 0n });
-  const canOverridePrice = user.permissions.includes('*') || user.permissions.includes('prices.override');
+  const canOverridePrice = canAccess(user.permissions, 'sales.price.edit');
   const hasPriceOverride = calculations.some((line, index) => Boolean(lines[index].unitPrice) && line.unitPriceMinor !== fixed(defaultPrice(line.item), 2));
 
   useEffect(() => {
@@ -523,7 +535,7 @@ function QuotationWizard({ type, initialCustomerId, user, refs, request, notify,
       {step === 3 ? <div className="sales-form-section"><div className="section-title"><span>3</span><div><h2>{t('Payment and delivery', language)}</h2><p>{t('Set the currency and the terms the customer will see.', language)}</p></div></div><div className="sales-form-grid">
         <label>{t('Currency', language)}<select aria-label={t('Currency', language)} value={fields.currency} onChange={(event) => setField('currency', event.target.value)}>{refs.currencies.map((entry: Json) => <option key={entry.id} value={entry.code}>{entry.code} · {entry.name}</option>)}</select></label>
         <label>{t('Exchange rate', language)}<div className={`rate-field ${fields.rateSource === 'MISSING' ? 'missing' : ''}`}><input aria-label={t('Exchange rate', language)} value={fields.exchangeRate} readOnly={!fields.manualExchangeRate} onChange={(event) => setField('exchangeRate', event.target.value)}/><StatusBadge value={fields.rateSource === 'MISSING' ? 'REJECTED' : 'APPROVED'} language={language}/></div><small>{fields.currency === baseCurrency ? `1 ${baseCurrency} = 1 ${baseCurrency}` : fields.exchangeRate ? `1 ${fields.currency} = ${fields.exchangeRate} ${baseCurrency}` : t('No exchange rate is available.', language)} · {displayDate(fields.exchangeRateDate, language)}</small></label>
-        {(user.permissions.includes('*') || user.permissions.includes('exchange-rates.override')) && fields.currency !== baseCurrency ? <><label className="check-field wide"><input type="checkbox" aria-label={t('Enable manual rate override', language)} checked={Boolean(fields.manualExchangeRate)} onChange={(event) => setFields((current: Json) => ({ ...current, manualExchangeRate: event.target.checked, rateSource: event.target.checked ? 'MANUAL_OVERRIDE' : current.rateSource }))}/><span><b>{t('Use a manual exchange rate', language)}</b><small>{t('The rate, date, reason, and actor will be written to the audit trail.', language)}</small></span></label>{fields.manualExchangeRate ? <><label>{t('Rate date', language)}<input type="date" value={fields.exchangeRateDate} onChange={(event) => setField('exchangeRateDate', event.target.value)}/></label><label className="wide">{t('Override reason', language)}<input value={fields.exchangeRateOverrideReason} onChange={(event) => setField('exchangeRateOverrideReason', event.target.value)} required/></label></> : null}</> : null}
+        {canAccess(user.permissions, 'sales.exchange_rate.edit') && fields.currency !== baseCurrency ? <><label className="check-field wide"><input type="checkbox" aria-label={t('Enable manual rate override', language)} checked={Boolean(fields.manualExchangeRate)} onChange={(event) => setFields((current: Json) => ({ ...current, manualExchangeRate: event.target.checked, rateSource: event.target.checked ? 'MANUAL_OVERRIDE' : current.rateSource }))}/><span><b>{t('Use a manual exchange rate', language)}</b><small>{t('The rate, date, reason, and actor will be written to the audit trail.', language)}</small></span></label>{fields.manualExchangeRate ? <><label>{t('Rate date', language)}<input type="date" value={fields.exchangeRateDate} onChange={(event) => setField('exchangeRateDate', event.target.value)}/></label><label className="wide">{t('Override reason', language)}<input value={fields.exchangeRateOverrideReason} onChange={(event) => setField('exchangeRateOverrideReason', event.target.value)} required/></label></> : null}</> : null}
         <label className="wide">{t('Payment terms', language)}<input value={fields.paymentTerms} onChange={(event) => setField('paymentTerms', event.target.value)} placeholder={selectedCustomer?.paymentTermsDays ? `${selectedCustomer.paymentTermsDays} ${t('days', language)}` : t('Optional', language)}/></label>
         <label className="wide">{t('Delivery terms', language)}<input value={fields.deliveryTerms} onChange={(event) => setField('deliveryTerms', event.target.value)} placeholder={t('For example: delivery within seven business days', language)}/></label>
         <label className="wide">{t('Notes', language)}<textarea value={fields.notes} onChange={(event) => setField('notes', event.target.value)} placeholder={t('Optional customer-facing notes', language)}/></label>
@@ -533,14 +545,14 @@ function QuotationWizard({ type, initialCustomerId, user, refs, request, notify,
     <aside className="wizard-totals"><label>{t('Currency', language)}<strong>{currencyRecord?.code || fields.currency}</strong></label><dl><div><dt>{t('Subtotal', language)}</dt><dd>{money(totals.subtotal, fields.currency, language)}</dd></div><div><dt>{t('Line discounts', language)}</dt><dd>− {money(totals.discount, fields.currency, language)}</dd></div><div><dt>{t('Tax', language)}</dt><dd>{money(totals.tax, fields.currency, language)}</dd></div><div className="grand"><dt>{t('Grand total', language)}</dt><dd>{money(totals.total, fields.currency, language)}</dd></div></dl><p><AppIcon name="info" size={14}/>{t('Prices and totals are recalculated automatically. The server verifies them again when you save.', language)}</p></aside>
     </div>
     {error ? <p className="sales-form-error" role="alert"><AppIcon name="error" size={15}/>{error}</p> : null}
-    <div className="sales-sticky-actions"><button className="button" onClick={step === 1 ? close : () => setStep((value) => value - 1)}><AppIcon name="undo"/>{t(step === 1 ? 'Cancel' : 'Back', language)}</button><div><button className="button" disabled={busy} onClick={() => persist(false)}><AppIcon name="save"/>{t('Save Draft', language)}</button>{step < 4 ? <button className="button primary" onClick={next}>{t(step === 1 ? 'Continue to Products & Pricing' : step === 2 ? 'Continue to Payment & Delivery' : 'Review Quotation', language)}<AppIcon name="next"/></button> : <button className="button primary" disabled={busy} onClick={() => persist(true)}><AppIcon name="send"/>{busy ? t('Submitting…', language) : t('Submit for Approval', language)}</button>}</div></div>
+    <div className="sales-sticky-actions"><button className="button" onClick={step === 1 ? close : () => setStep((value) => value - 1)}><AppIcon name="undo"/>{t(step === 1 ? 'Cancel' : 'Back', language)}</button><div>{step < 4 || type !== 'QUOTATION' ? <button className="button" disabled={busy} onClick={() => persist(false)}><AppIcon name="save"/>{t('Save Draft', language)}</button> : null}{step < 4 ? <button className="button primary" onClick={next}>{t(step === 1 ? 'Continue to Products & Pricing' : step === 2 ? 'Continue to Payment & Delivery' : 'Review Quotation', language)}<AppIcon name="next"/></button> : type === 'QUOTATION' ? <button className="button primary" disabled={busy} onClick={() => persist(false)}><AppIcon name="save"/>{busy ? t('Saving…', language) : t('Create Quotation', language)}</button> : <button className="button primary" disabled={busy} onClick={() => persist(true)}><AppIcon name="send"/>{busy ? t('Submitting…', language) : t('Submit for Approval', language)}</button>}</div></div>
   </div>;
 }
 
-function SalesDocumentDetail({ document, user, refs, request, authorizedFetch, notify, close, reload, language }: SalesWorkspaceProps & { document: Json; close: () => void; reload: () => Promise<void> }) {
+function SalesDocumentDetail({ document, user, refs, request, authorizedFetch, notify, close, reload, navigate, language }: SalesWorkspaceProps & { document: Json; close: () => void; reload: () => Promise<void> }) {
   const [tab, setTab] = useState('overview'), [busy, setBusy] = useState(''), [reasonAction, setReasonAction] = useState<'reject' | 'request-changes' | 'comment' | ''>(''), [editing, setEditing] = useState(false);
   const [convertTarget, setConvertTarget] = useState('');
-  const allowed = (permission: string) => user.permissions.includes('*') || user.permissions.includes(permission);
+  const allowed = (permission: string) => canAccess(user.permissions, permission);
   const act = async (action: string, body?: Json) => {
     setBusy(action);
     try {
@@ -562,16 +574,20 @@ function SalesDocumentDetail({ document, user, refs, request, authorizedFetch, n
   const lockReason = document.editState?.reason;
   const related = [document.sourceDocument, ...(document.targetDocuments || [])].filter(Boolean);
   const tabs = ['overview', 'items', 'terms', 'approvals', 'related documents', 'activity'];
+  const isSubmitter = String(document.submittedById || '') === String(user.userId || '');
+  const directDraftQuotation = document.type === 'QUOTATION' && document.status === 'DRAFT';
+  const canConvert = ['APPROVED', 'POSTED'].includes(document.status) || directDraftQuotation;
   return <div className="page sales-v2-page record-surface document-detail">
     <SalesPageHead title={document.number} subtitle={`${document.customer?.name || document.supplier?.name || t('Internal', language)} · ${statusLabel(document.status, document.type, language)}`} back={close}>
       <StatusBadge value={document.status} type={document.type} language={language}/>
-      {document.editState?.editable && allowed('quotations.edit') ? <button className="button" onClick={() => setEditing(true)}><AppIcon name="edit"/>{t('Edit', language)}</button> : null}
-      <button className="button" onClick={printPdf}><AppIcon name="print"/>{t('Print / PDF', language)}</button>
-      {document.status === 'DRAFT' && allowed('quotations.submit') ? <button className="button primary" disabled={!!busy} onClick={() => act('submit', { comment: 'Submitted from quotation detail.' })}><AppIcon name="send"/>{t('Submit for Approval', language)}</button> : null}
-      {document.status === 'REJECTED' && allowed('quotations.submit') ? <button className="button primary" disabled={!!busy} onClick={() => act('submit', { comment: 'Changes completed and resubmitted.' })}><AppIcon name="send"/>{t('Resubmit for Approval', language)}</button> : null}
-      {document.status === 'SUBMITTED' && allowed('approvals.read') ? <button className="button" disabled={!!busy} onClick={() => setReasonAction('comment')}><AppIcon name="comment"/>{t('Add Comment', language)}</button> : null}
-      {document.status === 'SUBMITTED' && allowed('approvals.act') ? <><button className="button danger" disabled={!!busy} onClick={() => setReasonAction('reject')}><AppIcon name="rejected"/>{t('Reject', language)}</button><button className="button warning" disabled={!!busy} onClick={() => setReasonAction('request-changes')}><AppIcon name="edit"/>{t('Request Changes', language)}</button><button className="button primary" disabled={!!busy || document.submittedById === user.userId} onClick={() => act('approve', { comment: 'Reviewed and approved.' })}><AppIcon name="approve"/>{t('Approve', language)}</button></> : null}
-      {['APPROVED', 'POSTED'].includes(document.status) && allowed('quotations.convert') ? (SALES_CONVERSIONS[document.type] || []).map((targetType) => <button key={targetType} className="button primary" disabled={!!busy} onClick={() => setConvertTarget(targetType)}><AppIcon name="next"/>{t(`Convert to ${documentTypeName(targetType)}`, language)}</button>) : null}
+      {document.editState?.editable && allowed(documentPermission(document.type, 'edit')) ? <button className="button" onClick={() => setEditing(true)}><AppIcon name="edit"/>{t('Edit', language)}</button> : null}
+      {allowed(documentPermission(document.type, 'print')) ? <button className="button" onClick={printPdf}><AppIcon name="print"/>{t('Print / PDF', language)}</button> : null}
+      {document.status === 'DRAFT' && document.type !== 'QUOTATION' && allowed(documentPermission(document.type, 'edit')) ? <button className="button primary" disabled={!!busy} onClick={() => act('submit', { comment: 'Submitted from sales document detail.' })}><AppIcon name="send"/>{t('Submit for Approval', language)}</button> : null}
+      {document.status === 'REJECTED' && allowed(documentPermission(document.type, 'edit')) ? <button className="button primary" disabled={!!busy} onClick={() => act('submit', { comment: 'Changes completed and resubmitted.' })}><AppIcon name="send"/>{t('Resubmit for Approval', language)}</button> : null}
+      {document.status === 'SUBMITTED' && allowed('approvals.queue.history') ? <button className="button" disabled={!!busy} onClick={() => setReasonAction('comment')}><AppIcon name="comment"/>{t('Add Comment', language)}</button> : null}
+      {document.status === 'SUBMITTED' && allowed(documentPermission(document.type, 'approve')) && !isSubmitter ? <><button className="button danger" disabled={!!busy || !allowed(documentPermission(document.type, 'reject'))} onClick={() => setReasonAction('reject')}><AppIcon name="rejected"/>{t('Reject', language)}</button>{allowed('approvals.queue.edit') ? <button className="button warning" disabled={!!busy} onClick={() => setReasonAction('request-changes')}><AppIcon name="edit"/>{t('Request Changes', language)}</button> : null}<button className="button primary" disabled={!!busy} onClick={() => act('approve', { comment: 'Reviewed and approved.' })}><AppIcon name="approve"/>{t('Approve', language)}</button></> : null}
+      {document.status === 'SUBMITTED' && isSubmitter ? <span data-testid="approval-waiting" className="auto-code"><AppIcon name="pending" size={14}/>{t('Awaiting approval from another authorized user', language)}</span> : null}
+      {canConvert && allowed(documentPermission(document.type, 'convert')) ? (SALES_CONVERSIONS[document.type] || []).filter((targetType) => allowed(documentPermission(targetType, 'create'))).map((targetType) => <button key={targetType} className="button primary" disabled={!!busy} onClick={() => setConvertTarget(targetType)}><AppIcon name="next"/>{t(`Convert to ${documentTypeName(targetType)}`, language)}</button>) : null}
     </SalesPageHead>
     {lockReason ? <div className="document-lock"><AppIcon name="lock" size={15}/><span>{t(lockReason, language)}</span>{document.stockMovements?.length ? <b>{document.stockMovements[0].sourceNumber}</b> : document.journalEntry ? <b>{document.journalEntry.number}</b> : null}</div> : null}
     <section className="record-summary document-summary"><div><span>{t('Customer', language)}</span><strong>{document.customer?.name || '—'}</strong></div><div><span>{t('Salesperson', language)}</span><strong>{document.salesEmployee ? `${document.salesEmployee.name} · ${document.salesEmployee.code}` : '—'}</strong></div><div><span>{t('Branch', language)}</span><strong>{document.branch?.name}</strong></div><div><span>{t('Total', language)}</span><strong>{money(document.totalMinor, document.currency, language)}</strong></div>{document.type === 'SALES_INVOICE' ? <><div><span>{t('Paid', language)}</span><strong>{money(document.paidMinor, document.currency, language)}</strong></div><div><span>{t('Returned', language)}</span><strong>{money(document.returnedMinor, document.currency, language)}</strong></div><div><span>{t('Credited', language)}</span><strong>{money(document.creditedMinor, document.currency, language)}</strong></div><div><span>{t('Net receivable', language)}</span><strong>{money(document.netReceivableMinor, document.currency, language)}</strong></div><div><span>{t('Remaining', language)}</span><strong>{money(document.remainingMinor, document.currency, language)}</strong></div></> : null}<div><span>{t(document.type === 'QUOTATION' ? 'Valid until' : 'Due date', language)}</span><strong>{displayDate(document.dueDate, language)}</strong></div></section>
@@ -583,7 +599,7 @@ function SalesDocumentDetail({ document, user, refs, request, authorizedFetch, n
     {tab === 'related documents' ? <section className="sales-data-panel">{related.length ? <div className="related-documents">{related.map((row: Json) => <div key={row.id}><AppIcon name="pdf"/><span><strong>{row.number}</strong><small>{t(row.type.replaceAll('_', ' '), language)}</small></span><StatusBadge value={row.status} type={row.type} language={language}/></div>)}</div> : <SalesEmpty heading={t('No related documents', language)} text={t('Converted orders, deliveries, invoices, and corrections will appear here.', language)}/>}</section> : null}
     {tab === 'activity' ? <AuditTimeline rows={[...document.approvals.map((row: Json) => ({ ...row, user: row.actor })), ...document.audit]} language={language}/> : null}
     {reasonAction ? <ReasonDialog title={t(reasonAction === 'reject' ? 'Reject this document?' : reasonAction === 'request-changes' ? 'Request changes' : 'Add approval comment', language)} description={t(reasonAction === 'reject' ? 'Provide a reason so the requester understands the decision.' : reasonAction === 'request-changes' ? 'Describe exactly what the requester needs to update.' : 'Add context for the requester and other reviewers.', language)} confirmLabel={t(reasonAction === 'reject' ? 'Reject Document' : reasonAction === 'request-changes' ? 'Send Back for Changes' : 'Add Comment', language)} tone={reasonAction === 'reject' ? 'danger' : 'warning'} language={language} close={() => setReasonAction('')} confirm={(comment) => act(reasonAction, { comment }).then(() => undefined)}/> : null}
-    {convertTarget ? <SalesConversionDialog document={document} targetType={convertTarget} request={request} notify={notify} language={language} close={() => setConvertTarget('')} converted={reload}/> : null}
+    {convertTarget ? <SalesConversionDialog document={document} targetType={convertTarget} request={request} notify={notify} language={language} close={() => setConvertTarget('')} converted={async (target) => navigate(`${SALES_DOCUMENT_ROUTES[target.type]}?document=${target.id}`)}/> : null}
   </div>;
 }
 
@@ -611,7 +627,7 @@ function DocumentEditSurface({ document, user, refs, request, notify, language, 
   const [fields, setFields] = useState({ documentDate: String(document.documentDate).slice(0, 10), dueDate: document.dueDate ? String(document.dueDate).slice(0, 10) : '', paymentTerms: document.paymentTerms || '', notes: document.notes || '', priceOverrideReason: '' });
   const [lines, setLines] = useState(document.lines.map((line: Json) => ({ itemId: line.itemId, description: line.description || '', quantity: decimal(asBigInt(line.quantityMilli), 3), unitPrice: decimal(asBigInt(line.unitPriceMinor)), discount: decimal(asBigInt(line.discountMinor)) })));
   const [busy, setBusy] = useState(false), [error, setError] = useState('');
-  const canOverridePrice = user.permissions.includes('*') || user.permissions.includes('prices.override');
+  const canOverridePrice = canAccess(user.permissions, 'sales.price.edit');
   const update = (index: number, key: string, value: string) => setLines((rows: Json[]) => rows.map((row: Json, rowIndex: number) => rowIndex === index ? { ...row, [key]: value } : row));
   const submit = async (event: FormEvent) => {
     event.preventDefault(); setBusy(true); setError('');
@@ -639,7 +655,7 @@ export function ApprovalWorkspace(props: SalesWorkspaceProps & { pageTitle: stri
   if (!data) return <div className="sales-loading"><div className="spinner"/>{t('Loading approvals…', language)}</div>;
   return <div className="page sales-v2-page"><SalesPageHead title={t(pageTitle, language)} subtitle={t('Review customer documents with the full context, history, and comments.', language)}><span className="queue-count">{data.documents.length} {t('waiting', language)}</span></SalesPageHead>
     <section className="sales-data-panel"><div className="sales-panel-title"><div><h2>{t('Approvals', language)}</h2><p>{t('Submitted customer documents awaiting a decision', language)}</p></div><AppIcon name="approvals"/></div><div className="sales-filter-bar"><label className="sales-search"><AppIcon name="search" size={16}/><input placeholder={t('Search approval queue…', language)}/></label><span className="filter-count">{t('Oldest requests first', language)}</span></div>
-      {data.documents.length ? <div className="table-wrap"><table><thead><tr><th>{t('Document', language)}</th><th>{t('Customer', language)}</th><th>{t('Requested by', language)}</th><th>{t('Approval step', language)}</th><th className="number">{t('Total', language)}</th><th>{t('Submitted', language)}</th><th>{t('Waiting time', language)}</th><th>{t('Status', language)}</th><th></th></tr></thead><tbody>{data.documents.map((document: Json) => <tr key={document.id}><td><button className="sales-link" onClick={() => open(document.id)}>{document.number}</button><br/><span className="muted">{t(document.type.replaceAll('_', ' '), language)}</span></td><td><strong>{document.customer?.name || document.supplier?.name || t('Internal', language)}</strong></td><td>{document.submittedBy?.name}<br/><span className="muted">{document.salesEmployee?.name}</span></td><td>{t('Step 1 · Manager review', language)}</td><td className="number"><strong>{money(document.totalMinor, document.currency, language)}</strong></td><td>{displayDateTime(document.submittedAt, language)}</td><td>{Math.max(1, Math.round((Date.now() - new Date(document.submittedAt).valueOf()) / 3_600_000))}h</td><td><StatusBadge value="SUBMITTED" type={document.type} language={language}/></td><td><button className="button small primary" onClick={() => open(document.id)}>{t('Review', language)}</button></td></tr>)}</tbody></table></div> : <SalesEmpty heading={t('Approval queue is clear', language)} text={t('Submitted quotations and invoices will appear here.', language)}/>}
+      {data.documents.length ? <div className="table-wrap"><table><thead><tr><th>{t('Document', language)}</th><th>{t('Customer', language)}</th><th>{t('Requested by', language)}</th><th>{t('Approval step', language)}</th><th className="number">{t('Total', language)}</th><th>{t('Submitted', language)}</th><th>{t('Waiting time', language)}</th><th>{t('Status', language)}</th><th></th></tr></thead><tbody>{data.documents.map((document: Json) => <tr key={document.id}><td><button className="sales-link" onClick={() => open(document.id)}>{document.number}</button><br/><span className="muted">{t(document.type.replaceAll('_', ' '), language)}</span></td><td><strong>{document.customer?.name || document.supplier?.name || t('Internal', language)}</strong></td><td>{document.submittedBy?.name}<br/><span className="muted">{document.salesEmployee?.name}</span></td><td>{t('Step 1 · Manager review', language)}</td><td className="number"><strong>{money(document.totalMinor, document.currency, language)}</strong></td><td>{displayDateTime(document.submittedAt, language)}</td><td>{Math.max(1, Math.round((Date.now() - new Date(document.submittedAt).valueOf()) / 3_600_000))}h</td><td><StatusBadge value="SUBMITTED" type={document.type} language={language}/></td><td><button className="button small primary" onClick={() => open(document.id)}>{t('Review', language)}</button></td></tr>)}</tbody></table></div> : <SalesEmpty heading={t('Approval queue is clear', language)} text={t('Submitted sales orders and invoices will appear here.', language)}/>}
     </section>
     {data.journals.length ? <section className="sales-data-panel secondary-queue"><div className="sales-panel-title"><div><h2>{t('Journal approvals', language)}</h2><p>{data.journals.length} {t('waiting', language)}</p></div></div><div className="table-wrap"><table><tbody>{data.journals.map((journal: Json) => <tr key={journal.id}><td><strong>{journal.number}</strong></td><td>{journal.description}</td><td>{journal.submittedBy?.name}</td><td><StatusBadge value="SUBMITTED" language={language}/></td></tr>)}</tbody></table></div></section> : null}
   </div>;

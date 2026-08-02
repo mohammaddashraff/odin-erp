@@ -3,6 +3,7 @@ import type { Request, Response } from 'express';
 import PDFDocument from 'pdfkit';
 import { existsSync } from 'node:fs';
 import { Actor, AuthService, publicActor } from './auth';
+import { RequireAnyPermission, RequirePermissions } from './authorization.guard';
 import { ErpService } from './erp.service';
 import { apiLabel, ApiLanguage, apiText, requestLanguage } from './i18n';
 
@@ -59,51 +60,67 @@ export class ErpController {
   bootstrap(@Req() request: AuthRequest) { return this.erp.bootstrap(request.actor); }
 
   @Post('masters/customers')
+  @RequirePermissions('sales.customer.create')
   createCustomer(@Req() request: AuthRequest, @Body() body: any) { return this.erp.createCustomer(request.actor, body); }
 
   @Get('sales/customers')
+  @RequirePermissions('sales.customer.view')
   customers(@Req() request: AuthRequest, @Query() query: any) { return this.erp.listCustomers(request.actor, query); }
 
   @Get('sales/customers/:id')
+  @RequirePermissions('sales.customer.view')
   customer(@Req() request: AuthRequest, @Param('id') customerId: string) { return this.erp.customerDetail(request.actor, id(customerId)); }
 
   @Patch('masters/customers/:id')
+  @RequirePermissions('sales.customer.edit')
   updateCustomer(@Req() request: AuthRequest, @Param('id') customerId: string, @Body() body: any) { return this.erp.updateCustomer(request.actor, id(customerId), body); }
 
   @Post('masters/suppliers')
+  @RequirePermissions('purchasing.supplier.create')
   createSupplier(@Req() request: AuthRequest, @Body() body: any) { return this.erp.createSupplier(request.actor, body); }
 
   @Post('masters/categories')
+  @RequirePermissions('inventory.item.create')
   createCategory(@Req() request: AuthRequest, @Body() body: any) { return this.erp.createCategory(request.actor, body); }
 
   @Post('masters/units')
+  @RequirePermissions('inventory.item.create')
   createUnit(@Req() request: AuthRequest, @Body() body: any) { return this.erp.createUnit(request.actor, body); }
 
   @Post('masters/items')
+  @RequirePermissions('inventory.item.create')
   createItem(@Req() request: AuthRequest, @Body() body: any) { return this.erp.createItem(request.actor, body); }
 
   @Post('masters/warehouses')
+  @RequirePermissions('inventory.warehouse.create')
   createWarehouse(@Req() request: AuthRequest, @Body() body: any) { return this.erp.createWarehouse(request.actor, body); }
 
   @Post('masters/bank-accounts')
+  @RequirePermissions('banking.account.create')
   createBankAccount(@Req() request: AuthRequest, @Body() body: any) { return this.erp.createBankAccount(request.actor, body); }
 
   @Get('dashboard')
+  @RequirePermissions('dashboard.overview.view')
   dashboard(@Req() request: AuthRequest) { return this.erp.dashboard(request.actor); }
 
   @Get('sales/overview')
+  @RequirePermissions('sales.overview.view')
   salesOverview(@Req() request: AuthRequest) { return this.erp.salesOverview(request.actor); }
 
   @Get('sales/documents')
+  @RequireAnyPermission('sales.quotation.view', 'sales.order.view', 'sales.delivery.view', 'sales.invoice.view', 'sales.return.view', 'sales.credit_note.view')
   salesDocuments(@Req() request: AuthRequest, @Query() query: any) { return this.erp.salesDocuments(request.actor, query); }
 
   @Get('references/sales-employees')
+  @RequireAnyPermission('sales.quotation.view', 'sales.quotation.create', 'sales.order.view')
   salesEmployees(@Req() request: AuthRequest, @Query('branchId') branchId?: string) { return this.erp.salesEmployees(request.actor, branchId); }
 
   @Get('hr/employees')
+  @RequirePermissions('hr.employee.view')
   employees(@Req() request: AuthRequest, @Query() query: any) { return this.erp.employees(request.actor, query); }
 
   @Get('exchange-rates')
+  @RequireAnyPermission('sales.quotation.view', 'sales.quotation.create', 'purchasing.order.view')
   exchangeRate(@Req() request: AuthRequest, @Query('currency') currency: string, @Query('date') rateDate?: string) { return this.erp.exchangeRate(request.actor, currency, rateDate); }
 
   @Get('documents')
@@ -140,51 +157,66 @@ export class ErpController {
   postDocument(@Req() request: AuthRequest, @Param('id') documentId: string) { return this.erp.postDocument(request.actor, id(documentId)); }
 
   @Get('payments')
+  @RequireAnyPermission('payments.receipt.view', 'payments.payment.view')
   payments(@Req() request: AuthRequest) { return this.erp.payments(request.actor); }
 
   @Post('payments')
+  @RequireAnyPermission('payments.receipt.create', 'payments.payment.create')
   createPayment(@Req() request: AuthRequest, @Body() body: any) { return this.erp.createPayment(request.actor, body); }
 
   @Get('journals')
+  @RequirePermissions('accounting.journal.view')
   journals(@Req() request: AuthRequest) { return this.erp.journals(request.actor); }
 
   @Post('journals')
+  @RequirePermissions('accounting.journal.create')
   createJournal(@Req() request: AuthRequest, @Body() body: any) { return this.erp.createJournal(request.actor, body); }
 
   @Patch('journals/:id')
+  @RequirePermissions('accounting.journal.edit')
   updateJournal(@Req() request: AuthRequest, @Param('id') journalId: string, @Body() body: any) { return this.erp.updateJournal(request.actor, id(journalId), body); }
 
   @Post('journals/:id/:action')
   journalAction(@Req() request: AuthRequest, @Param('id') journalId: string, @Param('action') action: 'submit' | 'approve' | 'reject' | 'post', @Body() body: any) { return this.erp.journalWorkflow(request.actor, id(journalId), action, body); }
 
   @Post('journals/:id/reverse/create')
+  @RequirePermissions('accounting.journal.create')
   reverseJournal(@Req() request: AuthRequest, @Param('id') journalId: string, @Body() body: any) { return this.erp.reverseJournal(request.actor, id(journalId), body); }
 
   @Patch('periods/:id')
+  @RequirePermissions('accounting.period.manage')
   period(@Req() request: AuthRequest, @Param('id') periodId: string, @Body() body: any) { return this.erp.updatePeriod(request.actor, id(periodId), String(body.status)); }
 
   @Post('periods')
+  @RequirePermissions('accounting.period.manage')
   createPeriod(@Req() request: AuthRequest, @Body() body: any) { return this.erp.createPeriod(request.actor, body); }
 
   @Get('pos')
+  @RequirePermissions('pos.register.view')
   pos(@Req() request: AuthRequest) { return this.erp.posState(request.actor); }
 
   @Post('pos/shifts')
+  @RequirePermissions('pos.shift.create')
   openShift(@Req() request: AuthRequest, @Body() body: any) { return this.erp.openShift(request.actor, body); }
 
   @Post('pos/shifts/:id/close')
+  @RequirePermissions('pos.shift.edit')
   closeShift(@Req() request: AuthRequest, @Param('id') shiftId: string, @Body() body: any) { return this.erp.closeShift(request.actor, id(shiftId), body); }
 
   @Post('pos/sales')
+  @RequirePermissions('pos.sale.create')
   createSale(@Req() request: AuthRequest, @Body() body: any) { return this.erp.createPosSale(request.actor, body); }
 
   @Post('pos/sales/:id/resume')
+  @RequirePermissions('pos.sale.edit')
   resumeSale(@Req() request: AuthRequest, @Param('id') saleId: string, @Body() body: any) { return this.erp.resumePosSale(request.actor, id(saleId), body); }
 
   @Post('pos/sales/:id/return')
+  @RequirePermissions('pos.return.create')
   returnSale(@Req() request: AuthRequest, @Param('id') saleId: string, @Body() body: any) { return this.erp.returnPosSale(request.actor, id(saleId), body); }
 
   @Get('pos/sales/:id/pdf')
+  @RequirePermissions('pos.sale.print')
   async posReceipt(@Req() request: AuthRequest, @Param('id') saleId: string, @Res() response: Response) {
     const sale: any = await this.erp.posSaleDetail(request.actor, id(saleId));
     const language = requestLanguage(request);
@@ -193,30 +225,39 @@ export class ErpController {
   }
 
   @Get('banking')
+  @RequireAnyPermission('banking.account.view', 'banking.transaction.view', 'banking.statement.view')
   banking(@Req() request: AuthRequest) { return this.erp.banking(request.actor); }
 
   @Post('banking/transactions')
+  @RequirePermissions('banking.transaction.create')
   bankTransaction(@Req() request: AuthRequest, @Body() body: any) { return this.erp.createBankTransaction(request.actor, body); }
 
   @Post('banking/statements')
+  @RequirePermissions('banking.statement.create')
   statement(@Req() request: AuthRequest, @Body() body: any) { return this.erp.createStatement(request.actor, body); }
 
   @Post('banking/statement-lines/:id/match')
+  @RequirePermissions('banking.statement.reconcile')
   match(@Req() request: AuthRequest, @Param('id') lineId: string, @Body() body: any) { return this.erp.matchStatementLine(request.actor, id(lineId), id(body.transactionId)); }
 
   @Get('approvals')
+  @RequirePermissions('approvals.queue.view')
   approvals(@Req() request: AuthRequest) { return this.erp.approvals(request.actor); }
 
   @Get('audit')
+  @RequirePermissions('audit.business.view')
   audit(@Req() request: AuthRequest) { return this.erp.auditLog(request.actor); }
 
   @Get('evidence/:reference')
+  @RequireAnyPermission('audit.business.view', 'approvals.queue.history')
   evidence(@Req() request: AuthRequest, @Param('reference') reference: string) { return this.erp.referenceEvidence(request.actor, reference); }
 
   @Get('reports/:name')
+  @RequireAnyPermission('reports.standard.view', 'reports.profitability.view')
   report(@Req() request: AuthRequest, @Param('name') name: string) { return this.erp.report(request.actor, name); }
 
   @Get('reports/:name/csv')
+  @RequireAnyPermission('reports.standard.export', 'reports.profitability.export')
   async reportCsv(@Req() request: AuthRequest, @Param('name') name: string, @Res() response: Response) {
     const report: any = await this.erp.report(request.actor, name);
     const rows = report.rows || [];
@@ -228,12 +269,14 @@ export class ErpController {
   }
 
   @Get('reports/:name/pdf')
+  @RequireAnyPermission('reports.standard.print', 'reports.profitability.print')
   async reportPdf(@Req() request: AuthRequest, @Param('name') name: string, @Res() response: Response) {
     const report: any = await this.erp.report(request.actor, name);
     this.writePdf(response, report.name, report.rows || [], report.totals || {}, `${name}.pdf`, requestLanguage(request));
   }
 
   @Get('documents/:id/pdf')
+  @RequireAnyPermission('sales.quotation.print', 'sales.order.print', 'sales.delivery.print', 'sales.invoice.print', 'sales.return.print', 'sales.credit_note.print', 'purchasing.order.print', 'purchasing.receipt.print', 'purchasing.bill.print')
   async documentPdf(@Req() request: AuthRequest, @Param('id') documentId: string, @Res() response: Response) {
     const document: any = await this.erp.documentDetail(request.actor, id(documentId));
     const language = requestLanguage(request);
@@ -242,6 +285,7 @@ export class ErpController {
   }
 
   @Post('system/reset')
+  @RequirePermissions('settings.system.reset')
   reset(@Req() request: AuthRequest, @Body() body: any) { return this.erp.reset(request.actor, body); }
 
   private writePdf(response: Response, title: string, rows: any[], totals: any, filename: string, language: ApiLanguage = 'en') {
