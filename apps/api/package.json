@@ -47,7 +47,7 @@
     "supertest": "latest",
     "ts-jest": "latest",
     "tsx": "latest",
-    "typescript": "latest"
+    "typescript": "6.0.3"
   },
   "jest": {
     "moduleFileExtensions": ["js", "json", "ts"],
