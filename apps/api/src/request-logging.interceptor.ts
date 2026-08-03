@@ -1,9 +1,8 @@
-import { CallHandler, ExecutionContext, HttpException, Injectable, NestInterceptor, Optional } from '@nestjs/common';
+import { CallHandler, ExecutionContext, HttpException, Injectable, NestInterceptor } from '@nestjs/common';
 import type { Request, Response } from 'express';
 import { randomUUID } from 'node:crypto';
 import { catchError, finalize, Observable, throwError } from 'rxjs';
 import type { Actor } from './auth';
-import { PrismaService } from './prisma.service';
 
 type LoggedRequest = Request & { actor?: Actor };
 
@@ -14,8 +13,6 @@ function requestId(value: unknown) {
 
 @Injectable()
 export class RequestLoggingInterceptor implements NestInterceptor {
-  constructor(@Optional() private readonly db?: PrismaService) {}
-
   intercept(context: ExecutionContext, next: CallHandler): Observable<unknown> {
     if (context.getType() !== 'http') return next.handle();
     const request = context.switchToHttp().getRequest<LoggedRequest>();
@@ -33,21 +30,6 @@ export class RequestLoggingInterceptor implements NestInterceptor {
       finalize(() => {
         const httpError = caughtError instanceof HttpException ? caughtError : null;
         const statusCode = httpError?.getStatus() || (caughtError ? 500 : response.statusCode);
-        if (statusCode === 403 && request.actor) {
-          const errorBody = httpError?.getResponse();
-          const permission = typeof errorBody === 'object' && errorBody && 'permission' in errorBody ? String((errorBody as any).permission || '') : null;
-          void this.db?.admin.accessAuditLog.create({ data: {
-            tenantId: request.actor.tenantId,
-            actorUserId: request.actor.userId,
-            subjectUserId: request.actor.userId,
-            action: 'PERMISSION_DENIED',
-            permissionKey: permission,
-            newValue: { method: request.method, route: String(request.originalUrl || request.url || '').split('?')[0] },
-            ipAddress: request.ip || request.socket.remoteAddress,
-            branchId: request.actor.branchIds[0] ? BigInt(request.actor.branchIds[0]) : undefined,
-            requestId: id,
-          } }).catch((auditError) => console.error(JSON.stringify({ event: 'access_audit_write_failed', requestId: id, message: auditError instanceof Error ? auditError.message : 'Unknown error' })));
-        }
         const entry = {
           timestamp: new Date().toISOString(),
           level: caughtError ? 'error' : 'info',

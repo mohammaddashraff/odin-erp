@@ -26,6 +26,7 @@ export type Actor = {
   warehouseIds: string[];
   employeeId?: string;
   departmentId?: string;
+  sessionId?: string;
 };
 
 export function publicActor(actor: Actor) {
@@ -219,7 +220,13 @@ export function requirePermission(actor: Actor, permission: string) {
   const denied = (normalizedRequested.length ? normalizedRequested : [permission])
     .some((requested) => actor.deniedPermissions.some((candidate) => permissionMatches(candidate, requested)));
   const allowedByLegacyPolicy = !denied && (actor.legacyPermissions.includes('*') || actor.legacyPermissions.includes(permission));
-  if (!allowedByNewPolicy && !allowedByLegacyPolicy) throw new ForbiddenException({ statusCode: 403, error: 'Forbidden', message: 'You do not have permission to perform this action.', permission });
+  if (!allowedByNewPolicy && !allowedByLegacyPolicy) throw new ForbiddenException({
+    statusCode: 403,
+    error: 'Forbidden',
+    message: 'You do not have permission to perform this action.',
+    permission,
+    denial: { reason: denied ? 'EXPLICIT_DENY' : 'MISSING_PERMISSION', requestedAction: permission.split('.').at(-1) },
+  });
 }
 
 export function can(actor: Actor, permission: string) {

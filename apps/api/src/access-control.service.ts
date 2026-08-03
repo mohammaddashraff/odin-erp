@@ -88,7 +88,7 @@ export class AccessControlService {
           branchIds: idStrings(user.branchIds), warehouseIds: idStrings(user.warehouseIds),
         })),
         permissions: permissions.map((permission) => ({ id: permission.id.toString(), key: permission.key, module: permission.module, resource: permission.resource, action: permission.action, description: permission.description })),
-        audit: audit.map((entry) => ({ ...entry, id: entry.id.toString(), tenantId: entry.tenantId.toString(), actorUserId: entry.actorUserId?.toString(), subjectUserId: entry.subjectUserId?.toString(), subjectRoleId: entry.subjectRoleId?.toString(), branchId: entry.branchId?.toString(), actorUser: entry.actorUser && { ...entry.actorUser, id: entry.actorUser.id.toString() }, subjectUser: entry.subjectUser && { ...entry.subjectUser, id: entry.subjectUser.id.toString() }, subjectRole: entry.subjectRole && { ...entry.subjectRole, id: entry.subjectRole.id.toString() } })),
+        audit: audit.map((entry) => ({ ...entry, id: entry.id.toString(), tenantId: entry.tenantId?.toString(), actorUserId: entry.actorUserId?.toString(), subjectUserId: entry.subjectUserId?.toString(), subjectRoleId: entry.subjectRoleId?.toString(), branchId: entry.branchId?.toString(), warehouseId: entry.warehouseId?.toString(), actorUser: entry.actorUser && { ...entry.actorUser, id: entry.actorUser.id.toString() }, subjectUser: entry.subjectUser && { ...entry.subjectUser, id: entry.subjectUser.id.toString() }, subjectRole: entry.subjectRole && { ...entry.subjectRole, id: entry.subjectRole.id.toString() } })),
         configuration: {
           dataScopeResources: DATA_SCOPE_RESOURCES,
           assignableResources: {
