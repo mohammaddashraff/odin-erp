@@ -1,5 +1,7 @@
 import { ForbiddenException, type ExecutionContext } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import type { Actor } from './auth';
 import { can, requirePermission } from './auth';
 import { AuthorizationGuard } from './authorization.guard';
@@ -40,6 +42,17 @@ describe('centralized permission policy', () => {
     expect(normalizePermissions(['quotations.create'])).toContain('sales.quotation.create');
   });
 
+  it('keeps literal controller permission decorators in the registry', () => {
+    const registered = new Set(PERMISSION_REGISTRY.map(({ key }) => key));
+    const controllers = ['erp.controller.ts', 'access-control.controller.ts'];
+    const referenced = controllers.flatMap((file) => {
+      const source = readFileSync(join(__dirname, file), 'utf8');
+      return [...source.matchAll(/@Require(?:AnyPermission|Permissions)\(([^)]*)\)/g)]
+        .flatMap((match) => [...match[1].matchAll(/['"]([^'"]+)['"]/g)].map((permission) => permission[1]));
+    });
+    expect([...new Set(referenced)].filter((permission) => !registered.has(permission))).toEqual([]);
+  });
+
   it('supports exact, module wildcard, and Super Admin grants', () => {
     expect(hasPermission(['sales.quotation.create'], [], 'sales.quotation.create')).toBe(true);
     expect(hasPermission(['sales.*'], [], 'sales.invoice.post')).toBe(true);
@@ -75,10 +88,12 @@ describe('centralized permission policy', () => {
   it('requires the exact report output class instead of any report print grant', async () => {
     const service = new ErpService({} as any);
     jest.spyOn(service, 'report').mockResolvedValue({ name: 'Report', rows: [] } as any);
-    await expect(service.reportOutput(actor({ permissions: ['reports.standard.print', 'reports.profitability.view'] }), 'income-statement', 'print'))
+    await expect(service.reportOutput(actor({ permissions: ['reports.standard.print', 'reports.profitability.view'], dataScopes: [{ resource: 'print', scope: 'ALL' }] }), 'income-statement', 'print'))
       .rejects.toThrow(ForbiddenException);
-    await expect(service.reportOutput(actor({ permissions: ['reports.standard.print', 'reports.standard.view'] }), 'trial-balance', 'print'))
+    await expect(service.reportOutput(actor({ permissions: ['reports.standard.print', 'reports.standard.view'], dataScopes: [{ resource: 'print', scope: 'ALL' }] }), 'trial-balance', 'print'))
       .resolves.toMatchObject({ name: 'Report' });
+    await expect(service.reportOutput(actor({ permissions: ['reports.standard.print', 'reports.standard.view'] }), 'trial-balance', 'print'))
+      .rejects.toThrow(ForbiddenException);
   });
 
   it('requires the target document print key and scopes POS list queries', async () => {
@@ -94,12 +109,12 @@ describe('centralized permission policy', () => {
     };
     const service = new ErpService(db as any);
     jest.spyOn(service, 'documentDetail').mockResolvedValue({ id: '9' } as any);
-    await expect(service.documentOutput(actor({ permissions: ['sales.quotation.print', 'sales.invoice.view'] }), 9n, 'print'))
+    await expect(service.documentOutput(actor({ permissions: ['sales.quotation.print', 'sales.invoice.view'], dataScopes: [{ resource: 'print', scope: 'ALL' }] }), 9n, 'print'))
       .rejects.toThrow(ForbiddenException);
-    await expect(service.documentOutput(actor({ permissions: ['sales.invoice.print', 'sales.invoice.view'] }), 9n, 'print'))
+    await expect(service.documentOutput(actor({ permissions: ['sales.invoice.print', 'sales.invoice.view'], dataScopes: [{ resource: 'print', scope: 'ALL' }] }), 9n, 'print'))
       .resolves.toMatchObject({ id: '9' });
 
-    await service.posState(actor({ permissions: ['pos.register.view'], branchIds: ['4'], warehouseIds: ['7'] }));
+    await service.posState(actor({ permissions: ['pos.register.view'], branchIds: ['4'], warehouseIds: ['7'], dataScopes: [{ resource: 'pos_terminal', scope: 'BRANCH' }] }));
     expect(shiftFindMany).toHaveBeenCalledWith(expect.objectContaining({ where: { branchId: { in: [4n] }, warehouseId: { in: [7n] } } }));
     expect(saleFindMany).toHaveBeenCalledWith(expect.objectContaining({ where: { shift: { branchId: { in: [4n] }, warehouseId: { in: [7n] } } } }));
   });
@@ -136,9 +151,9 @@ describe('centralized permission policy', () => {
     const db = { tenant: async (_tenantId: bigint, work: (tx: any) => Promise<unknown>) => work({ document: { findUnique } }) };
     const service = new ErpService(db as any);
     jest.spyOn(service, 'documentDetail').mockResolvedValue({ id: '15' } as any);
-    await expect(service.documentOutput(actor({ permissions: ['purchasing.order.print', 'purchasing.order.view'] }), 15n, 'print'))
+    await expect(service.documentOutput(actor({ permissions: ['purchasing.order.print', 'purchasing.order.view'], dataScopes: [{ resource: 'print', scope: 'ALL' }] }), 15n, 'print'))
       .resolves.toMatchObject({ id: '15' });
-    await expect(service.documentOutput(actor({ permissions: ['purchasing.purchase_order.print', 'purchasing.order.view'] }), 15n, 'print'))
+    await expect(service.documentOutput(actor({ permissions: ['purchasing.purchase_order.print', 'purchasing.order.view'], dataScopes: [{ resource: 'print', scope: 'ALL' }] }), 15n, 'print'))
       .rejects.toThrow(ForbiddenException);
   });
 });

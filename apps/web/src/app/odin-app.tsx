@@ -165,7 +165,7 @@ function Breadcrumbs({ current, navigate }: { current: ReturnType<typeof routeEn
 }
 
 function Login({ onLogin, sessionMessage, theme, changeTheme, language, changeLanguage }: { onLogin: (result: Json) => void; sessionMessage?: string; theme: string; changeTheme: () => void; language: Language; changeLanguage: () => void }) {
-  const [email, setEmail] = useState('admin@odin.demo'), [password, setPassword] = useState('');
+  const [email, setEmail] = useState(process.env.NEXT_PUBLIC_ODIN_DEMO_MODE === 'true' ? 'admin@odin.demo' : ''), [password, setPassword] = useState('');
   const [rememberMe, setRememberMe] = useState(true), [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState(''), [busy, setBusy] = useState(false);
   const [challenge, setChallenge] = useState<Json>(null), [mfaCode, setMfaCode] = useState(''), [recoveryCode, setRecoveryCode] = useState('');
@@ -197,7 +197,7 @@ function Login({ onLogin, sessionMessage, theme, changeTheme, language, changeLa
       </div></> : <div className="mfa-login-step"><h2>{t(challenge.mfaEnrollmentRequired ? 'Set up multi-factor authentication' : 'Multi-factor authentication', language)}</h2>{challenge.mfaEnrollmentRequired ? <><p>{t('Add this secret to your authenticator app, then store the recovery codes securely.', language)}</p><code dir="ltr">{challenge.secret}</code><details><summary>{t('One-time recovery codes', language)}</summary>{challenge.recoveryCodes.map((code: string) => <code dir="ltr" key={code}>{code}</code>)}</details></> : null}<label>{t('Six-digit authentication code', language)}<input data-testid="mfa-code" inputMode="numeric" pattern="[0-9]{6}" autoComplete="one-time-code" value={mfaCode} onChange={(event) => setMfaCode(event.target.value)} required={!recoveryCode}/></label><label>{t('Recovery code', language)}<input dir="ltr" value={recoveryCode} onChange={(event) => setRecoveryCode(event.target.value)} placeholder={t('Use only if your authenticator is unavailable', language)}/></label></div>}
       <button data-testid="login-submit" className="button primary wide" disabled={busy}>{t(busy ? 'Authenticating…' : challenge ? 'Verify and continue' : 'Enter Odin ERP', language)}<AppIcon name="next"/></button>
       <p className="form-error" role="alert">{error || sessionMessage}</p>
-      {!challenge ? <details className="credential-hint"><summary>{t('Twelve role-based demo profiles', language)}</summary><div><code>admin@odin.demo</code><code>cfo@odin.demo</code><code>finance@odin.demo</code><code>accountant@odin.demo</code><code>auditor@odin.demo</code><code>sales@odin.demo</code><code>sales.employee@odin.demo</code><code>purchasing@odin.demo</code><code>warehouse@odin.demo</code><code>cashier@odin.demo</code><code>hr@odin.demo</code><code>branch@odin.demo</code><p>{t('Password: password', language)}</p></div></details> : null}
+      {!challenge && process.env.NEXT_PUBLIC_ODIN_DEMO_MODE === 'true' ? <details className="credential-hint"><summary>{t('Twelve role-based demo profiles', language)}</summary><div><code>admin@odin.demo</code><code>cfo@odin.demo</code><code>finance@odin.demo</code><code>accountant@odin.demo</code><code>auditor@odin.demo</code><code>sales@odin.demo</code><code>sales.employee@odin.demo</code><code>purchasing@odin.demo</code><code>warehouse@odin.demo</code><code>cashier@odin.demo</code><code>hr@odin.demo</code><code>branch@odin.demo</code><p>{t('Password: password', language)}</p></div></details> : null}
     </form>
   </section>;
 }

@@ -17,6 +17,7 @@
     "db:seed": "npm run db:seed -w @odin/api",
     "db:reset": "npm run db:reset -w @odin/api",
     "integrity": "npm run integrity -w @odin/api",
+    "security:scan": "node scripts/security-scan.mjs",
     "i18n:audit": "node scripts/check-translations.mjs",
     "i18n:review": "node scripts/check-translations.mjs --report"
   },

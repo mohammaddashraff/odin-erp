@@ -1627,6 +1627,7 @@ export class ErpService {
 
   async posState(actor: Actor) {
     requirePermission(actor, 'pos.register.view');
+    if (this.scope(actor, 'pos_terminal') === 'NONE') throw new ForbiddenException('POS terminal is outside your access scope');
     return this.withTenant(actor, async (tx) => {
       const shiftScope: Prisma.PosShiftWhereInput = can(actor, 'system.super_admin') ? {} : {
         branchId: { in: actor.branchIds.map(BigInt) },
@@ -1655,6 +1656,7 @@ export class ErpService {
 
   async openShift(actor: Actor, body: any) {
     requirePermission(actor, 'pos.shift.create');
+    if (this.scope(actor, 'pos_terminal') === 'NONE') throw new ForbiddenException('POS terminal is outside your access scope');
     return this.withTenant(actor, async (tx) => {
       const branchId = BigInt(body.branchId || 0), warehouseId = BigInt(body.warehouseId || 0);
       this.assertBranch(actor, branchId); this.assertWarehouse(actor, warehouseId);
@@ -1834,6 +1836,10 @@ export class ErpService {
   async approvals(actor: Actor) {
     requirePermission(actor, 'approvals.queue.view');
     return this.withTenant(actor, async (tx) => {
+      const queueScope = this.scope(actor, 'approval_queue');
+      const queueRecords: Prisma.DocumentWhereInput = queueScope === 'NONE' ? { id: -1n }
+        : queueScope === 'ASSIGNED' ? { id: { in: this.configuredResourceIds(actor, 'approval_queue') } }
+          : {};
       const branchScope = can(actor, 'system.super_admin') ? {} : { branchId: { in: actor.branchIds.map(BigInt) } };
       const allowedTypes = Object.values(DocumentType).filter((type) => {
         const module = this.documentModule(type);
@@ -1848,7 +1854,7 @@ export class ErpService {
       } : { id: -1n };
       const [documents, journals] = await Promise.all([
         tx.document.findMany({
-        where: { status: WorkflowStatus.SUBMITTED, ...branchScope, ...documentScope },
+        where: { status: WorkflowStatus.SUBMITTED, ...branchScope, ...documentScope, ...queueRecords },
         include: { customer: true, supplier: true, branch: true, salesEmployee: true, createdBy: publicUser, submittedBy: publicUser, lines: { include: { item: true } } },
         orderBy: { submittedAt: 'asc' },
       }),
@@ -2028,10 +2034,12 @@ export class ErpService {
   async reportOutput(actor: Actor, name: string, action: 'export' | 'print') {
     const resource = ['income-statement', 'balance-sheet', 'sales-profitability'].includes(name) ? 'profitability' : 'standard';
     requirePermission(actor, `reports.${resource}.${action}`);
+    if (this.scope(actor, action) === 'NONE') throw new ForbiddenException(`${action} is outside your access scope`);
     return this.report(actor, name);
   }
 
   async documentOutput(actor: Actor, id: bigint, action: 'print' | 'export') {
+    if (this.scope(actor, action) === 'NONE') throw new ForbiddenException(`${action} is outside your access scope`);
     await this.withTenant(actor, async (tx) => {
       const header = await tx.document.findUnique({ where: { id }, select: { type: true } });
       if (!header) throw new NotFoundException('Document not found');

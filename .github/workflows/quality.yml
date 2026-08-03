@@ -37,9 +37,99 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run db:generate
+      - run: npx prisma validate --schema apps/api/prisma/schema.prisma
       - run: npm run db:migrate
       - run: npm run db:seed
       - run: npm run lint
       - run: npm run i18n:audit
       - run: npm test
+      - run: npm run integrity
       - run: npm run build
+
+  security:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      CI: true
+      NEXT_PUBLIC_ODIN_DEMO_MODE: 'false'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run db:generate
+      - run: npx prisma validate --schema apps/api/prisma/schema.prisma
+      - run: npm audit --audit-level=high
+      - run: npm run security:scan
+      - run: npm run build -w @odin/web
+      - run: npm run security:scan
+
+  browser:
+    needs: [verify, security]
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_DB: odin_erp
+          POSTGRES_USER: odin
+          POSTGRES_PASSWORD: odin_local_only
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U odin -d odin_erp"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 12
+    env:
+      CI: true
+      API_ORIGIN: http://127.0.0.1:8081
+      DATABASE_ADMIN_URL: postgresql://odin:odin_local_only@127.0.0.1:5432/odin_erp
+      DATABASE_URL: postgresql://odin_app:odin_app_local_only@127.0.0.1:5432/odin_erp
+      ODIN_TOKEN_SECRET: ci-only-signing-secret-with-at-least-32-characters
+      ODIN_MFA_ENCRYPTION_KEY: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
+      ODIN_ALLOWED_ORIGINS: http://127.0.0.1:8080
+      NEXT_PUBLIC_ODIN_DEMO_MODE: 'true'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run db:generate
+      - run: npm run db:migrate
+      - run: npm run db:seed
+      - run: npm run build
+      - run: npx playwright install --with-deps chromium
+      - name: Start isolated API and web services
+        run: |
+          NODE_ENV=test npm run start:prod -w @odin/api > /tmp/odin-api.log 2>&1 &
+          NODE_ENV=production npm run start -w @odin/web > /tmp/odin-web.log 2>&1 &
+          for attempt in {1..60}; do
+            if curl --fail --silent http://127.0.0.1:8081/api/health >/dev/null && curl --fail --silent http://127.0.0.1:8080/dashboard >/dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          sed -n '1,240p' /tmp/odin-api.log
+          sed -n '1,240p' /tmp/odin-web.log
+          exit 1
+      - run: npx playwright test tests/e2e/odin-ui.spec.ts tests/e2e/localization.spec.ts tests/e2e/access-security.spec.ts --project=chromium
+      - name: Upload browser evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-evidence
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 14
+      - name: Print service logs on failure
+        if: failure()
+        run: |
+          sed -n '1,300p' /tmp/odin-api.log
+          sed -n '1,300p' /tmp/odin-web.log

@@ -13,6 +13,16 @@ async function bootstrap() {
   tokenSigningSecret();
   mfaEncryptionKey();
   const app = await NestFactory.create(AppModule);
+  app.getHttpAdapter().getInstance().disable('x-powered-by');
+  app.use((_request: unknown, response: { setHeader(name: string, value: string): void }, next: () => void) => {
+    response.setHeader('Cache-Control', 'no-store');
+    response.setHeader('Content-Security-Policy', "default-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'");
+    response.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=(), payment=(), usb=()');
+    response.setHeader('Referrer-Policy', 'no-referrer');
+    response.setHeader('X-Content-Type-Options', 'nosniff');
+    response.setHeader('X-Frame-Options', 'DENY');
+    next();
+  });
   const origins = allowedOrigins();
   app.enableCors({
     credentials: true,

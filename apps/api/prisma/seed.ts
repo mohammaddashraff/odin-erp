@@ -4,6 +4,7 @@ import { hash } from 'bcryptjs';
 import { config } from 'dotenv';
 import { resolve } from 'node:path';
 import { enforceTlsVerification } from '../src/database-url';
+import { demoResetEnabled } from '../src/deployment-config';
 import { DATA_SCOPE_RESOURCES, FIELD_REGISTRY, PERMISSION_REGISTRY } from '../src/permissions';
 
 config({ path: resolve(process.cwd(), '.env'), quiet: true });
@@ -94,6 +95,7 @@ const accountData: Array<[string, string, AccountType, string?]> = [
 ];
 
 export async function seed(initiatedBy = 'CLI', targetTenantId?: bigint) {
+  if (!demoResetEnabled()) throw new Error('Demo seed is disabled for production deployments.');
   const adminUrl = process.env.DATABASE_URL_UNPOOLED
     || process.env.POSTGRES_URL_NON_POOLING
     || process.env.DATABASE_ADMIN_URL
@@ -143,6 +145,7 @@ export async function seed(initiatedBy = 'CLI', targetTenantId?: bigint) {
     await db.roleDataScope.createMany({ data: DATA_SCOPE_RESOURCES.map((resource) => {
       let scope = roleScopes[name] || DataScopeType.NONE;
       if (name !== 'Super Admin' && ['company', 'team', 'pos_terminal', 'cost_center', 'project', 'attachment'].includes(resource)) scope = DataScopeType.NONE;
+      if (name === 'POS Cashier' && resource === 'pos_terminal') scope = DataScopeType.BRANCH;
       if (name !== 'Super Admin' && resource === 'supplier') scope = permissions.includes('purchasing.supplier.view') ? DataScopeType.ALL : DataScopeType.NONE;
       if (name !== 'Super Admin' && resource === 'bank_account') scope = permissions.some((key) => key.startsWith('banking.') || key.startsWith('payments.')) ? DataScopeType.ALL : DataScopeType.NONE;
       if (name !== 'Super Admin' && resource === 'account') scope = permissions.some((key) => key.startsWith('accounting.account.') || key === 'banking.transaction.create') ? DataScopeType.ALL : DataScopeType.NONE;
@@ -170,7 +173,15 @@ export async function seed(initiatedBy = 'CLI', targetTenantId?: bigint) {
   const passwordHash = await hash('password', 12);
   const createdUsers = new Map<string, bigint>();
   for (const [email, name, role] of users) {
-    const user = await db.user.create({ data: { tenantId: tenant.id, roleId: roles.get(role)!, email, name, passwordHash, branchIds: [branch.id.toString(), alex.id.toString()], warehouseIds: [main.id.toString(), retail.id.toString(), alexWarehouse.id.toString()] } });
+    const cairoRestricted = ['Branch Manager', 'Purchasing Manager', 'Warehouse Keeper', 'POS Cashier'].includes(role);
+    const roleWarehouseIds = role === 'POS Cashier' ? [retail.id.toString()]
+      : cairoRestricted ? [main.id.toString(), retail.id.toString()]
+        : [main.id.toString(), retail.id.toString(), alexWarehouse.id.toString()];
+    const user = await db.user.create({ data: {
+      tenantId: tenant.id, roleId: roles.get(role)!, email, name, passwordHash,
+      branchIds: cairoRestricted ? [branch.id.toString()] : [branch.id.toString(), alex.id.toString()],
+      warehouseIds: roleWarehouseIds,
+    } });
     createdUsers.set(email, user.id);
   }
   await db.roleDataScope.updateMany({
