@@ -61,7 +61,7 @@ jobs:
       - run: npm ci
       - run: npm run db:generate
       - run: npx prisma validate --schema apps/api/prisma/schema.prisma
-      - run: npm audit --audit-level=high
+      - run: npm run security:audit
       - run: npm run security:scan
       - run: npm run build -w @odin/web
       - run: npm run security:scan
@@ -133,3 +133,65 @@ jobs:
         run: |
           sed -n '1,300p' /tmp/odin-api.log
           sed -n '1,300p' /tmp/odin-web.log
+
+  restore:
+    needs: [verify, security]
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_DB: odin_erp
+          POSTGRES_USER: odin
+          POSTGRES_PASSWORD: odin_local_only
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U odin -d odin_erp"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 12
+    env:
+      CI: true
+      DATABASE_ADMIN_URL: postgresql://odin:odin_local_only@127.0.0.1:5432/odin_erp
+      DATABASE_URL: postgresql://odin_app:odin_app_local_only@127.0.0.1:5432/odin_erp
+      RESTORE_SERVER_URL: postgresql://odin:odin_local_only@127.0.0.1:5432/postgres
+      RESTORE_DATABASE_NAME: odin_restore
+      RESTORE_DATABASE_OWNER: odin
+      RESTORE_DATABASE_URL: postgresql://odin:odin_local_only@127.0.0.1:5432/odin_restore
+      RESTORE_RUNTIME_DATABASE_URL: postgresql://odin_app:odin_app_local_only@127.0.0.1:5432/odin_restore
+      RESTORE_API_PORT: 8099
+      EVIDENCE_DIR: restore-evidence
+      ODIN_TOKEN_SECRET: ci-only-signing-secret-with-at-least-32-characters
+      ODIN_MFA_ENCRYPTION_KEY: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
+      ODIN_ALLOWED_ORIGINS: http://127.0.0.1:8080
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run db:generate
+      - run: npm run db:migrate
+      - run: npm run db:seed
+      - run: npm run build -w @odin/api
+      - name: Install PostgreSQL 17 client
+        run: |
+          sudo install -d -m 0755 /usr/share/postgresql-common/pgdg
+          curl --fail --silent --show-error https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo gpg --dearmor --yes -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.gpg
+          . /etc/os-release
+          echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.gpg] https://apt.postgresql.org/pub/repos/apt ${VERSION_CODENAME}-pgdg main" | sudo tee /etc/apt/sources.list.d/pgdg.list >/dev/null
+          sudo apt-get update
+          sudo apt-get install --yes postgresql-client-17
+          pg_dump --version
+      - name: Execute encrypted clean-database restore drill
+        run: BACKUP_ENCRYPTION_KEY="$(openssl rand -base64 48)" ./scripts/backup-restore-drill.sh
+      - name: Upload restore evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backup-restore-evidence
+          path: restore-evidence/
+          retention-days: 35
