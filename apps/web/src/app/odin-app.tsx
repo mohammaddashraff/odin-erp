@@ -168,9 +168,18 @@ function Login({ onLogin, sessionMessage, theme, changeTheme, language, changeLa
   const [email, setEmail] = useState('admin@odin.demo'), [password, setPassword] = useState('');
   const [rememberMe, setRememberMe] = useState(true), [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState(''), [busy, setBusy] = useState(false);
+  const [challenge, setChallenge] = useState<Json>(null), [mfaCode, setMfaCode] = useState(''), [recoveryCode, setRecoveryCode] = useState('');
   const submit = async (event: FormEvent) => {
     event.preventDefault(); setBusy(true); setError('');
-    try { const response = await fetch(`${API}/auth/login`, { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, password, rememberMe }) }); const result = await response.json(); if (!response.ok) throw new Error(result.message); onLogin(result); }
+    try {
+      const response = challenge
+        ? await fetch(`${API}/auth/mfa/verify`, { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ challengeToken: challenge.challengeToken, code: mfaCode, recoveryCode }) })
+        : await fetch(`${API}/auth/login`, { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, password, rememberMe }) });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.message);
+      if (result.mfaRequired || result.mfaEnrollmentRequired) setChallenge(result);
+      else onLogin(result);
+    }
     catch (reason: any) { setError(localizeError(reason.message || 'Sign in failed', language)); } finally { setBusy(false); }
   };
   return <section className="login-screen">
@@ -180,15 +189,15 @@ function Login({ onLogin, sessionMessage, theme, changeTheme, language, changeLa
       <div className="brand-lockup"><OdinBrandLogo/><span>ODIN <b className="accent">ERP</b></span></div>
       <p className="utility-label">{t('ENTERPRISE RESOURCE PLANNING', language)}</p><h1>{t('Total visibility.', language)}<br/>{t('Complete control.', language)}</h1>
       <p className="login-copy">{t('Complete workflows from one interface, then inspect the resulting ledger, stock, report, permission and audit evidence.', language)}</p>
-      <label>{t('Email', language)}<input data-testid="login-email" type="email" value={email} onChange={(event) => setEmail(event.target.value)} autoComplete="username" required/></label>
+      {!challenge ? <><label>{t('Email', language)}<input data-testid="login-email" type="email" value={email} onChange={(event) => setEmail(event.target.value)} autoComplete="username" required/></label>
       <label>{t('Password', language)}<input data-testid="login-password" type={showPassword ? 'text' : 'password'} value={password} onChange={(event) => setPassword(event.target.value)} autoComplete="current-password" required/></label>
       <div className="login-options">
         <label className="remember-session"><input data-testid="show-password" type="checkbox" checked={showPassword} onChange={(event) => setShowPassword(event.target.checked)}/><span>{t('Show password', language)}</span></label>
         <label className="remember-session"><input type="checkbox" checked={rememberMe} onChange={(event) => setRememberMe(event.target.checked)}/><span>{t('Keep me signed in on this device', language)}</span></label>
-      </div>
-      <button data-testid="login-submit" className="button primary wide" disabled={busy}>{t(busy ? 'Authenticating…' : 'Enter Odin ERP', language)}<AppIcon name="next"/></button>
+      </div></> : <div className="mfa-login-step"><h2>{t(challenge.mfaEnrollmentRequired ? 'Set up multi-factor authentication' : 'Multi-factor authentication', language)}</h2>{challenge.mfaEnrollmentRequired ? <><p>{t('Add this secret to your authenticator app, then store the recovery codes securely.', language)}</p><code dir="ltr">{challenge.secret}</code><details><summary>{t('One-time recovery codes', language)}</summary>{challenge.recoveryCodes.map((code: string) => <code dir="ltr" key={code}>{code}</code>)}</details></> : null}<label>{t('Six-digit authentication code', language)}<input data-testid="mfa-code" inputMode="numeric" pattern="[0-9]{6}" autoComplete="one-time-code" value={mfaCode} onChange={(event) => setMfaCode(event.target.value)} required={!recoveryCode}/></label><label>{t('Recovery code', language)}<input dir="ltr" value={recoveryCode} onChange={(event) => setRecoveryCode(event.target.value)} placeholder={t('Use only if your authenticator is unavailable', language)}/></label></div>}
+      <button data-testid="login-submit" className="button primary wide" disabled={busy}>{t(busy ? 'Authenticating…' : challenge ? 'Verify and continue' : 'Enter Odin ERP', language)}<AppIcon name="next"/></button>
       <p className="form-error" role="alert">{error || sessionMessage}</p>
-      <details className="credential-hint"><summary>{t('Twelve role-based demo profiles', language)}</summary><div><code>admin@odin.demo</code><code>cfo@odin.demo</code><code>finance@odin.demo</code><code>accountant@odin.demo</code><code>auditor@odin.demo</code><code>sales@odin.demo</code><code>sales.employee@odin.demo</code><code>purchasing@odin.demo</code><code>warehouse@odin.demo</code><code>cashier@odin.demo</code><code>hr@odin.demo</code><code>branch@odin.demo</code><p>{t('Password: password', language)}</p></div></details>
+      {!challenge ? <details className="credential-hint"><summary>{t('Twelve role-based demo profiles', language)}</summary><div><code>admin@odin.demo</code><code>cfo@odin.demo</code><code>finance@odin.demo</code><code>accountant@odin.demo</code><code>auditor@odin.demo</code><code>sales@odin.demo</code><code>sales.employee@odin.demo</code><code>purchasing@odin.demo</code><code>warehouse@odin.demo</code><code>cashier@odin.demo</code><code>hr@odin.demo</code><code>branch@odin.demo</code><p>{t('Password: password', language)}</p></div></details> : null}
     </form>
   </section>;
 }

@@ -1,4 +1,4 @@
-import { allowedOrigins, demoResetEnabled, swaggerEnabled, tokenSigningSecret } from './deployment-config';
+import { allowedOrigins, demoResetEnabled, mfaEncryptionKey, privilegedMfaRequired, swaggerEnabled, tokenSigningSecret } from './deployment-config';
 
 describe('Deployment exposure controls', () => {
   it('allows only configured production and preview origins plus the canonical web origin', () => {
@@ -33,5 +33,17 @@ describe('Deployment exposure controls', () => {
     expect(demoResetEnabled({ NODE_ENV: 'development' })).toBe(true);
     expect(demoResetEnabled({ NODE_ENV: 'production' })).toBe(false);
     expect(demoResetEnabled({ NODE_ENV: 'production', ODIN_DEPLOYMENT_MODE: 'demo' })).toBe(true);
+  });
+
+  it('requires a dedicated 32-byte MFA encryption key in production', () => {
+    expect(() => mfaEncryptionKey({ NODE_ENV: 'production', ODIN_TOKEN_SECRET: 'a-unique-production-secret-with-32-chars' })).toThrow(/ODIN_MFA_ENCRYPTION_KEY/);
+    expect(() => mfaEncryptionKey({ NODE_ENV: 'production', ODIN_MFA_ENCRYPTION_KEY: 'too-short' })).toThrow(/32 bytes/);
+    expect(mfaEncryptionKey({ NODE_ENV: 'production', ODIN_MFA_ENCRYPTION_KEY: Buffer.alloc(32, 7).toString('base64') })).toHaveLength(32);
+  });
+
+  it('fails closed on privileged MFA in production and supports explicit pre-production enforcement', () => {
+    expect(privilegedMfaRequired({ NODE_ENV: 'production' })).toBe(true);
+    expect(privilegedMfaRequired({ NODE_ENV: 'test' })).toBe(false);
+    expect(privilegedMfaRequired({ NODE_ENV: 'test', ODIN_REQUIRE_PRIVILEGED_MFA: 'true' })).toBe(true);
   });
 });

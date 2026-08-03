@@ -51,6 +51,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<SessionUser>(null);
   const [sessionMessage, setSessionMessage] = useState('');
   const tokenRef = useRef('');
+  const stepUpTokenRef = useRef('');
 
   const applySession = useCallback((result: SessionPayload) => {
     const accessToken = result.accessToken || result.token;
@@ -148,12 +149,29 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   }, [clearSession]);
 
   const authorizedFetch = useCallback(async (input: RequestInfo | URL, init: RequestInit = {}) => {
-    const execute = (accessToken: string) => fetch(input, {
+    const execute = (accessToken: string, stepUpToken = stepUpTokenRef.current) => fetch(input, {
       ...init,
       credentials: 'same-origin',
-      headers: { ...init.headers, ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}) },
+      headers: { ...init.headers, ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}), ...(stepUpToken ? { 'X-Odin-Step-Up': stepUpToken } : {}) },
     });
     let response = await execute(tokenRef.current);
+    if (response.status === 403) {
+      const denial = await response.clone().json().catch(() => null);
+      if (denial?.denial?.reason === 'STEP_UP_REQUIRED') {
+        const password = window.prompt('Re-enter your password to authorize this protected action.');
+        if (!password) return response;
+        const code = user?.mfaEnabled ? window.prompt('Enter your six-digit MFA code.') || '' : '';
+        const stepUp = await fetch('/api/auth/step-up', {
+          method: 'POST', credentials: 'same-origin',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${tokenRef.current}` },
+          body: JSON.stringify({ password, code }),
+        });
+        if (!stepUp.ok) return stepUp;
+        const result = await stepUp.json();
+        stepUpTokenRef.current = result.stepUpToken;
+        response = await execute(tokenRef.current, result.stepUpToken);
+      }
+    }
     if (response.status !== 401) return response;
     try {
       const refreshed = await refreshAccessToken();
@@ -165,7 +183,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       if (error?.status === 401) clearSession('Your session has expired. Sign in to continue.');
       throw error;
     }
-  }, [applySession, clearSession]);
+  }, [applySession, clearSession, user]);
 
   const establishSession = useCallback((result: SessionPayload) => applySession(result), [applySession]);
 

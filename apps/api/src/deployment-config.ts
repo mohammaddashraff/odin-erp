@@ -25,5 +25,23 @@ export function tokenSigningSecret(environment: NodeJS.ProcessEnv = process.env)
   return configured || localTokenSecret;
 }
 
+export function mfaEncryptionKey(environment: NodeJS.ProcessEnv = process.env) {
+  const configured = String(environment.ODIN_MFA_ENCRYPTION_KEY || '');
+  if (environment.NODE_ENV === 'production' && !configured) {
+    throw new Error('ODIN_MFA_ENCRYPTION_KEY must be a unique 32-byte production key');
+  }
+  if (configured) {
+    const encoding = /^[a-f0-9]{64}$/i.test(configured) ? 'hex' : 'base64';
+    const decoded = Buffer.from(configured, encoding);
+    if (decoded.length !== 32) throw new Error('ODIN_MFA_ENCRYPTION_KEY must decode to exactly 32 bytes');
+    return decoded;
+  }
+  return createHash('sha256').update(`local-mfa:${tokenSigningSecret(environment)}`).digest();
+}
+
+export const privilegedMfaRequired = (environment: NodeJS.ProcessEnv = process.env) =>
+  environment.NODE_ENV === 'production' || String(environment.ODIN_REQUIRE_PRIVILEGED_MFA).toLowerCase() === 'true';
+
 export const demoResetEnabled = (environment: NodeJS.ProcessEnv = process.env) =>
   environment.NODE_ENV !== 'production' || environment.ODIN_DEPLOYMENT_MODE === 'demo';
+import { createHash } from 'node:crypto';

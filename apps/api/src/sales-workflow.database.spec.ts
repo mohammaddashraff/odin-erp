@@ -7,6 +7,7 @@ import { resolve } from 'node:path';
 import { Actor, AuthService } from './auth';
 import { ErpService } from './erp.service';
 import { PrismaService } from './prisma.service';
+import { totpCode } from './mfa-security';
 
 config({ path: resolve(process.cwd(), '../../.env'), quiet: true });
 
@@ -107,6 +108,47 @@ describe('Sales workflow PostgreSQL integration', () => {
         tenantId: tenant.id,
       });
     } finally {
+      await cleanup(tenant.id);
+    }
+  });
+
+  it('enrolls MFA, verifies a login challenge, permits step-up, and revokes every session', async () => {
+    const { tenant, actor } = await fixture('mfa-session');
+    const auth = new AuthService(database);
+    try {
+      const enrollment = await auth.beginMfaEnrollment(actor, 'WorkflowTest2026!');
+      await expect(auth.confirmMfaEnrollment(actor, totpCode(enrollment.secret))).resolves.toMatchObject({ ok: true, reauthenticate: true });
+
+      const challenged = await auth.login(actor.email, 'WorkflowTest2026!', true, { ipAddress: '192.0.2.41', userAgent: 'database-test' });
+      expect(challenged).toMatchObject({ mfaRequired: true });
+      const session = await auth.completeMfaChallenge(challenged.challengeToken, totpCode(enrollment.secret));
+      const verifiedActor = await auth.verifyToken(session.accessToken);
+      expect(verifiedActor).toMatchObject({ userId: actor.userId, tenantId: tenant.id, mfaEnabled: true });
+      expect(verifiedActor.sessionId).toBeTruthy();
+
+      const stepUp = await auth.stepUp(verifiedActor, 'WorkflowTest2026!', totpCode(enrollment.secret));
+      expect(auth.verifyStepUp(stepUp.stepUpToken, verifiedActor)).toBe(true);
+      await expect(auth.completeMfaChallenge(challenged.challengeToken, totpCode(enrollment.secret))).rejects.toThrow(/invalid or expired/i);
+
+      await auth.logoutAll(verifiedActor);
+      await expect(auth.verifyToken(session.accessToken)).rejects.toThrow(UnauthorizedException);
+    } finally {
+      await cleanup(tenant.id);
+    }
+  });
+
+  it('throttles repeated login failures by both account and IP without account enumeration', async () => {
+    const { tenant, user } = await fixture('login-throttle');
+    const auth = new AuthService(database);
+    const context = { ipAddress: `192.0.2.${Number(tenant.id % 200n) + 20}` };
+    try {
+      for (let attempt = 0; attempt < 5; attempt += 1) {
+        await expect(auth.login(user.email, 'definitely-wrong', true, context)).rejects.toThrow('Invalid email or password');
+      }
+      await expect(auth.login(user.email, 'WorkflowTest2026!', true, context)).rejects.toThrow('Invalid email or password');
+      await expect(auth.login(`missing-${tenant.id}@odin.test`, 'definitely-wrong', true, { ipAddress: '198.51.100.77' })).rejects.toThrow('Invalid email or password');
+    } finally {
+      await admin.authThrottle.deleteMany();
       await cleanup(tenant.id);
     }
   });

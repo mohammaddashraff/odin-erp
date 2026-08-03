@@ -6,6 +6,7 @@ import { Actor, AuthService, publicActor } from './auth';
 import { RequireAnyPermission, RequirePermissions } from './authorization.guard';
 import { ErpService } from './erp.service';
 import { apiLabel, ApiLanguage, apiText, requestLanguage } from './i18n';
+import { RequireStepUp } from './step-up.guard';
 
 type AuthRequest = Request & { actor: Actor };
 const id = (value: string) => BigInt(value);
@@ -33,8 +34,20 @@ export class ErpController {
   }
 
   @Post('auth/login')
-  async login(@Body() body: any, @Res({ passthrough: true }) response: Response) {
-    const { refreshToken, refreshExpiresAt, ...session } = await this.auth.login(String(body.email || ''), String(body.password || ''), body.rememberMe !== false);
+  async login(@Req() request: Request, @Body() body: any, @Res({ passthrough: true }) response: Response) {
+    const result: any = await this.auth.login(String(body.email || ''), String(body.password || ''), body.rememberMe !== false, {
+      ipAddress: request.ip || request.socket.remoteAddress,
+      userAgent: String(request.headers['user-agent'] || ''),
+    });
+    if (!result.refreshToken) return result;
+    const { refreshToken, refreshExpiresAt, ...session } = result;
+    response.cookie(refreshCookieName, refreshToken, refreshCookieOptions(refreshExpiresAt || undefined));
+    return session;
+  }
+
+  @Post('auth/mfa/verify')
+  async verifyMfa(@Body() body: any, @Res({ passthrough: true }) response: Response) {
+    const { refreshToken, refreshExpiresAt, ...session } = await this.auth.completeMfaChallenge(String(body.challengeToken || ''), String(body.code || ''), String(body.recoveryCode || ''));
     response.cookie(refreshCookieName, refreshToken, refreshCookieOptions(refreshExpiresAt || undefined));
     return session;
   }
@@ -55,6 +68,31 @@ export class ErpController {
 
   @Get('auth/me')
   me(@Req() request: AuthRequest) { return publicActor(request.actor); }
+
+  @Post('auth/mfa/enroll')
+  beginMfaEnrollment(@Req() request: AuthRequest, @Body() body: any) { return this.auth.beginMfaEnrollment(request.actor, String(body.password || '')); }
+
+  @Post('auth/mfa/enroll/confirm')
+  confirmMfaEnrollment(@Req() request: AuthRequest, @Body() body: any) { return this.auth.confirmMfaEnrollment(request.actor, String(body.code || '')); }
+
+  @Post('auth/step-up')
+  stepUp(@Req() request: AuthRequest, @Body() body: any) { return this.auth.stepUp(request.actor, String(body.password || ''), String(body.code || ''), String(body.recoveryCode || '')); }
+
+  @Post('auth/logout-all')
+  @RequireStepUp()
+  async logoutAll(@Req() request: AuthRequest, @Res({ passthrough: true }) response: Response) {
+    const result = await this.auth.logoutAll(request.actor);
+    response.clearCookie(refreshCookieName, refreshCookieOptions());
+    return result;
+  }
+
+  @Post('auth/change-password')
+  @RequireStepUp()
+  async changePassword(@Req() request: AuthRequest, @Body() body: any, @Res({ passthrough: true }) response: Response) {
+    const result = await this.auth.changePassword(request.actor, String(body.currentPassword || ''), String(body.newPassword || ''));
+    response.clearCookie(refreshCookieName, refreshCookieOptions());
+    return result;
+  }
 
   @Get('bootstrap')
   bootstrap(@Req() request: AuthRequest) { return this.erp.bootstrap(request.actor); }
@@ -185,10 +223,12 @@ export class ErpController {
 
   @Patch('periods/:id')
   @RequirePermissions('accounting.period.manage')
+  @RequireStepUp()
   period(@Req() request: AuthRequest, @Param('id') periodId: string, @Body() body: any) { return this.erp.updatePeriod(request.actor, id(periodId), String(body.status)); }
 
   @Post('periods')
   @RequirePermissions('accounting.period.manage')
+  @RequireStepUp()
   createPeriod(@Req() request: AuthRequest, @Body() body: any) { return this.erp.createPeriod(request.actor, body); }
 
   @Get('pos')
@@ -285,6 +325,7 @@ export class ErpController {
 
   @Post('system/reset')
   @RequirePermissions('settings.system.reset')
+  @RequireStepUp()
   reset(@Req() request: AuthRequest, @Body() body: any) { return this.erp.reset(request.actor, body); }
 
   private writePdf(response: Response, title: string, rows: any[], totals: any, filename: string, language: ApiLanguage = 'en') {

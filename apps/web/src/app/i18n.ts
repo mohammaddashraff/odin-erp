@@ -1102,6 +1102,19 @@ const references: Namespace = {
 };
 
 const permissionsUi: Namespace = {
+  'Set up multi-factor authentication': 'إعداد المصادقة متعددة العوامل',
+  'Multi-factor authentication': 'المصادقة متعددة العوامل',
+  'Add this secret to your authenticator app, then store the recovery codes securely.': 'أضف هذا السر إلى تطبيق المصادقة ثم خزّن رموز الاسترداد بأمان.',
+  'One-time recovery codes': 'رموز الاسترداد للاستخدام مرة واحدة',
+  'Six-digit authentication code': 'رمز المصادقة المكوّن من ستة أرقام',
+  'Recovery code': 'رمز الاسترداد',
+  'Use only if your authenticator is unavailable': 'استخدمه فقط إذا كان تطبيق المصادقة غير متاح',
+  'Verify and continue': 'تحقق وتابع',
+  'MFA enabled': 'المصادقة المتعددة مفعّلة',
+  'MFA required': 'المصادقة المتعددة مطلوبة',
+  'MFA optional': 'المصادقة المتعددة اختيارية',
+  'Require MFA': 'فرض المصادقة متعددة العوامل',
+  'The user must enroll before the next privileged sign-in.': 'يجب على المستخدم التسجيل قبل تسجيل الدخول المميز التالي.',
   'Users & Access': 'المستخدمون والصلاحيات',
   'Manage tenant-scoped roles, permissions, data visibility, sensitive fields, and security evidence.': 'إدارة الأدوار والصلاحيات ونطاق عرض البيانات والحقول الحساسة وسجل الأمان داخل الشركة الحالية.',
   'Users and access sections': 'أقسام المستخدمين والصلاحيات',

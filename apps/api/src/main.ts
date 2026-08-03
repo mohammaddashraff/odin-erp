@@ -5,12 +5,13 @@ import { ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { AppModule } from './app.module';
-import { allowedOrigins, swaggerEnabled, tokenSigningSecret } from './deployment-config';
+import { allowedOrigins, mfaEncryptionKey, swaggerEnabled, tokenSigningSecret } from './deployment-config';
 
 async function bootstrap() {
   config({ path: resolve(process.cwd(), '.env'), quiet: true });
   config({ path: resolve(process.cwd(), '../../.env'), quiet: true });
   tokenSigningSecret();
+  mfaEncryptionKey();
   const app = await NestFactory.create(AppModule);
   const origins = allowedOrigins();
   app.enableCors({

@@ -10,6 +10,7 @@ import { ErpController } from './erp.controller';
 import { ErpService } from './erp.service';
 import { PrismaService } from './prisma.service';
 import { RequestLoggingInterceptor } from './request-logging.interceptor';
+import { StepUpGuard } from './step-up.guard';
 
 @Module({
   controllers: [ErpController, AccessControlController],
@@ -20,6 +21,7 @@ import { RequestLoggingInterceptor } from './request-logging.interceptor';
     CustomerReceivablesService,
     ErpService,
     { provide: APP_GUARD, useClass: AuthGuard },
+    { provide: APP_GUARD, useClass: StepUpGuard },
     { provide: APP_GUARD, useClass: AuthorizationGuard },
     { provide: APP_FILTER, useClass: AuthorizationDenialFilter },
     { provide: APP_INTERCEPTOR, useClass: RequestLoggingInterceptor },

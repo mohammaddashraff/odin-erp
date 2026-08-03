@@ -50,6 +50,18 @@ export class AccessControlService {
     _count: { select: { users: true, additionalUsers: true } },
   } as const;
 
+  private async invalidateRoleSessions(tx: Tx, roleId: bigint) {
+    const users = await tx.user.findMany({
+      where: { OR: [{ roleId }, { additionalRoles: { some: { roleId } } }] },
+      select: { id: true },
+    });
+    const userIds = users.map(({ id }) => id);
+    if (!userIds.length) return;
+    const now = new Date();
+    await tx.user.updateMany({ where: { id: { in: userIds } }, data: { authVersion: { increment: 1 } } });
+    await tx.refreshSession.updateMany({ where: { userId: { in: userIds }, revokedAt: null }, data: { revokedAt: now } });
+  }
+
   private roleView(role: any) {
     return {
       id: role.id.toString(), key: role.key, name: role.name, description: role.description, active: role.active,
@@ -86,6 +98,7 @@ export class AccessControlService {
           additionalRoles: user.additionalRoles.map(({ role }) => ({ id: role.id.toString(), name: role.name })),
           overrides: user.permissionOverrides.map((override) => ({ id: override.id.toString(), permissionKey: override.permission.key, effect: override.effect, reason: override.reason })),
           branchIds: idStrings(user.branchIds), warehouseIds: idStrings(user.warehouseIds),
+          mfaEnabled: user.mfaEnabled, mfaRequired: user.mfaRequired, mfaEnrolledAt: user.mfaEnrolledAt,
         })),
         permissions: permissions.map((permission) => ({ id: permission.id.toString(), key: permission.key, module: permission.module, resource: permission.resource, action: permission.action, description: permission.description })),
         audit: audit.map((entry) => ({ ...entry, id: entry.id.toString(), tenantId: entry.tenantId?.toString(), actorUserId: entry.actorUserId?.toString(), subjectUserId: entry.subjectUserId?.toString(), subjectRoleId: entry.subjectRoleId?.toString(), branchId: entry.branchId?.toString(), warehouseId: entry.warehouseId?.toString(), actorUser: entry.actorUser && { ...entry.actorUser, id: entry.actorUser.id.toString() }, subjectUser: entry.subjectUser && { ...entry.subjectUser, id: entry.subjectUser.id.toString() }, subjectRole: entry.subjectRole && { ...entry.subjectRole, id: entry.subjectRole.id.toString() } })),
@@ -129,6 +142,7 @@ export class AccessControlService {
       if (!name) throw new BadRequestException('Role name is required.');
       await tx.role.update({ where: { id: roleId }, data: { name, description: body.description === undefined ? before.description : String(body.description || '').trim() || null } });
       await this.replaceRolePolicy(tx, actor.tenantId, roleId, body);
+      await this.invalidateRoleSessions(tx, roleId);
       const after = await tx.role.findUniqueOrThrow({ where: { id: roleId }, include: this.roleInclude });
       await this.audit(tx, actor, 'ROLE_UPDATED', context, { subjectRoleId: roleId, previousValue: this.roleView(before), newValue: this.roleView(after) });
       const beforePermissions = new Set(before.permissionAssignments.map(({ permission }) => permission.key));
@@ -218,6 +232,7 @@ export class AccessControlService {
       if (role.key === 'super_admin') throw new ConflictException('The Super Admin role cannot be archived.');
       if (role._count.users + role._count.additionalUsers > 0) throw new ConflictException('Reassign all users before archiving this role.');
       const archived = await tx.role.update({ where: { id: roleId }, data: { active: false, archivedAt: new Date() } });
+      await this.invalidateRoleSessions(tx, roleId);
       await this.audit(tx, actor, 'ROLE_ARCHIVED', context, { subjectRoleId: roleId, previousValue: { active: true }, newValue: { active: false, archivedAt: archived.archivedAt } });
       return { ok: true };
     });
@@ -258,8 +273,10 @@ export class AccessControlService {
       await tx.user.update({ where: { id: userId }, data: {
         roleId: primaryRoleId,
         active: body.active === undefined ? before.active : Boolean(body.active),
+        mfaRequired: body.mfaRequired === undefined ? before.mfaRequired : Boolean(body.mfaRequired),
         branchIds: body.branchIds === undefined ? undefined : json(requestedBranchIds),
         warehouseIds: body.warehouseIds === undefined ? undefined : json(requestedWarehouseIds),
+        authVersion: { increment: 1 },
       } });
       if (Array.isArray(body.additionalRoleIds)) {
         await tx.userRole.deleteMany({ where: { userId } });
@@ -277,6 +294,7 @@ export class AccessControlService {
           reason: String(override.reason || '').trim() || null, createdById: actor.userId,
         })) });
       }
+      await tx.refreshSession.updateMany({ where: { userId, revokedAt: null }, data: { revokedAt: new Date() } });
       const after = await tx.user.findUniqueOrThrow({ where: { id: userId }, include: { role: true, additionalRoles: { include: { role: true } }, permissionOverrides: { include: { permission: true } } } });
       const snapshot = (user: any) => ({ active: user.active, primaryRole: user.role.name, additionalRoles: user.additionalRoles.map((item: any) => item.role.name), overrides: user.permissionOverrides.map((item: any) => ({ permissionKey: item.permission.key, effect: item.effect })) });
       await this.audit(tx, actor, 'USER_ACCESS_UPDATED', context, { subjectUserId: userId, previousValue: snapshot(before), newValue: snapshot(after) });
@@ -293,6 +311,24 @@ export class AccessControlService {
         if (!afterOverrides.has(permissionKey)) await this.audit(tx, actor, 'USER_OVERRIDE_REMOVED', context, { subjectUserId: userId, permissionKey, previousValue: { effect } });
       }
       return { ok: true };
+    });
+  }
+
+  async resetUserMfa(actor: Actor, userId: bigint, reason: string, context: AccessRequestContext) {
+    const normalizedReason = reason.trim();
+    if (normalizedReason.length < 10) throw new BadRequestException('MFA reset requires a specific governance reason.');
+    if (actor.userId === userId) throw new ConflictException('Your own MFA reset requires another privileged administrator.');
+    return this.db.tenant(actor.tenantId, async (tx) => {
+      const user = await tx.user.findFirst({ where: { id: userId } });
+      if (!user) throw new NotFoundException('User not found.');
+      const now = new Date();
+      await tx.user.update({ where: { id: userId }, data: {
+        mfaEnabled: false, mfaSecretEncrypted: null, mfaRecoveryHashes: [], mfaEnrolledAt: null, authVersion: { increment: 1 },
+      } });
+      await tx.mfaChallenge.updateMany({ where: { userId, consumedAt: null }, data: { consumedAt: now } });
+      await tx.refreshSession.updateMany({ where: { userId, revokedAt: null }, data: { revokedAt: now } });
+      await this.audit(tx, actor, 'MFA_RESET', context, { subjectUserId: userId, previousValue: { mfaEnabled: user.mfaEnabled }, newValue: { mfaEnabled: false, reason: normalizedReason } });
+      return { ok: true, sessionsRevoked: true };
     });
   }
 }
