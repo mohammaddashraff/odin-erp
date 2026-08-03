@@ -259,7 +259,7 @@ export class ErpController {
   @Get('reports/:name/csv')
   @RequireAnyPermission('reports.standard.export', 'reports.profitability.export')
   async reportCsv(@Req() request: AuthRequest, @Param('name') name: string, @Res() response: Response) {
-    const report: any = await this.erp.report(request.actor, name);
+    const report: any = await this.erp.reportOutput(request.actor, name, 'export');
     const rows = report.rows || [];
     const headers: string[] = [...new Set<string>(rows.flatMap((row: any) => Object.keys(row)).filter((key: string) => typeof rows.find((row: any) => row[key] !== undefined)?.[key] !== 'object'))];
     const language = requestLanguage(request);
@@ -271,14 +271,13 @@ export class ErpController {
   @Get('reports/:name/pdf')
   @RequireAnyPermission('reports.standard.print', 'reports.profitability.print')
   async reportPdf(@Req() request: AuthRequest, @Param('name') name: string, @Res() response: Response) {
-    const report: any = await this.erp.report(request.actor, name);
+    const report: any = await this.erp.reportOutput(request.actor, name, 'print');
     this.writePdf(response, report.name, report.rows || [], report.totals || {}, `${name}.pdf`, requestLanguage(request));
   }
 
   @Get('documents/:id/pdf')
-  @RequireAnyPermission('sales.quotation.print', 'sales.order.print', 'sales.delivery.print', 'sales.invoice.print', 'sales.return.print', 'sales.credit_note.print', 'purchasing.order.print', 'purchasing.receipt.print', 'purchasing.bill.print')
   async documentPdf(@Req() request: AuthRequest, @Param('id') documentId: string, @Res() response: Response) {
-    const document: any = await this.erp.documentDetail(request.actor, id(documentId));
+    const document: any = await this.erp.documentOutput(request.actor, id(documentId), 'print');
     const language = requestLanguage(request);
     const rows = document.lines.map((line: any) => ({ sku: line.item.sku, item: language === 'ar' && line.item.nameAr && line.item.nameAr !== line.item.name ? line.item.nameAr : apiText(line.item.name, language), quantityMilli: line.quantityMilli, unitPriceMinor: line.unitPriceMinor, taxMinor: line.taxMinor, totalMinor: line.totalMinor }));
     this.writePdf(response, `${document.type} ${document.number}`, rows, { party: document.customer?.name || document.supplier?.name || 'Internal', documentDate: document.documentDate, subtotalMinor: document.subtotalMinor, discountMinor: document.discountMinor, taxMinor: document.taxMinor, totalMinor: document.totalMinor, status: document.status }, `${document.number}.pdf`, language);

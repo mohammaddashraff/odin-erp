@@ -1,0 +1,45 @@
+name: Quality gate
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_DB: odin_erp
+          POSTGRES_USER: odin
+          POSTGRES_PASSWORD: odin_local_only
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U odin -d odin_erp"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 12
+    env:
+      CI: true
+      DATABASE_ADMIN_URL: postgresql://odin:odin_local_only@127.0.0.1:5432/odin_erp
+      DATABASE_URL: postgresql://odin_app:odin_app_local_only@127.0.0.1:5432/odin_erp
+      ODIN_TOKEN_SECRET: ci-only-signing-secret-with-at-least-32-characters
+      ODIN_ALLOWED_ORIGINS: http://127.0.0.1:8080
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run db:generate
+      - run: npm run db:migrate
+      - run: npm run db:seed
+      - run: npm run lint
+      - run: npm run i18n:audit
+      - run: npm test
+      - run: npm run build

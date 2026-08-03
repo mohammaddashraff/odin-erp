@@ -48,7 +48,7 @@ describe('Customer receivable settlement', () => {
     ['full credit note', invoice(), [correction(DocumentType.CREDIT_NOTE, 10_000n)], { remainingMinor: 0n, paymentStatus: 'CREDITED' }],
     ['return and credit note', invoice({ paidMinor: 2_000n }), [correction(DocumentType.SALES_RETURN, 3_000n), correction(DocumentType.CREDIT_NOTE, 5_000n)], { remainingMinor: 0n, paymentStatus: 'PAID' }],
   ])('calculates an invoice that is %s', (_name, source, corrections, expected) => {
-    expect(invoiceSettlement(source, corrections)).toMatchObject(expected);
+    expect(invoiceSettlement(source, corrections, new Date('2026-07-15T12:00:00.000Z'))).toMatchObject(expected);
   });
 
   it('ignores draft, rejected, cancelled, and unrelated corrections', () => {

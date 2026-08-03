@@ -8,6 +8,7 @@ import { Actor, can, requirePermission } from './auth';
 import { CustomerReceivablesService, receivableBaseMinor, receivableJournalAmounts } from './customer-receivables';
 import { money, parseFixed, quantity, roundDiv, serialize } from './money';
 import { PrismaService } from './prisma.service';
+import { demoResetEnabled } from './deployment-config';
 import { normalizePermissions } from './permissions';
 import { seed } from '../prisma/seed';
 
@@ -1592,10 +1593,16 @@ export class ErpService {
 
   async posState(actor: Actor) {
     requirePermission(actor, 'pos.register.view');
-    return this.withTenant(actor, async (tx) => ({
-      shifts: await tx.posShift.findMany({ include: { openedBy: publicUser, closedBy: publicUser, _count: { select: { sales: true } } }, orderBy: { openedAt: 'desc' }, take: 30 }),
-      sales: await tx.posSale.findMany({ include: { lines: { include: { item: true } }, tenders: true, shift: true, journalEntry: true }, orderBy: { createdAt: 'desc' }, take: 100 }),
-    }));
+    return this.withTenant(actor, async (tx) => {
+      const shiftScope: Prisma.PosShiftWhereInput = can(actor, 'system.super_admin') ? {} : {
+        branchId: { in: actor.branchIds.map(BigInt) },
+        warehouseId: { in: actor.warehouseIds.map(BigInt) },
+      };
+      return {
+        shifts: await tx.posShift.findMany({ where: shiftScope, include: { openedBy: publicUser, closedBy: publicUser, _count: { select: { sales: true } } }, orderBy: { openedAt: 'desc' }, take: 30 }),
+        sales: await tx.posSale.findMany({ where: { shift: shiftScope }, include: { lines: { include: { item: true } }, tenders: true, shift: true, journalEntry: true }, orderBy: { createdAt: 'desc' }, take: 100 }),
+      };
+    });
   }
 
   async posSaleDetail(actor: Actor, id: bigint) {
@@ -1607,6 +1614,7 @@ export class ErpService {
       } });
       if (!sale) throw new NotFoundException('POS sale not found');
       this.assertBranch(actor, sale.shift.branchId);
+      this.assertWarehouse(actor, sale.shift.warehouseId);
       return sale;
     });
   }
@@ -1660,8 +1668,9 @@ export class ErpService {
   async resumePosSale(actor: Actor, id: bigint, body: any) {
     requirePermission(actor, 'pos.sale.edit');
     return this.withTenant(actor, async (tx) => {
-      const sale = await tx.posSale.findUnique({ where: { id }, include: { tenders: true } });
+      const sale = await tx.posSale.findUnique({ where: { id }, include: { tenders: true, shift: true } });
       if (!sale || sale.status !== PosSaleStatus.HELD) throw new BadRequestException('Held sale not found');
+      this.assertBranch(actor, sale.shift.branchId); this.assertWarehouse(actor, sale.shift.warehouseId);
       const tenders = body.tenders.map((tender: any) => ({ tenantId: actor.tenantId, saleId: id, method: tender.method as PaymentMethod, amountMinor: money(tender.amount), reference: tender.reference || null }));
       if (tenders.reduce((sum: bigint, tender: any) => sum + tender.amountMinor, 0n) !== sale.totalMinor) throw new BadRequestException('Split tender total must exactly equal sale total');
       await tx.posTender.deleteMany({ where: { saleId: id } }); await tx.posTender.createMany({ data: tenders });
@@ -1690,6 +1699,7 @@ export class ErpService {
     return this.withTenant(actor, async (tx) => {
       const original = await tx.posSale.findUnique({ where: { id }, include: { lines: true, tenders: true, shift: true } });
       if (!original || original.status !== PosSaleStatus.COMPLETED) throw new BadRequestException('Only a completed sale can be returned');
+      this.assertBranch(actor, original.shift.branchId); this.assertWarehouse(actor, original.shift.warehouseId);
       const number = await this.sequence(tx, actor, original.shift.branchId, 'POS_RETURN', new Date());
       let cost = 0n;
       for (const line of original.lines) {
@@ -1709,6 +1719,7 @@ export class ErpService {
     return this.withTenant(actor, async (tx) => {
       const shift = await tx.posShift.findUnique({ where: { id } });
       if (!shift || shift.status !== PosShiftStatus.OPEN) throw new BadRequestException('Open shift not found');
+      this.assertBranch(actor, shift.branchId); this.assertWarehouse(actor, shift.warehouseId);
       const actual = money(body.actualCash, 'actual cash'), difference = actual - shift.expectedCashMinor;
       let journal = null;
       if (difference !== 0n) journal = await this.postedJournal(tx, actor, { branchId: shift.branchId, date: new Date(), description: `Cash count difference ${shift.registerCode}`, module: 'POS', sourceType: 'POS_SHIFT_CLOSE', sourceId: shift.id, sourceNumber: shift.registerCode, lines: difference > 0n ? [{ code: '1000', debit: difference, description: 'Cash over' }, { code: '5200', credit: difference, description: 'Cash over' }] : [{ code: '5200', debit: -difference, description: 'Cash short' }, { code: '1000', credit: -difference, description: 'Cash short' }] });
@@ -1788,9 +1799,15 @@ export class ErpService {
         const resource = this.documentResource(type);
         return can(actor, `${module}.${resource}.view`) && (can(actor, `${module}.${resource}.approve`) || can(actor, `${module}.${resource}.reject`));
       });
+      const documentScope: Prisma.DocumentWhereInput = allowedTypes.length ? {
+        OR: allowedTypes.map((type) => ({
+          type,
+          ...this.documentScope(actor, this.documentResource(type), this.documentModule(type)),
+        })),
+      } : { id: -1n };
       const [documents, journals] = await Promise.all([
         tx.document.findMany({
-        where: { status: WorkflowStatus.SUBMITTED, type: { in: allowedTypes }, ...(can(actor, 'system.super_admin') ? {} : { branchId: { in: actor.branchIds.map(BigInt) } }) },
+        where: { status: WorkflowStatus.SUBMITTED, ...branchScope, ...documentScope },
         include: { customer: true, supplier: true, branch: true, salesEmployee: true, createdBy: publicUser, submittedBy: publicUser, lines: { include: { item: true } } },
         orderBy: { submittedAt: 'asc' },
       }),
@@ -1819,14 +1836,14 @@ export class ErpService {
         : null;
       if (document) {
         const stockMovements = await tx.stockMovement.findMany({ where: { sourceNumber: reference }, include: { item: true, warehouse: true } });
-        return { kind: 'DOCUMENT', reference, status: document.status, description: `${document.type} · ${document.customer?.name || document.supplier?.name || 'Internal'}`, totalMinor: document.totalMinor, lines: document.lines.map((line: any) => `${line.item.sku} × ${line.quantityMilli}`), journal: document.journalEntry?.number || null, stockMovements: stockMovements.map((move) => `${move.item.sku} · ${move.warehouse.name} · in ${move.quantityInMilli} · out ${move.quantityOutMilli}`) };
+        return { kind: 'DOCUMENT', reference, status: document.status, description: `${document.type} · ${document.customer?.name || document.supplier?.name || 'Internal'}`, totalMinor: document.totalMinor, lines: document.lines.map((line: any) => `${line.item.sku} × ${line.quantityMilli}`), journal: this.fieldAccess(actor, 'journal', 'lines') === 'HIDDEN' ? null : document.journalEntry?.number || null, stockMovements: stockMovements.map((move) => `${move.item.sku} · ${move.warehouse.name} · in ${move.quantityInMilli} · out ${move.quantityOutMilli}`) };
       }
-      const journal = can(actor, 'accounting.journal.view') ? await tx.journalEntry.findFirst({ where: { number: reference, ...this.journalScope(actor) }, include: { lines: { include: { account: true } }, reversesEntry: true, reversedBy: true } }) : null;
+      const journal = can(actor, 'accounting.journal.view') && this.fieldAccess(actor, 'journal', 'lines') !== 'HIDDEN' ? await tx.journalEntry.findFirst({ where: { number: reference, ...this.journalScope(actor) }, include: { lines: { include: { account: true } }, reversesEntry: true, reversedBy: true } }) : null;
       if (journal) return { kind: 'JOURNAL', reference, status: journal.status, description: journal.description, source: journal.sourceNumber, reverses: journal.reversesEntry?.number || null, reversedBy: journal.reversedBy?.number || null, lines: journal.lines.map((line) => `${line.account.code} ${line.account.name} · Dr ${line.debitMinor} · Cr ${line.creditMinor}`) };
       const payment = can(actor, 'payments.receipt.view') || can(actor, 'payments.payment.view') ? await tx.payment.findFirst({ where: { number: reference, journalEntry: this.journalScope(actor) }, include: { journalEntry: true, customer: true, supplier: true, allocations: { include: { document: true } } } }) : null;
-      if (payment) return { kind: 'PAYMENT', reference, status: 'POSTED', description: `${payment.kind} · ${payment.customer?.name || payment.supplier?.name}`, totalMinor: payment.amountMinor, journal: payment.journalEntry.number, lines: payment.allocations.map((allocation) => `${allocation.document.number} · ${allocation.amountMinor}`) };
-      const pos = can(actor, 'pos.sale.view') ? await tx.posSale.findFirst({ where: { number: reference, ...(can(actor, 'system.super_admin') ? {} : { branchId: { in: actor.branchIds.map(BigInt) } }) }, include: { journalEntry: true, lines: { include: { item: true } } } }) : null;
-      if (pos) return { kind: 'POS_SALE', reference, status: pos.status, description: 'Point-of-sale transaction', totalMinor: pos.totalMinor, journal: pos.journalEntry?.number || null, lines: pos.lines.map((line) => `${line.item.sku} × ${line.quantityMilli}`) };
+      if (payment) return { kind: 'PAYMENT', reference, status: 'POSTED', description: `${payment.kind} · ${payment.customer?.name || payment.supplier?.name}`, totalMinor: payment.amountMinor, journal: this.fieldAccess(actor, 'journal', 'lines') === 'HIDDEN' ? null : payment.journalEntry.number, lines: payment.allocations.map((allocation) => `${allocation.document.number} · ${allocation.amountMinor}`) };
+      const pos = can(actor, 'pos.sale.view') ? await tx.posSale.findFirst({ where: { number: reference, ...(can(actor, 'system.super_admin') ? {} : { shift: { branchId: { in: actor.branchIds.map(BigInt) }, warehouseId: { in: actor.warehouseIds.map(BigInt) } } }) }, include: { journalEntry: true, lines: { include: { item: true } } } }) : null;
+      if (pos) return { kind: 'POS_SALE', reference, status: pos.status, description: 'Point-of-sale transaction', totalMinor: pos.totalMinor, journal: this.fieldAccess(actor, 'journal', 'lines') === 'HIDDEN' ? null : pos.journalEntry?.number || null, lines: pos.lines.map((line) => `${line.item.sku} × ${line.quantityMilli}`) };
       throw new NotFoundException('Referenced source document or journal was not found');
     });
   }
@@ -1966,6 +1983,22 @@ export class ErpService {
     });
   }
 
+  async reportOutput(actor: Actor, name: string, action: 'export' | 'print') {
+    const resource = ['income-statement', 'balance-sheet', 'sales-profitability'].includes(name) ? 'profitability' : 'standard';
+    requirePermission(actor, `reports.${resource}.${action}`);
+    return this.report(actor, name);
+  }
+
+  async documentOutput(actor: Actor, id: bigint, action: 'print' | 'export') {
+    await this.withTenant(actor, async (tx) => {
+      const header = await tx.document.findUnique({ where: { id }, select: { type: true } });
+      if (!header) throw new NotFoundException('Document not found');
+      this.requireDocumentPermission(actor, header.type, action);
+      return true;
+    });
+    return this.documentDetail(actor, id);
+  }
+
   async dashboard(actor: Actor) {
     requirePermission(actor, 'dashboard.overview.view');
     return this.withTenant(actor, async (tx) => {
@@ -2024,6 +2057,7 @@ export class ErpService {
 
   async reset(actor: Actor, body: any) {
     requirePermission(actor, 'settings.system.reset');
+    if (!demoResetEnabled()) throw new ForbiddenException('Tenant demo reset is disabled in this deployment.');
     if (body.confirmation !== 'RESET ODIN') throw new BadRequestException('Type RESET ODIN to confirm');
     const user = await this.db.admin.user.findUnique({ where: { id: actor.userId } });
     if (!user || !(await compare(String(body.password || ''), user.passwordHash))) throw new ForbiddenException('Administrator password is incorrect');

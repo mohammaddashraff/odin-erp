@@ -4,8 +4,9 @@
   "private": true,
   "scripts": {
     "dev": "nest start --watch",
-    "prebuild": "prisma generate && prisma migrate deploy && tsx prisma/bootstrap.ts",
+    "prebuild": "prisma generate",
     "build": "nest build",
+    "release:migrate": "prisma migrate deploy && tsx prisma/bootstrap.ts",
     "start:prod": "node dist/src/main.js",
     "lint": "tsc --noEmit",
     "test": "jest --runInBand",

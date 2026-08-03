@@ -1,4 +1,5 @@
 const canonicalStagingOrigin = 'https://odin-erp-web.vercel.app';
+const localTokenSecret = 'odin-local-demo-secret-change-before-production';
 
 export function allowedOrigins(environment: NodeJS.ProcessEnv = process.env) {
   const configured = String(environment.ODIN_ALLOWED_ORIGINS || '')
@@ -15,3 +16,14 @@ export function allowedOrigins(environment: NodeJS.ProcessEnv = process.env) {
 
 export const swaggerEnabled = (environment: NodeJS.ProcessEnv = process.env) =>
   String(environment.ENABLE_SWAGGER).toLowerCase() === 'true';
+
+export function tokenSigningSecret(environment: NodeJS.ProcessEnv = process.env) {
+  const configured = String(environment.ODIN_TOKEN_SECRET || '');
+  if (environment.NODE_ENV === 'production' && (configured.length < 32 || configured === localTokenSecret)) {
+    throw new Error('ODIN_TOKEN_SECRET must be a unique production secret of at least 32 characters');
+  }
+  return configured || localTokenSecret;
+}
+
+export const demoResetEnabled = (environment: NodeJS.ProcessEnv = process.env) =>
+  environment.NODE_ENV !== 'production' || environment.ODIN_DEPLOYMENT_MODE === 'demo';

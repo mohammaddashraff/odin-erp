@@ -7,6 +7,7 @@
   "scripts": {
     "dev": "concurrently -k -n api,web -c blue,cyan \"npm run dev -w @odin/api\" \"npm run dev -w @odin/web\"",
     "build": "npm run build -w @odin/api && npm run build -w @odin/web",
+    "release:migrate": "npm run release:migrate -w @odin/api",
     "start": "concurrently -k -n api,web -c blue,cyan \"npm run start:prod -w @odin/api\" \"npm run start -w @odin/web\"",
     "lint": "npm run lint -w @odin/api && npm run lint -w @odin/web",
     "test": "npm run test -w @odin/api",

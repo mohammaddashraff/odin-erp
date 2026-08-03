@@ -3,6 +3,7 @@ import { compare } from 'bcryptjs';
 import { createHash, randomBytes } from 'node:crypto';
 import { sign, verify, type SignOptions } from 'jsonwebtoken';
 import { PrismaService } from './prisma.service';
+import { tokenSigningSecret } from './deployment-config';
 import { hasPermission, normalizePermissions, permissionMatches } from './permissions';
 
 export type EffectiveDataScope = { resource: string; scope: 'OWN' | 'ASSIGNED' | 'TEAM' | 'BRANCH' | 'WAREHOUSE' | 'DEPARTMENT' | 'ALL'; config?: unknown };
@@ -97,7 +98,7 @@ export class AuthService {
   } as const;
 
   private accessToken(actor: Actor, resetVersion: number) {
-    const secret = process.env.ODIN_TOKEN_SECRET || 'odin-local-demo-secret-change-before-production';
+    const secret = tokenSigningSecret();
     const expiresIn = (process.env.ODIN_ACCESS_TOKEN_TTL || '15m') as SignOptions['expiresIn'];
     return sign({ ...publicActor(actor), resetVersion }, secret, { expiresIn });
   }
@@ -188,7 +189,7 @@ export class AuthService {
   }
 
   async verifyToken(token: string): Promise<Actor> {
-    const secret = process.env.ODIN_TOKEN_SECRET || 'odin-local-demo-secret-change-before-production';
+    const secret = tokenSigningSecret();
     let payload: any;
     try { payload = verify(token, secret); } catch { throw new UnauthorizedException('Session expired or invalid'); }
     const user = await this.db.admin.user.findUnique({ where: { id: BigInt(payload.userId) }, include: this.userInclude });
