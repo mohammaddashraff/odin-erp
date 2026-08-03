@@ -148,7 +148,15 @@ export const FIELD_REGISTRY = [
   ['journal', 'lines', 'Journal entry details'], ['party', 'taxNumber', 'Tax information'],
 ] as const;
 
-export const DATA_SCOPE_RESOURCES = ['customer', 'quotation', 'order', 'delivery', 'invoice', 'return', 'supplier', 'purchase_order', 'warehouse', 'journal', 'employee', 'report'] as const;
+export const DATA_SCOPE_RESOURCES = [
+  'company', 'branch', 'warehouse', 'department', 'team',
+  'customer', 'supplier', 'employee', 'salesperson',
+  'quotation', 'order', 'delivery', 'invoice', 'return', 'credit_note',
+  'purchase_request', 'rfq', 'purchase_order', 'receipt', 'bill', 'purchase_return',
+  'transfer', 'adjustment', 'stock_count',
+  'pos_terminal', 'bank_account', 'account', 'cost_center', 'project',
+  'journal', 'approval_queue', 'report', 'export', 'print', 'attachment',
+] as const;
 
 export const LIMIT_REGISTRY = [
   { key: 'sales.discount_percent', description: 'Maximum sales discount percentage', unit: 'percent' },

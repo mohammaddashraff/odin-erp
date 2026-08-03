@@ -98,6 +98,7 @@ enum PermissionOverrideEffect {
 }
 
 enum DataScopeType {
+  NONE
   OWN
   ASSIGNED
   TEAM

@@ -6,7 +6,7 @@ import { PrismaService } from './prisma.service';
 import { tokenSigningSecret } from './deployment-config';
 import { hasPermission, normalizePermissions, permissionMatches } from './permissions';
 
-export type EffectiveDataScope = { resource: string; scope: 'OWN' | 'ASSIGNED' | 'TEAM' | 'BRANCH' | 'WAREHOUSE' | 'DEPARTMENT' | 'ALL'; config?: unknown };
+export type EffectiveDataScope = { resource: string; scope: 'NONE' | 'OWN' | 'ASSIGNED' | 'TEAM' | 'BRANCH' | 'WAREHOUSE' | 'DEPARTMENT' | 'ALL'; config?: unknown };
 export type EffectiveFieldPermission = { resource: string; field: string; access: 'HIDDEN' | 'VIEW' | 'EDIT' };
 
 export type Actor = {
@@ -50,7 +50,7 @@ export class AuthService {
       if (override.effect === 'DENY') denies.add(override.permission.key);
       else grants.add(override.permission.key);
     }
-    const scopeRank: Record<string, number> = { OWN: 1, ASSIGNED: 2, TEAM: 3, DEPARTMENT: 4, WAREHOUSE: 5, BRANCH: 6, ALL: 7 };
+    const scopeRank: Record<string, number> = { NONE: 0, OWN: 1, ASSIGNED: 2, TEAM: 3, DEPARTMENT: 4, WAREHOUSE: 5, BRANCH: 6, ALL: 7 };
     const scopes = new Map<string, EffectiveDataScope>();
     for (const scope of roles.flatMap((role: any) => role.dataScopes || [])) {
       const existing = scopes.get(scope.resource);

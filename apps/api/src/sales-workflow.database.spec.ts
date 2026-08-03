@@ -117,6 +117,7 @@ describe('Sales workflow PostgreSQL integration', () => {
       ...actor,
       permissions: ['sales.customer.create', 'sales.customer.view', 'sales.customer.edit'],
       legacyPermissions: [],
+      dataScopes: [{ resource: 'customer', scope: 'BRANCH' as const }],
     };
     try {
       const customer: any = await erp.createCustomer(limitedActor, {
@@ -201,6 +202,107 @@ describe('Sales workflow PostgreSQL integration', () => {
       };
       const result: any = await erp.listCustomers(scopedActor, { status: 'ALL' });
       expect(result.rows.map((customer: any) => customer.code).sort()).toEqual(['TEAM-MATE', 'TEAM-OWN']);
+    } finally {
+      await cleanup(tenant.id);
+    }
+  });
+
+  it('enforces negative document access for every supported data scope', async () => {
+    const { tenant, branch, role, user, actor } = await fixture('scope-matrix');
+    try {
+      const otherBranch = await admin.branch.create({ data: { tenantId: tenant.id, code: 'OUT', name: 'Outside branch' } });
+      const [assignedWarehouse, otherWarehouse, outsideWarehouse] = await Promise.all([
+        admin.warehouse.create({ data: { tenantId: tenant.id, branchId: branch.id, code: 'ASSIGNED', name: 'Assigned warehouse' } }),
+        admin.warehouse.create({ data: { tenantId: tenant.id, branchId: branch.id, code: 'OTHER', name: 'Other warehouse' } }),
+        admin.warehouse.create({ data: { tenantId: tenant.id, branchId: otherBranch.id, code: 'OUTSIDE', name: 'Outside warehouse' } }),
+      ]);
+      const [salesDepartment, outsideDepartment] = await Promise.all([
+        admin.department.create({ data: { tenantId: tenant.id, code: 'SALES', name: 'Sales' } }),
+        admin.department.create({ data: { tenantId: tenant.id, code: 'OPS', name: 'Operations' } }),
+      ]);
+      const outsideRole = await admin.role.create({ data: { tenantId: tenant.id, name: 'Outside scope role', permissions: [] } });
+      const teammate = await admin.user.create({ data: {
+        tenantId: tenant.id, roleId: role.id, email: `scope-teammate-${tenant.id}@odin.test`, name: 'Scope Teammate',
+        passwordHash: await hash('WorkflowTest2026!', 4), branchIds: [branch.id.toString()], warehouseIds: [otherWarehouse.id.toString()],
+      } });
+      const outsider = await admin.user.create({ data: {
+        tenantId: tenant.id, roleId: outsideRole.id, email: `scope-outsider-${tenant.id}@odin.test`, name: 'Scope Outsider',
+        passwordHash: await hash('WorkflowTest2026!', 4), branchIds: [branch.id.toString(), otherBranch.id.toString()], warehouseIds: [assignedWarehouse.id.toString(), outsideWarehouse.id.toString()],
+      } });
+      const [employee, teammateEmployee, outsiderEmployee] = await Promise.all([
+        admin.employee.create({ data: { tenantId: tenant.id, departmentId: salesDepartment.id, userId: user.id, code: 'EMP-OWN', name: 'Own employee', salesEligible: true, branchIds: [branch.id.toString()] } }),
+        admin.employee.create({ data: { tenantId: tenant.id, departmentId: salesDepartment.id, userId: teammate.id, code: 'EMP-TEAM', name: 'Team employee', salesEligible: true, branchIds: [branch.id.toString()] } }),
+        admin.employee.create({ data: { tenantId: tenant.id, departmentId: outsideDepartment.id, userId: outsider.id, code: 'EMP-OUT', name: 'Outside employee', salesEligible: true, branchIds: [branch.id.toString(), otherBranch.id.toString()] } }),
+      ]);
+      await admin.document.createMany({ data: [
+        { tenantId: tenant.id, type: 'SALES_ORDER', number: 'SCOPE-OWN', branchId: branch.id, warehouseId: assignedWarehouse.id, documentDate: new Date('2026-08-01'), createdById: user.id, salespersonId: employee.id },
+        { tenantId: tenant.id, type: 'SALES_ORDER', number: 'SCOPE-TEAM', branchId: branch.id, warehouseId: otherWarehouse.id, documentDate: new Date('2026-08-01'), createdById: teammate.id, salespersonId: teammateEmployee.id },
+        { tenantId: tenant.id, type: 'SALES_ORDER', number: 'SCOPE-BRANCH', branchId: branch.id, warehouseId: assignedWarehouse.id, documentDate: new Date('2026-08-01'), createdById: outsider.id, salespersonId: outsiderEmployee.id },
+        { tenantId: tenant.id, type: 'SALES_ORDER', number: 'SCOPE-OUTSIDE', branchId: otherBranch.id, warehouseId: outsideWarehouse.id, documentDate: new Date('2026-08-01'), createdById: outsider.id, salespersonId: outsiderEmployee.id },
+      ] });
+      const expected: Record<string, string[]> = {
+        NONE: [],
+        OWN: ['SCOPE-OWN'],
+        ASSIGNED: ['SCOPE-OWN'],
+        TEAM: ['SCOPE-OWN', 'SCOPE-TEAM'],
+        BRANCH: ['SCOPE-BRANCH', 'SCOPE-OWN', 'SCOPE-TEAM'],
+        WAREHOUSE: ['SCOPE-BRANCH', 'SCOPE-OWN'],
+        DEPARTMENT: ['SCOPE-OWN', 'SCOPE-TEAM'],
+        ALL: ['SCOPE-BRANCH', 'SCOPE-OUTSIDE', 'SCOPE-OWN', 'SCOPE-TEAM'],
+      };
+      for (const [scope, visibleNumbers] of Object.entries(expected)) {
+        const scopedActor: Actor = {
+          ...actor,
+          permissions: ['sales.order.view'],
+          legacyPermissions: [],
+          employeeId: employee.id.toString(),
+          departmentId: salesDepartment.id.toString(),
+          warehouseIds: [assignedWarehouse.id.toString()],
+          dataScopes: [{ resource: 'order', scope: scope as Actor['dataScopes'][number]['scope'] }],
+          fieldPermissions: [],
+        };
+        const rows: any[] = await erp.listDocuments(scopedActor, 'SALES_ORDER');
+        expect(rows.map((document) => document.number).sort()).toEqual(visibleNumbers);
+      }
+    } finally {
+      await cleanup(tenant.id);
+    }
+  });
+
+  it('defaults financial resources to none and rejects unassigned bank or GL accounts', async () => {
+    const { tenant, branch, actor } = await fixture('financial-scope');
+    try {
+      const [bankGl, otherBankGl, expense, otherExpense] = await Promise.all([
+        admin.account.create({ data: { tenantId: tenant.id, code: '1010', name: 'Assigned bank GL', type: 'ASSET' } }),
+        admin.account.create({ data: { tenantId: tenant.id, code: '1020', name: 'Other bank GL', type: 'ASSET' } }),
+        admin.account.create({ data: { tenantId: tenant.id, code: '6100', name: 'Assigned expense', type: 'EXPENSE' } }),
+        admin.account.create({ data: { tenantId: tenant.id, code: '6200', name: 'Other expense', type: 'EXPENSE' } }),
+      ]);
+      const [assignedBank, otherBank] = await Promise.all([
+        admin.bankAccount.create({ data: { tenantId: tenant.id, code: 'BANK-A', name: 'Assigned bank', type: 'BANK', glAccountId: bankGl.id } }),
+        admin.bankAccount.create({ data: { tenantId: tenant.id, code: 'BANK-B', name: 'Other bank', type: 'BANK', glAccountId: otherBankGl.id } }),
+      ]);
+      const permissions = ['banking.account.view', 'banking.transaction.view', 'banking.transaction.create'];
+      const noScopeActor: Actor = { ...actor, permissions, legacyPermissions: [], dataScopes: [], fieldPermissions: [] };
+      expect((await erp.banking(noScopeActor)).accounts).toEqual([]);
+      await expect(erp.createBankTransaction(noScopeActor, {
+        branchId: branch.id.toString(), bankAccountId: assignedBank.id.toString(), counterpartyAccountId: expense.id.toString(), kind: 'PAYMENT', amount: '1.00', postingDate: '2026-08-01',
+      })).rejects.toThrow(/outside your access scope/i);
+
+      const assignedActor: Actor = {
+        ...noScopeActor,
+        dataScopes: [
+          { resource: 'bank_account', scope: 'ASSIGNED', config: { resourceIds: [assignedBank.id.toString()] } },
+          { resource: 'account', scope: 'ASSIGNED', config: { resourceIds: [expense.id.toString()] } },
+        ],
+      };
+      expect((await erp.banking(assignedActor)).accounts.map((account: any) => account.code)).toEqual(['BANK-A']);
+      await expect(erp.createBankTransaction(assignedActor, {
+        branchId: branch.id.toString(), bankAccountId: otherBank.id.toString(), counterpartyAccountId: expense.id.toString(), kind: 'PAYMENT', amount: '1.00', postingDate: '2026-08-01',
+      })).rejects.toThrow(/outside your access scope/i);
+      await expect(erp.createBankTransaction(assignedActor, {
+        branchId: branch.id.toString(), bankAccountId: assignedBank.id.toString(), counterpartyAccountId: otherExpense.id.toString(), kind: 'PAYMENT', amount: '1.00', postingDate: '2026-08-01',
+      })).rejects.toThrow(/outside your access scope/i);
     } finally {
       await cleanup(tenant.id);
     }

@@ -65,7 +65,7 @@ export class AccessControlService {
   async overview(actor: Actor) {
     return this.db.tenant(actor.tenantId, async (tx) => {
       await this.ensureRegistry(tx, actor.tenantId);
-      const [roles, users, permissions, audit] = await Promise.all([
+      const [roles, users, permissions, audit, bankAccounts, accounts, suppliers] = await Promise.all([
         tx.role.findMany({ where: { archivedAt: null }, include: this.roleInclude, orderBy: { name: 'asc' } }),
         tx.user.findMany({ include: {
           role: true,
@@ -74,6 +74,9 @@ export class AccessControlService {
         }, orderBy: { name: 'asc' } }),
         tx.permission.findMany({ where: { active: true }, orderBy: [{ module: 'asc' }, { resource: 'asc' }, { action: 'asc' }] }),
         tx.accessAuditLog.findMany({ include: { actorUser: { select: { id: true, name: true, email: true } }, subjectUser: { select: { id: true, name: true } }, subjectRole: { select: { id: true, name: true } } }, orderBy: { createdAt: 'desc' }, take: 200 }),
+        tx.bankAccount.findMany({ where: { active: true }, select: { id: true, code: true, name: true }, orderBy: { code: 'asc' } }),
+        tx.account.findMany({ where: { active: true }, select: { id: true, code: true, name: true }, orderBy: { code: 'asc' } }),
+        tx.supplier.findMany({ where: { active: true }, select: { id: true, code: true, name: true }, orderBy: { code: 'asc' } }),
       ]);
       return {
         roles: roles.map((role) => this.roleView(role)),
@@ -86,7 +89,15 @@ export class AccessControlService {
         })),
         permissions: permissions.map((permission) => ({ id: permission.id.toString(), key: permission.key, module: permission.module, resource: permission.resource, action: permission.action, description: permission.description })),
         audit: audit.map((entry) => ({ ...entry, id: entry.id.toString(), tenantId: entry.tenantId.toString(), actorUserId: entry.actorUserId?.toString(), subjectUserId: entry.subjectUserId?.toString(), subjectRoleId: entry.subjectRoleId?.toString(), branchId: entry.branchId?.toString(), actorUser: entry.actorUser && { ...entry.actorUser, id: entry.actorUser.id.toString() }, subjectUser: entry.subjectUser && { ...entry.subjectUser, id: entry.subjectUser.id.toString() }, subjectRole: entry.subjectRole && { ...entry.subjectRole, id: entry.subjectRole.id.toString() } })),
-        configuration: { dataScopeResources: DATA_SCOPE_RESOURCES, fields: FIELD_REGISTRY.map(([resource, field, description]) => ({ resource, field, description })), limits: LIMIT_REGISTRY },
+        configuration: {
+          dataScopeResources: DATA_SCOPE_RESOURCES,
+          assignableResources: {
+            bank_account: bankAccounts.map((item) => ({ ...item, id: item.id.toString() })),
+            account: accounts.map((item) => ({ ...item, id: item.id.toString() })),
+            supplier: suppliers.map((item) => ({ ...item, id: item.id.toString() })),
+          },
+          fields: FIELD_REGISTRY.map(([resource, field, description]) => ({ resource, field, description })), limits: LIMIT_REGISTRY,
+        },
       };
     });
   }
@@ -151,9 +162,21 @@ export class AccessControlService {
     }
     if (Array.isArray(body.dataScopes)) {
       const validResources = new Set<string>(DATA_SCOPE_RESOURCES);
-      const validScopes = new Set(['OWN', 'ASSIGNED', 'TEAM', 'BRANCH', 'WAREHOUSE', 'DEPARTMENT', 'ALL']);
+      const validScopes = new Set(['NONE', 'OWN', 'ASSIGNED', 'TEAM', 'BRANCH', 'WAREHOUSE', 'DEPARTMENT', 'ALL']);
       if (body.dataScopes.some((scope: any) => !validResources.has(String(scope.resource)) || !validScopes.has(String(scope.scope)))) {
         throw new BadRequestException('One or more data scopes are invalid.');
+      }
+      for (const scope of body.dataScopes) {
+        if (String(scope.scope) !== 'ASSIGNED') continue;
+        const resource = String(scope.resource);
+        const resourceIds = [...new Set<string>((scope.config?.resourceIds || []).map(String))];
+        if (resourceIds.some((value) => !/^\d+$/.test(value))) throw new BadRequestException(`Assigned ${resource} identifiers are invalid.`);
+        const ids = resourceIds.map(BigInt);
+        const count = resource === 'bank_account' ? await tx.bankAccount.count({ where: { id: { in: ids }, active: true } })
+          : resource === 'account' ? await tx.account.count({ where: { id: { in: ids }, active: true } })
+          : resource === 'supplier' ? await tx.supplier.count({ where: { id: { in: ids }, active: true } })
+          : ids.length;
+        if (count !== ids.length) throw new BadRequestException(`One or more assigned ${resource} resources are invalid.`);
       }
       await tx.roleDataScope.deleteMany({ where: { roleId } });
       if (body.dataScopes.length) await tx.roleDataScope.createMany({ data: body.dataScopes.map((scope: any) => ({ tenantId, roleId, resource: String(scope.resource), scope: scope.scope, config: scope.config === undefined ? undefined : json(scope.config) })) });

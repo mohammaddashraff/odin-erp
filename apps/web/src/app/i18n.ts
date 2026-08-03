@@ -1148,6 +1148,8 @@ const permissionsUi: Namespace = {
   'Limits': 'الحدود',
   'Select All': 'تحديد الكل',
   'Records visible to this role': 'السجلات التي يمكن لهذا الدور عرضها',
+  'Assigned resources': 'الموارد المسندة',
+  'NONE': 'لا توجد سجلات',
   'OWN': 'السجلات الخاصة بالمستخدم',
   'ASSIGNED': 'السجلات المسندة',
   'TEAM': 'سجلات الفريق',

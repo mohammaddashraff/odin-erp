@@ -140,7 +140,14 @@ export async function seed(initiatedBy = 'CLI', targetTenantId?: bigint) {
     const role = await db.role.create({ data: { tenantId: tenant.id, key: roleKeys[name], name, description: `${name} access policy`, permissions } });
     roles.set(name, role.id);
     await db.rolePermission.createMany({ data: permissions.map((permission) => ({ tenantId: tenant.id, roleId: role.id, permissionId: permissionIds.get(permission)! })) });
-    await db.roleDataScope.createMany({ data: DATA_SCOPE_RESOURCES.map((resource) => ({ tenantId: tenant.id, roleId: role.id, resource, scope: roleScopes[name] || DataScopeType.BRANCH })) });
+    await db.roleDataScope.createMany({ data: DATA_SCOPE_RESOURCES.map((resource) => {
+      let scope = roleScopes[name] || DataScopeType.NONE;
+      if (name !== 'Super Admin' && ['company', 'team', 'pos_terminal', 'cost_center', 'project', 'attachment'].includes(resource)) scope = DataScopeType.NONE;
+      if (name !== 'Super Admin' && resource === 'supplier') scope = permissions.includes('purchasing.supplier.view') ? DataScopeType.ALL : DataScopeType.NONE;
+      if (name !== 'Super Admin' && resource === 'bank_account') scope = permissions.some((key) => key.startsWith('banking.') || key.startsWith('payments.')) ? DataScopeType.ALL : DataScopeType.NONE;
+      if (name !== 'Super Admin' && resource === 'account') scope = permissions.some((key) => key.startsWith('accounting.account.') || key === 'banking.transaction.create') ? DataScopeType.ALL : DataScopeType.NONE;
+      return { tenantId: tenant.id, roleId: role.id, resource, scope };
+    }) });
     const financialEditor = ['Super Admin', 'Finance Manager', 'Accountant'].includes(name);
     const financialViewer = financialEditor || ['Sales Manager', 'Branch Manager', 'Auditor', 'Purchasing Manager'].includes(name);
     const salaryEditor = ['Super Admin', 'HR Manager'].includes(name);

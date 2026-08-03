@@ -102,7 +102,26 @@ export class ErpService {
 
   private scope(actor: Actor, resource: string) {
     if (can(actor, 'system.super_admin')) return 'ALL';
-    return actor.dataScopes.find((entry) => entry.resource === resource)?.scope || 'BRANCH';
+    return actor.dataScopes.find((entry) => entry.resource === resource)?.scope || 'NONE';
+  }
+
+  private configuredResourceIds(actor: Actor, resource: string) {
+    const config = actor.dataScopes.find((entry) => entry.resource === resource)?.config as { resourceIds?: string[] } | undefined;
+    return [...new Set((config?.resourceIds || []).map(String))].filter((value) => /^\d+$/.test(value)).map(BigInt);
+  }
+
+  private resourceIdScope(actor: Actor, resource: string) {
+    const scope = this.scope(actor, resource);
+    if (scope === 'ALL') return {};
+    if (scope === 'ASSIGNED') return { id: { in: this.configuredResourceIds(actor, resource) } };
+    return { id: -1n };
+  }
+
+  private assertResourceId(actor: Actor, resource: string, resourceId: bigint) {
+    const scope = this.scope(actor, resource);
+    if (scope === 'ALL') return;
+    if (scope === 'ASSIGNED' && this.configuredResourceIds(actor, resource).includes(resourceId)) return;
+    throw new ForbiddenException(`${resource.replaceAll('_', ' ')} is outside your access scope`);
   }
 
   private teamUserScope(actor: Actor, module?: string): Prisma.UserWhereInput {
@@ -130,12 +149,20 @@ export class ErpService {
     return resources[type] || 'document';
   }
 
+  private documentPermissionResource(type: DocumentType) {
+    const resources: Partial<Record<DocumentType, string>> = {
+      PURCHASE_REQUEST: 'request', PURCHASE_RFQ: 'rfq', PURCHASE_ORDER: 'order', GOODS_RECEIPT: 'receipt',
+      PURCHASE_BILL: 'bill', PURCHASE_RETURN: 'return',
+    };
+    return resources[type] || this.documentResource(type);
+  }
+
   private documentModule(type: DocumentType) {
     return SALES_TYPES.has(type) ? 'sales' : PURCHASE_TYPES.has(type) ? 'purchasing' : 'inventory';
   }
 
   private requireDocumentPermission(actor: Actor, type: DocumentType, action: string) {
-    const permission = `${this.documentModule(type)}.${this.documentResource(type)}.${action}`;
+    const permission = `${this.documentModule(type)}.${this.documentPermissionResource(type)}.${action}`;
     if (!can(actor, permission)) throw new ForbiddenException({ statusCode: 403, error: 'Forbidden', message: 'You do not have permission to perform this document action.', permission });
   }
 
@@ -160,6 +187,7 @@ export class ErpService {
   private documentScope(actor: Actor, resource: string, module?: string): Prisma.DocumentWhereInput {
     const scope = this.scope(actor, resource);
     if (scope === 'ALL') return {};
+    if (scope === 'NONE') return { id: -1n };
     if (scope === 'OWN') return { createdById: actor.userId };
     if (scope === 'ASSIGNED') return actor.employeeId ? { salespersonId: BigInt(actor.employeeId) } : { createdById: actor.userId };
     if (scope === 'WAREHOUSE') return { warehouseId: { in: actor.warehouseIds.map(BigInt) } };
@@ -180,6 +208,7 @@ export class ErpService {
   private customerScope(actor: Actor): Prisma.CustomerWhereInput {
     const scope = this.scope(actor, 'customer');
     if (scope === 'ALL') return {};
+    if (scope === 'NONE') return { id: -1n };
     if (scope === 'OWN' || scope === 'ASSIGNED') return { ownerUserId: actor.userId };
     if (scope === 'TEAM') {
       const configured = actor.dataScopes.find((entry) => entry.resource === 'customer')?.config as { userIds?: string[] } | undefined;
@@ -192,6 +221,7 @@ export class ErpService {
   private employeeScope(actor: Actor): Prisma.EmployeeWhereInput {
     const scope = this.scope(actor, 'employee');
     if (scope === 'ALL') return {};
+    if (scope === 'NONE') return { id: -1n };
     if (scope === 'OWN' || scope === 'ASSIGNED') return { userId: actor.userId };
     if (scope === 'DEPARTMENT') return actor.departmentId ? { departmentId: BigInt(actor.departmentId) } : { id: -1n };
     if (scope === 'TEAM') {
@@ -207,6 +237,7 @@ export class ErpService {
   private journalScope(actor: Actor, resource = 'journal'): Prisma.JournalEntryWhereInput {
     const scope = this.scope(actor, resource);
     if (scope === 'ALL') return {};
+    if (scope === 'NONE') return { id: -1n };
     if (scope === 'OWN' || scope === 'ASSIGNED') return { createdById: actor.userId };
     if (scope === 'TEAM') {
       const configured = actor.dataScopes.find((entry) => entry.resource === resource)?.config as { userIds?: string[] } | undefined;
@@ -423,7 +454,7 @@ export class ErpService {
       const items = can(actor, 'inventory.item.view') || can(actor, 'sales.quotation.create') || can(actor, 'purchasing.order.create')
         ? await tx.item.findMany({ where: { active: true }, include: { category: true, uom: true }, orderBy: { sku: 'asc' } }) : [];
       const bankAccounts = can(actor, 'banking.account.view') || can(actor, 'payments.receipt.create') || can(actor, 'payments.payment.create')
-        ? await tx.bankAccount.findMany({ where: { active: true }, orderBy: { code: 'asc' } }) : [];
+        ? await tx.bankAccount.findMany({ where: { active: true, ...this.resourceIdScope(actor, 'bank_account') }, orderBy: { code: 'asc' } }) : [];
       const salesEmployees = can(actor, 'hr.employee.view') || can(actor, 'sales.quotation.view') || can(actor, 'sales.quotation.create')
         ? await tx.employee.findMany({ where: { active: true, AND: [this.employeeScope(actor), { OR: [{ salesEligible: true }, { department: { code: 'SALES' } }] }] }, include: { department: true }, orderBy: { name: 'asc' } }) : [];
       return {
@@ -434,11 +465,11 @@ export class ErpService {
         active: true,
         ...this.customerScope(actor),
       }, orderBy: { code: 'asc' } })).map((customer) => this.customerForActor(actor, customer)) : [],
-      suppliers: can(actor, 'purchasing.supplier.view') ? await tx.supplier.findMany({ where: { active: true }, orderBy: { code: 'asc' } }) : [],
+      suppliers: can(actor, 'purchasing.supplier.view') ? await tx.supplier.findMany({ where: { active: true, ...this.resourceIdScope(actor, 'supplier') }, orderBy: { code: 'asc' } }) : [],
       categories: items.length ? await tx.itemCategory.findMany({ orderBy: { code: 'asc' } }) : [],
       units: items.length ? await tx.unitOfMeasure.findMany({ orderBy: { code: 'asc' } }) : [],
       items: items.map((item) => this.itemForActor(actor, item)),
-      accounts: can(actor, 'accounting.account.view') ? await tx.account.findMany({ where: { active: true }, orderBy: { code: 'asc' } }) : [],
+      accounts: can(actor, 'accounting.account.view') ? await tx.account.findMany({ where: { active: true, ...this.resourceIdScope(actor, 'account') }, orderBy: { code: 'asc' } }) : [],
       bankAccounts: bankAccounts.map((account) => this.bankAccountForActor(actor, account)),
       periods: can(actor, 'accounting.period.view') ? await tx.fiscalPeriod.findMany({ orderBy: [{ year: 'desc' }, { month: 'desc' }] }) : [],
       departments: can(actor, 'hr.employee.view') ? await tx.department.findMany({ where: { active: true }, orderBy: { code: 'asc' } }) : [],
@@ -697,9 +728,10 @@ export class ErpService {
     requirePermission(actor, 'banking.account.create');
     if (body.accountNumber && this.fieldAccess(actor, 'bankAccount', 'accountNumber') !== 'EDIT') throw new ForbiddenException('Bank account details are read-only for your role.');
     const glAccountId = BigInt(body.glAccountId || 0), type = body.type as BankAccountType;
+    this.assertResourceId(actor, 'account', glAccountId);
     if (!Object.values(BankAccountType).includes(type)) throw new BadRequestException('Cash or bank account type is invalid');
     return this.masterCreate(actor, 'BANK_ACCOUNT', async (tx) => {
-      const account = await tx.account.findUnique({ where: { id: glAccountId } });
+      const account = await tx.account.findFirst({ where: { id: glAccountId, ...this.resourceIdScope(actor, 'account') } });
       if (!account || !account.postingAllowed || account.type !== AccountType.ASSET) throw new BadRequestException('An active asset GL account is required');
       return tx.bankAccount.create({ data: {
         tenantId: actor.tenantId, glAccountId, type, code: this.requiredText(body.code, 'Account code').toUpperCase(), name: this.requiredText(body.name, 'Account name'),
@@ -725,7 +757,7 @@ export class ErpService {
       this.requireAny(actor, 'sales.quotation.view', 'purchasing.order.view', 'inventory.transfer.view', 'approvals.queue.view');
     }
     return this.withTenant(actor, async (tx) => {
-      const allowedTypes = type ? [type as DocumentType] : Object.values(DocumentType).filter((candidate) => can(actor, `${this.documentModule(candidate)}.${this.documentResource(candidate)}.view`));
+      const allowedTypes = type ? [type as DocumentType] : Object.values(DocumentType).filter((candidate) => can(actor, `${this.documentModule(candidate)}.${this.documentPermissionResource(candidate)}.view`));
       const documents = await tx.document.findMany({
         where: {
           type: { in: allowedTypes }, ...(status ? { status: status as WorkflowStatus } : {}),
@@ -747,7 +779,7 @@ export class ErpService {
     const type = query.type && Object.values(DocumentType).includes(query.type as DocumentType) ? query.type as DocumentType : undefined;
     const status = String(query.status || '') === 'PENDING_APPROVAL' ? WorkflowStatus.SUBMITTED
       : query.status && Object.values(WorkflowStatus).includes(query.status as WorkflowStatus) ? query.status as WorkflowStatus : undefined;
-    const allowedSalesTypes = [...SALES_TYPES].filter((candidate) => can(actor, `${this.documentModule(candidate)}.${this.documentResource(candidate)}.view`));
+    const allowedSalesTypes = [...SALES_TYPES].filter((candidate) => can(actor, `${this.documentModule(candidate)}.${this.documentPermissionResource(candidate)}.view`));
     const where: Prisma.DocumentWhereInput = {
       type: type || { in: allowedSalesTypes },
       ...(status ? { status } : {}),
@@ -1410,7 +1442,7 @@ export class ErpService {
 
   async payments(actor: Actor) {
     this.requireAny(actor, 'payments.receipt.view', 'payments.payment.view');
-    return this.withTenant(actor, (tx) => tx.payment.findMany({ include: { customer: true, supplier: true, bankAccount: true, journalEntry: true, allocations: { include: { document: true } } }, orderBy: { createdAt: 'desc' }, take: 200 }));
+    return this.withTenant(actor, (tx) => tx.payment.findMany({ where: { bankAccount: this.resourceIdScope(actor, 'bank_account') }, include: { customer: true, supplier: true, bankAccount: true, journalEntry: true, allocations: { include: { document: true } } }, orderBy: { createdAt: 'desc' }, take: 200 }));
   }
 
   async createPayment(actor: Actor, body: any) {
@@ -1420,7 +1452,8 @@ export class ErpService {
       if (!Object.values(PaymentKind).includes(kind)) throw new BadRequestException('Payment kind is invalid');
       const branchId = BigInt(body.branchId || 0); this.assertBranch(actor, branchId);
       const bankAccountId = BigInt(body.bankAccountId || 0);
-      const bank = await tx.bankAccount.findUnique({ where: { id: bankAccountId }, include: { glAccount: true } });
+      this.assertResourceId(actor, 'bank_account', bankAccountId);
+      const bank = await tx.bankAccount.findFirst({ where: { id: bankAccountId, ...this.resourceIdScope(actor, 'bank_account') }, include: { glAccount: true } });
       if (!bank) throw new BadRequestException('Cash or bank account is invalid');
       const date = this.date(body.postingDate || new Date().toISOString().slice(0, 10), 'posting date');
       const amount = money(body.amount, 'amount');
@@ -1490,7 +1523,8 @@ export class ErpService {
       await this.assertOpenPeriod(tx, actor, date);
       if (!Array.isArray(body.lines) || body.lines.length < 2) throw new BadRequestException('A journal needs at least two lines');
       const accountIds = body.lines.map((line: any) => BigInt(line.accountId || 0));
-      const accounts = await tx.account.findMany({ where: { id: { in: accountIds }, active: true } });
+      accountIds.forEach((accountId: bigint) => this.assertResourceId(actor, 'account', accountId));
+      const accounts = await tx.account.findMany({ where: { active: true, AND: [{ id: { in: accountIds } }, this.resourceIdScope(actor, 'account')] } });
       const accountMap = new Map(accounts.map((account) => [account.id.toString(), account]));
       let debit = 0n, credit = 0n;
       const lines = body.lines.map((line: any, index: number) => {
@@ -1732,10 +1766,11 @@ export class ErpService {
     this.requireAny(actor, 'banking.account.view', 'banking.transaction.view', 'banking.statement.view');
     return this.withTenant(actor, async (tx) => {
       const branchScope = can(actor, 'system.super_admin') ? {} : { branchId: { in: actor.branchIds.map(BigInt) } };
+      const bankScope = this.resourceIdScope(actor, 'bank_account');
       const [accounts, transactions, statements] = await Promise.all([
-        tx.bankAccount.findMany({ include: { glAccount: true }, orderBy: { code: 'asc' } }),
-        tx.bankTransaction.findMany({ where: branchScope, include: { bankAccount: true, counterpartyAccount: true, journalEntry: true }, orderBy: { postingDate: 'desc' }, take: 200 }),
-        tx.bankStatement.findMany({ include: { bankAccount: true, lines: { include: { transaction: true } } }, orderBy: { statementDate: 'desc' }, take: 50 }),
+        tx.bankAccount.findMany({ where: bankScope, include: { glAccount: true }, orderBy: { code: 'asc' } }),
+        tx.bankTransaction.findMany({ where: { ...branchScope, bankAccount: bankScope }, include: { bankAccount: true, counterpartyAccount: true, journalEntry: true }, orderBy: { postingDate: 'desc' }, take: 200 }),
+        tx.bankStatement.findMany({ where: { bankAccount: bankScope }, include: { bankAccount: true, lines: { include: { transaction: true } } }, orderBy: { statementDate: 'desc' }, take: 50 }),
       ]);
       return {
         accounts: accounts.map((account) => this.bankAccountForActor(actor, account)),
@@ -1749,8 +1784,11 @@ export class ErpService {
     requirePermission(actor, 'banking.transaction.create');
     return this.withTenant(actor, async (tx) => {
       const branchId = BigInt(body.branchId || 0); this.assertBranch(actor, branchId);
-      const bank = await tx.bankAccount.findUnique({ where: { id: BigInt(body.bankAccountId || 0) }, include: { glAccount: true } });
-      const counterparty = await tx.account.findUnique({ where: { id: BigInt(body.counterpartyAccountId || 0) } });
+      const bankAccountId = BigInt(body.bankAccountId || 0), counterpartyAccountId = BigInt(body.counterpartyAccountId || 0);
+      this.assertResourceId(actor, 'bank_account', bankAccountId);
+      this.assertResourceId(actor, 'account', counterpartyAccountId);
+      const bank = await tx.bankAccount.findFirst({ where: { id: bankAccountId, ...this.resourceIdScope(actor, 'bank_account') }, include: { glAccount: true } });
+      const counterparty = await tx.account.findFirst({ where: { id: counterpartyAccountId, ...this.resourceIdScope(actor, 'account') } });
       if (!bank || !counterparty || !counterparty.postingAllowed) throw new BadRequestException('Bank or counterparty account is invalid');
       const kind = body.kind as BankTransactionKind;
       if (!Object.values(BankTransactionKind).includes(kind)) throw new BadRequestException('Bank transaction kind is invalid');
@@ -1768,7 +1806,9 @@ export class ErpService {
   async createStatement(actor: Actor, body: any) {
     requirePermission(actor, 'banking.statement.create');
     return this.withTenant(actor, async (tx) => {
-      const bank = await tx.bankAccount.findUnique({ where: { id: BigInt(body.bankAccountId || 0) } });
+      const bankAccountId = BigInt(body.bankAccountId || 0);
+      this.assertResourceId(actor, 'bank_account', bankAccountId);
+      const bank = await tx.bankAccount.findFirst({ where: { id: bankAccountId, ...this.resourceIdScope(actor, 'bank_account') } });
       if (!bank) throw new BadRequestException('Bank account is invalid');
       if (!Array.isArray(body.lines) || !body.lines.length) throw new BadRequestException('Statement lines are required');
       const statement = await tx.bankStatement.create({ data: { tenantId: actor.tenantId, bankAccountId: bank.id, statementDate: this.date(body.statementDate, 'statement date'), openingMinor: money(body.opening, 'opening balance'), closingMinor: money(body.closing, 'closing balance'), createdById: actor.userId, lines: { create: body.lines.map((line: any) => ({ tenantId: actor.tenantId, lineDate: this.date(line.date, 'line date'), description: String(line.description), reference: line.reference || null, amountMinor: money(line.amount, 'line amount') })) } }, include: { lines: true } });
@@ -1782,6 +1822,7 @@ export class ErpService {
       const line = await tx.bankStatementLine.findUnique({ where: { id: lineId }, include: { statement: true } });
       const transaction = await tx.bankTransaction.findUnique({ where: { id: transactionId } });
       if (!line || !transaction || line.statement.bankAccountId !== transaction.bankAccountId) throw new BadRequestException('Statement line and transaction do not belong to the same account');
+      this.assertResourceId(actor, 'bank_account', line.statement.bankAccountId);
       if (line.matched || transaction.reconciled) throw new BadRequestException('Line or transaction is already reconciled');
       if ((line.amountMinor < 0n ? -line.amountMinor : line.amountMinor) !== transaction.amountMinor) throw new BadRequestException('Amounts do not match');
       const updated = await tx.bankStatementLine.update({ where: { id: lineId }, data: { transactionId, matched: true } });
@@ -1796,7 +1837,7 @@ export class ErpService {
       const branchScope = can(actor, 'system.super_admin') ? {} : { branchId: { in: actor.branchIds.map(BigInt) } };
       const allowedTypes = Object.values(DocumentType).filter((type) => {
         const module = this.documentModule(type);
-        const resource = this.documentResource(type);
+        const resource = this.documentPermissionResource(type);
         return can(actor, `${module}.${resource}.view`) && (can(actor, `${module}.${resource}.approve`) || can(actor, `${module}.${resource}.reject`));
       });
       const documentScope: Prisma.DocumentWhereInput = allowedTypes.length ? {
@@ -1831,7 +1872,7 @@ export class ErpService {
     this.requireAny(actor, 'audit.business.view', 'approvals.queue.history');
     return this.withTenant(actor, async (tx) => {
       const documentHeader = await tx.document.findFirst({ where: { number: reference }, select: { id: true, type: true } });
-      const document = documentHeader && can(actor, `${this.documentModule(documentHeader.type)}.${this.documentResource(documentHeader.type)}.view`)
+      const document = documentHeader && can(actor, `${this.documentModule(documentHeader.type)}.${this.documentPermissionResource(documentHeader.type)}.view`)
         ? await this.documentInScope(tx, actor, documentHeader.id, { customer: true, supplier: true, lines: { include: { item: true } }, journalEntry: { include: { lines: { include: { account: true } } } } })
         : null;
       if (document) {
@@ -1872,8 +1913,9 @@ export class ErpService {
       const reportScope = this.documentScope(actor, 'report');
       const branchIds = can(actor, 'system.super_admin') ? undefined : actor.branchIds.map(BigInt);
       const warehouseIds = can(actor, 'system.super_admin') ? undefined : actor.warehouseIds.map(BigInt);
-      const accounts = await tx.account.findMany({ orderBy: { code: 'asc' } });
-      const journalLines = await tx.journalLine.findMany({ where: { journalEntry: { status: JournalStatus.POSTED, ...this.journalScope(actor, 'report') } }, include: { account: true, journalEntry: true } });
+      const accountScope = this.resourceIdScope(actor, 'account');
+      const accounts = await tx.account.findMany({ where: accountScope, orderBy: { code: 'asc' } });
+      const journalLines = await tx.journalLine.findMany({ where: { account: accountScope, journalEntry: { status: JournalStatus.POSTED, ...this.journalScope(actor, 'report') } }, include: { account: true, journalEntry: true } });
       const byAccount = accounts.map((account) => {
         const lines = journalLines.filter((line) => line.accountId === account.id);
         const debitMinor = lines.reduce((sum, line) => sum + line.debitMinor, 0n), creditMinor = lines.reduce((sum, line) => sum + line.creditMinor, 0n);
@@ -2028,7 +2070,7 @@ export class ErpService {
         can(actor, 'approvals.queue.view') ? tx.document.count({ where: { ...reportScope, status: WorkflowStatus.SUBMITTED } }) : Promise.resolve(0),
         canSeeInventory ? tx.stockBalance.findMany({ where: warehouseIds ? { warehouseId: { in: warehouseIds } } : {}, include: { item: true, warehouse: true }, orderBy: { quantityMilli: 'asc' }, take: 8 }) : Promise.resolve([]),
         tx.auditEvent.findMany({ where: can(actor, 'system.super_admin') || this.scope(actor, 'report') === 'ALL' ? {} : { userId: actor.userId }, include: { user: publicUser }, orderBy: { createdAt: 'desc' }, take: 8 }),
-        tx.bankAccount.findMany({ where: { active: true }, select: { glAccountId: true } }),
+        tx.bankAccount.findMany({ where: { active: true, ...this.resourceIdScope(actor, 'bank_account') }, select: { glAccountId: true } }),
         scopedReceivables(),
       ]);
       const cashLedger = await tx.journalLine.aggregate({
