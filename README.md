@@ -36,7 +36,10 @@ npm run build
 npm run start
 ```
 
-The shared demo password is `password`. `ODIN_ALLOWED_ORIGINS` is a comma-separated allowlist.
+The shared demo password is `password`; these accounts are for disposable demo environments only.
+Production refuses startup unless `ODIN_TOKEN_SECRET` is unique and at least 32 characters, and
+tenant demo reset is disabled unless a production deployment explicitly sets
+`ODIN_DEPLOYMENT_MODE=demo`. `ODIN_ALLOWED_ORIGINS` is a comma-separated allowlist.
 Swagger is disabled unless `ENABLE_SWAGGER=true`.
 The API emits one JSON log record per handled request with request ID, route, status, duration,
 user, tenant, and safe error metadata; it never serializes request headers, cookies, tokens,
@@ -50,6 +53,10 @@ Open:
 
 For development, use `npm run dev` after the database steps. Stop the database with
 `docker compose down`; its named volume preserves transactions across restarts.
+
+Production builds do not modify the database. Run `npm run release:migrate` as an explicit,
+audited release step before starting a compatible application version; see
+[docs/RELEASE_AND_ROLLBACK_RUNBOOK.md](docs/RELEASE_AND_ROLLBACK_RUNBOOK.md).
 
 ## Demo users
 
