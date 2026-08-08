@@ -1,6 +1,6 @@
 # Security review
 
-Audit date: 2026-08-03. This is a static repository review plus baseline command evidence; penetration testing and production configuration review remain required.
+Audit date: 2026-08-08. This is a static repository review plus baseline command evidence; penetration testing and production configuration review remain required.
 
 ## Positive controls
 
@@ -50,7 +50,7 @@ Hidden fields must be removed before serialization, aggregation, export, PDF, ev
 - SEC-003/004/005/006/007/008/010/011/015/019 are implemented for the current product surface and have automated negative/live checks.
 - SEC-009 remains partial: inspected customer/item/bank/journal/document serializers and current reports/outputs enforce field policy, but a universal response-projection layer is still required before adding endpoints.
 - SEC-012/013/014/016/017/018/020 remain High/Medium/Low architecture or deployment work as described above. They are not silently classified as complete.
-- The dependency gate currently records zero Critical, three time-bounded High accepted risks from current Next.js transitive PostCSS/optional Sharp pins, and zero Moderate/Low. The decisions expire 2026-09-03 and CI fails if the advisory set changes or the review expires.
+- The dependency gate currently records zero Critical, two time-bounded High accepted risks from latest stable NestJS Swagger pinning JS-YAML 5.2.1, and zero Moderate/Low after upgrading Next.js, PostCSS, Sharp, Nano ID, NestJS Swagger and the compatible JS-YAML 3/4 lines. Swagger is disabled by default and Odin does not parse user-controlled YAML. The decisions expire 2026-09-08; CI fails on any Critical, unreviewed High, changed advisory set or expired decision.
 
 ## Production security gate
 

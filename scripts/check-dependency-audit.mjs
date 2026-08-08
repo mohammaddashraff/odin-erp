@@ -9,26 +9,26 @@ try {
   console.error(audit.stderr || audit.stdout);
   process.exit(1);
 }
+if (report?.auditReportVersion !== 2 || typeof report.vulnerabilities !== 'object' || typeof report.metadata?.vulnerabilities !== 'object') {
+  console.error('Dependency audit returned an error or incomplete report.');
+  console.error(report?.message || audit.stderr || audit.stdout);
+  process.exit(1);
+}
 
+const failures = [];
 const accepted = {
-  next: {
-    reviewBy: '2026-09-03',
+  '@nestjs/swagger': {
+    reviewBy: '2026-09-08',
     sources: [],
-    reason: 'Next 16.2.12 is the current release; npm reports only its pinned PostCSS and optional Sharp dependency advisories. No Server Actions, dynamic CSS/source-map processing, Next Image, or user image uploads are used.',
+    reason: 'Latest stable 11.4.6 pins JS-YAML 5.2.1. Swagger is disabled unless explicitly enabled, and Odin generates an OpenAPI document without parsing user-controlled YAML.',
   },
-  postcss: {
-    reviewBy: '2026-09-03',
-    sources: [1117015, 1124252, 1124288],
-    reason: 'Pinned by current Next.js and used only during trusted repository builds; Odin does not process attacker-controlled CSS or source maps.',
-  },
-  sharp: {
-    reviewBy: '2026-09-03',
-    sources: [1124066],
-    reason: 'Optional Next.js dependency; Odin does not use next/image or process attacker-controlled images. Upgrade when Next supports Sharp 0.35.',
+  'js-yaml': {
+    reviewBy: '2026-09-08',
+    sources: [1124281],
+    reason: 'The remaining vulnerable copy is pinned by latest stable NestJS Swagger and is not used to parse user-controlled YAML. Upgrade immediately when a patched stable Swagger release is published.',
   },
 };
 
-const failures = [];
 const today = new Date().toISOString().slice(0, 10);
 const vulnerabilities = report.vulnerabilities || {};
 for (const [name, finding] of Object.entries(vulnerabilities)) {
