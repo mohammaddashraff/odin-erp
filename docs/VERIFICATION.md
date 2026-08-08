@@ -1,29 +1,41 @@
 # Odin ERP verification record
 
-This record maps the acceptance briefs to executable evidence. The authoritative browser suites are
-`tests/e2e/odin-ui.spec.ts` and `tests/e2e/localization.spec.ts`; backend controls are in
-`apps/api/src/*.spec.ts`; financial reconciliation is in `apps/api/src/scripts/integrity.ts`.
+Verification date: 2026-08-08.
+
+This record maps the acceptance briefs to executable evidence. The authoritative release evidence is
+[Quality gate run 31256037111](https://github.com/mohammaddashraff/odin-erp/actions/runs/31256037111),
+which completed successfully for branch head `b534bc240ff8033f4982ff6da01482f476f25fe9`. The browser suites are
+`tests/e2e/odin-ui.spec.ts`, `tests/e2e/localization.spec.ts`, and `tests/e2e/access-security.spec.ts`;
+backend controls are in `apps/api/src/*.spec.ts`; financial reconciliation is in
+`apps/api/src/scripts/integrity.ts`.
 
 ## Automated evidence
 
 | Check | Result |
 |---|---|
-| Playwright real-UI acceptance | PASS — 21 local Chromium scenarios, 0 failed; 2 deployment-only staging scenarios skipped without staging configuration |
-| Browser server responses | PASS — no HTTP 5xx responses captured |
-| Browser console | PASS — no unexpected console errors |
+| CI job status | PASS — verify, security, browser, and restore all completed successfully |
+| PostgreSQL migrations | PASS — PostgreSQL 17 applied all 14 migrations to a clean database |
+| NestJS/Jest backend controls | PASS — 10 suites, 84 tests, 0 failed |
+| Negative data-scope matrix | PASS — database integration exercised `NONE`, `OWN`, `ASSIGNED`, `TEAM`, `BRANCH`, `WAREHOUSE`, `DEPARTMENT`, and `ALL` against persisted documents; query-level unit matrix also passed |
+| Negative live access | PASS — direct API checks denied wrong role, branch, warehouse, POS terminal, bank account, GL account, approval/document scope, export override, and hidden fields |
+| Playwright real-UI acceptance | PASS — 25 Chromium scenarios, 25 passed, 0 failed, 0 skipped in 2.4 minutes |
+| Browser evidence | PASS — [Playwright artifact 9021467648](https://github.com/mohammaddashraff/odin-erp/actions/runs/31256037111/artifacts/9021467648), retained 14 days |
+| Encrypted backup restore | PASS — PostgreSQL 17 custom dump, AES-256-CBC/PBKDF2-200000 encryption, mode `600`, decrypt/checksum/catalog verification, and clean isolated restore |
+| Restore validation | PASS — 5 seconds; 14 completed migrations; 1 tenant; 0 runtime rows without tenant scope; restored API/database healthy; reconciliation passed |
+| Restore evidence | PASS — checksum `790bbc8e4d9b7c57a7de3c42e40c72ef3113917ac75cdaf96459ce07cab12fcb`; [artifact 9021437360](https://github.com/mohammaddashraff/odin-erp/actions/runs/31256037111/artifacts/9021437360), retained 35 days |
+| Dependency/security gate | PASS — 0 Critical, 2 reviewed High, 0 Moderate, 0 Low; High decisions are exact, compensating-control documented, and expire 2026-09-08 |
+| Critical access-control review | PASS — no unresolved Critical access-control finding; SEC-001 and SEC-002 are resolved |
 | English direct-route audit | PASS — all 55 routes, headings, and breadcrumbs |
 | Arabic direct-route audit | PASS — all 55 routes, headings, breadcrumbs, `lang="ar"`, and `dir="rtl"` |
 | Purchasing localization | PASS — route, RFQ/supplier forms, validation, dialogs, dropdowns, reload, inverse English |
 | Dynamic localization | PASS — finance forms, audit actions/entities, technical labels, and toast templates |
-| NestJS/Jest backend controls | PASS — 8 suites, 49 tests |
 | TypeScript lint | PASS |
 | Next.js and NestJS production builds | PASS |
-| PostgreSQL migrations | PASS — all 9 migrations applied in sequence to a clean database, including the additive enterprise access-control migration |
-| Trial balance | PASS — total debit equals total credit |
-| Negative stock | PASS — no negative quantity or value |
-| Inventory control reconciliation | PASS — ledger equals perpetual valuation |
-| AR reconciliation | PASS — control ledger equals open customer subledger |
-| AP reconciliation | PASS — control ledger equals open supplier subledger |
+| Trial balance | PASS — 9 posted journals; debit and credit both `272847000` minor units |
+| Negative stock | PASS — `negativeStockRows=0` |
+| Inventory control reconciliation | PASS — `inventoryDifferenceMinor=0` |
+| AR reconciliation | PASS — `arDifferenceMinor=0` |
+| AP reconciliation | PASS — `apDifferenceMinor=0` |
 | Tenant isolation | PASS — PostgreSQL RLS and cross-tenant API tests |
 | Posted/audit immutability | PASS — PostgreSQL trigger tests |
 

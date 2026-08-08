@@ -1,26 +1,26 @@
 # Current capability matrix
 
-Audit date: 2026-08-03. Classifications describe repository evidence, not marketing intent.
+Audit date: 2026-08-08. Classifications describe repository evidence, not marketing intent.
 
 Legend: **Complete**, **Substantial but incomplete**, **Partial**, **Placeholder**, **Missing**, **Unsafe**, **Configuration dependent**, **Requires manual verification**.
 
 | Capability | Classification | Repository evidence and gap |
 |---|---|---|
-| Authentication | Substantial but incomplete | bcrypt login, signed access tokens, rotating persisted refresh sessions, active-user recheck; no MFA/SSO, recovery, throttling, privileged step-up, or session administration UI |
+| Authentication | Substantial but incomplete | bcrypt login, encrypted TOTP, hashed one-time recovery codes, governed reset, email/IP throttling, five-minute privileged step-up, rotating persisted refresh sessions, idle/absolute expiry and logout-all; SSO and per-device session administration UI remain missing |
 | Tenant isolation | Substantial but incomplete | forced PostgreSQL RLS and tenant transaction context; admin Prisma connection bypasses RLS by design and requires strict operational control |
 | Company isolation | Missing | no Company model or `companyId` on transactions, roles, users, reports, or journals |
-| Branch/warehouse access | Partial | user JSON assignments and service assertions exist; POS list/detail/resume/return/close now apply branch/warehouse checks, while several report/banking paths still lack equivalent scopes |
-| Permission registry | Substantial but incomplete | 364 stable `module.resource.action` keys; no registry version, lifecycle compatibility contract, or generated route coverage gate |
+| Branch/warehouse access | Substantial but incomplete | user assignments and query-level predicates protect documents, POS, bootstrap, approvals and current banking/report paths; Company is not normalized and new endpoints still require registry coverage |
+| Permission registry | Substantial but incomplete | 364 stable `module.resource.action` keys plus a controller-decorator coverage test; no registry version or lifecycle compatibility contract |
 | Roles and user overrides | Substantial but incomplete | primary/additional roles and explicit grant/deny overrides; only Super Admin may administer, with no delegation boundary |
-| Default deny | Unsafe | action permissions default deny, but absent data scope defaults to `BRANCH`; this violates the requested record default-deny rule |
-| Data scopes | Partial | OWN, ASSIGNED, TEAM, BRANCH, WAREHOUSE, DEPARTMENT, ALL across selected resources; missing NONE, COMPANY, SELECTED_RESOURCES, CUSTOM_POLICY and consistent endpoint enforcement |
+| Default deny | Complete for current repository surface | action permissions and absent resource scopes both default deny through `NONE`; clean-database and live browser negative tests enforce the behavior |
+| Data scopes | Substantial but incomplete | `NONE`, `OWN`, `ASSIGNED`, `TEAM`, `BRANCH`, `WAREHOUSE`, `DEPARTMENT`, and `ALL` have query-level unit and persisted database matrices; current financial resources support assigned IDs, while Company, resource-specific DENY and custom-policy modeling remain missing |
 | Field security | Partial | eleven registered fields are redacted in common serializers; inspected evidence journal values now obey field policy, but audit payloads, some reports and nested structures are not centrally redacted |
 | Financial/authority limits | Partial | four sales limits; purchasing, inventory, journal, payment, refund, bank, POS override, and approval limits are missing |
 | Temporary access/delegation | Missing | no models, scheduler, expiry enforcement, approval, or UI |
 | Access reviews | Missing | no campaign, reviewer, decision, evidence, or recertification model |
 | Segregation of duties | Missing | maker-checker exists for document/journal approval, but no policy registry, assignment-time detection, exceptions, or reports |
 | Access simulator | Missing | no effective-decision explanation endpoint or UI |
-| Permission audit | Partial | append-only access logs record role/user/permission changes and guard denials; service denials, session/IP/device detail, expiry, reviews, and sensitive downloads are incomplete |
+| Permission audit | Substantial but incomplete | append-only access logs record role/user/permission changes and a global filter captures guard/service 401/403 decisions with safe context; external SIEM, device detail, expiry/reviews and sensitive-download taxonomy remain incomplete |
 | Role-sensitive navigation | Substantial but incomplete | 55 screens are filtered by effective permissions; four Access pages exist, five required pages are absent |
 | Sales workflow | Substantial but incomplete | quotation through invoice, receipts, returns/credits, scopes, exact totals, posting and reports; CRM, reservations, installments, versions, commissions, portal and broader policies missing |
 | Purchasing workflow | Substantial but incomplete | request/RFQ/order/receipt/bill/return/payment; comparison, matching governance, landed cost/imports, supplier performance and robust approvals missing |
@@ -40,10 +40,10 @@ Legend: **Complete**, **Substantial but incomplete**, **Partial**, **Placeholder
 | Auditability | Substantial but incomplete | append-only business/access logs and posting references; audit payload redaction, retention governance, SIEM export and comprehensive event taxonomy missing |
 | Database concurrency | Partial | serializable tenant transactions, sequence upserts and unique keys; stock read/then-upsert lacks explicit row lock/version, idempotency table is unused |
 | Observability | Placeholder | JSON request logs and DB health endpoint; no metrics, traces, queues, alerts, error tracker, slow-query or connection monitoring |
-| Backups/restore | Missing | no automation, evidence, RPO/RTO decision, encryption/retention policy or restore drill |
-| CI/CD | Partial | pull-request/main quality workflow now runs Node 24, PostgreSQL 17, migrations, seed, lint, i18n, Jest and build; security scanning, E2E promotion and release deployment remain absent |
+| Backups/restore | Substantial but incomplete | CI run 31256037111 passed an encrypted, checksum-verified clean PostgreSQL 17 restore with migration, RLS, reconciliation and restored-API checks; provider PITR, cross-region retention, object attachments and production IAM/KMS evidence remain deployment work |
+| CI/CD | Substantial but incomplete | pull-request/main quality workflow runs Node 24, PostgreSQL 17, 14 clean migrations, seed, lint, i18n, 84 Jest tests, integrity, builds, security gates, 25 Playwright tests and an encrypted restore drill; production promotion/deployment and provider evidence remain absent |
 | Release management | Partial | build is side-effect free and `release:migrate` is explicit; immutable tags, environment promotion, deployment automation and proven rollback remain absent |
-| Automated tests | Substantial but incomplete | 8 Jest suites/53 tests and 23 Playwright scenarios exist; 37 non-database tests pass, while this host lacks PostgreSQL/Chromium prerequisites and major negative/security/concurrency scenarios remain absent |
+| Automated tests | Substantial but incomplete | CI run 31256037111 passed 10 Jest suites/84 tests and 25/25 Chromium scenarios, including all eight data scopes and live direct-API denials; broader concurrency, attachment, Company and production-provider scenarios remain absent |
 
 ## Current navigation status
 

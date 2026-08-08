@@ -1,20 +1,23 @@
 # Test strategy
 
-## Original baseline
+## Historical local baseline (2026-08-03)
 
-- Jest: 8 suites, 49 tests; current run 5 suites/32 tests passed and 3 suites/17 tests failed.
+- Jest: 8 suites, 49 tests; that local run had 5 suites/32 tests pass and 3 suites/17 tests fail.
 - Sixteen failures were database connections blocked by the execution sandbox.
 - One unit failure is deterministic test pollution: an invoice due 2026-07-31 is evaluated against the real 2026-08-03 clock and returns OVERDUE instead of UNPAID.
 - Playwright: 23 scenarios; 21 local scenarios could not launch Chromium in the sandbox and 2 staging-only scenarios skipped.
 - API and web TypeScript compile; web production build passes; full build cannot reach PostgreSQL migration step.
 
-## Post-hardening verification
+This baseline is retained only as history; it is superseded by the CI evidence below.
 
-- Jest now contains 53 tests. The six database-independent suites pass all 37 tests; this includes the corrected fixed `asOf` receivables case and new exact-output/POS-scope tests.
-- The remaining two suites contain 16 database tests. They were attempted with escalated host access and fail only because no PostgreSQL server is listening at `127.0.0.1:5433`; Docker Desktop is also not running, so this environment cannot provide the prerequisite service.
-- `npm run build` passes for both workspaces. Build performs client generation and compilation only; `npm run release:migrate` is the explicit release migration/bootstrap step.
-- TypeScript lint, translation audit and `git diff --check` pass.
-- Playwright remains environment-blocked: Chromium cannot launch under the available macOS sandbox and the required application/database services are unavailable.
+## Post-hardening verification (2026-08-08)
+
+- [Quality gate run 31256037111](https://github.com/mohammaddashraff/odin-erp/actions/runs/31256037111) passed all four jobs: verify, security, browser and restore.
+- PostgreSQL 17 applied all 14 migrations to a clean database; 10 Jest suites passed all 84 tests. The database suite includes a persisted negative matrix for `NONE`, `OWN`, `ASSIGNED`, `TEAM`, `BRANCH`, `WAREHOUSE`, `DEPARTMENT`, and `ALL`.
+- Chromium passed all 25 Playwright scenarios in 2.4 minutes with zero failures/skips. Live tests cover session rotation/logout, role/branch/warehouse/POS denial, unassigned bank/GL denial, explicit user `DENY`, field redaction, scoped CSV/PDF output, approval scope, security headers, localization and responsive access administration.
+- The encrypted restore drill passed in five seconds: checksum/catalog verified, file mode `600`, 14 migrations compatible, zero unscoped runtime tenant rows, zero reconciliation differences and restored API/database health.
+- The security job passed secret/demo/public-file and production-browser scans. Dependency audit recorded zero Critical, two reviewed High, zero Moderate and zero Low; decisions expire 2026-09-08 and the gate fails closed on audit-service errors.
+- TypeScript lint, translation audit, Prisma validation, Next/Nest production builds and `git diff --check` pass.
 
 ## Test layers
 
@@ -29,14 +32,13 @@
 | Reconciliation | GL balance and AR/AP/inventory/cash/payroll/assets/tax/POS controls | zero unexplained difference |
 | Performance | P50/P95/P99 API/report/database latency and query count | agreed production-shaped dataset |
 
-## Immediate test corrections
+## Remaining test priorities
 
-1. Continue injecting/passing an `asOf` clock in every ageing/overdue unit test; the observed receivables case is corrected.
-2. Split pure unit tests from database tests so a DB outage does not hide unit status.
-3. Add route metadata coverage and navigation-key registry tests.
-4. Extend the initial POS-query and exact document/report output tests with database-backed negative tests for POS objects, approvals, evidence field redaction and bank-account scope.
-5. Run database suites in CI with PostgreSQL 17 and Node 24.
-6. Start API/web automatically for local Playwright or fail with an explicit prerequisite message.
+1. Split pure unit tests from database suites so local prerequisite failures cannot obscure unit status.
+2. Add negative Company-scope tests when the normalized Company model is introduced.
+3. Add private-attachment authorization, malware-scan and signed-download tests before attachment storage is implemented.
+4. Expand parallel-client invariant tests for stock, allocation, numbering, approval, POS close and period close.
+5. Add provider-level PITR, cross-region retention, IAM/KMS and object-attachment restore evidence before production release.
 
 ## Evidence format
 
