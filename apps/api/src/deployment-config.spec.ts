@@ -43,6 +43,8 @@ describe('Deployment exposure controls', () => {
 
   it('fails closed on privileged MFA in production and supports explicit pre-production enforcement', () => {
     expect(privilegedMfaRequired({ NODE_ENV: 'production' })).toBe(true);
+    expect(privilegedMfaRequired({ NODE_ENV: 'production', ODIN_ALLOW_SHARED_DEMO_LOGINS: 'true' })).toBe(false);
+    expect(privilegedMfaRequired({ NODE_ENV: 'production', ODIN_ALLOW_SHARED_DEMO_LOGINS: 'true', ODIN_REQUIRE_PRIVILEGED_MFA: 'true' })).toBe(true);
     expect(privilegedMfaRequired({ NODE_ENV: 'test' })).toBe(false);
     expect(privilegedMfaRequired({ NODE_ENV: 'test', ODIN_REQUIRE_PRIVILEGED_MFA: 'true' })).toBe(true);
   });
