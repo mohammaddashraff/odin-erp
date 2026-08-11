@@ -10,8 +10,8 @@ do not copy these baseline totals into current verification evidence.
 
 | Current-tranche model area | Classification | Boundary |
 |---|---|---|
-| Company and normalized selected-resource ownership | Partially implemented | Company, time-bounded membership/branch mapping, customer/supplier ownership and typed financial resources/assignments are additive; remaining tenant-shared master depth and current full cross-company evidence remain pending |
-| Temporary grants, delegation, SoD and access review/simulation | Partially implemented | validity/revocation, `WARN`/`BLOCK` rules on current permission-set mutations, immutable review evidence and non-mutating explanation records are additive; configurable same-record rules, governed exceptions and final evidence remain pending |
+| Company and normalized selected-resource ownership | Partially implemented | Company, time-bounded membership/branch mapping, customer/supplier ownership and typed financial resources/assignments are additive; current cross-company regressions pass, while tenant-shared master depth remains incomplete |
+| Temporary grants, delegation, SoD and access review/simulation | Partially implemented | validity/revocation, `WARN`/`BLOCK` rules on current permission-set mutations, immutable review evidence and non-mutating explanation records are additive and current regressions pass; configurable same-record rules and governed exceptions remain incomplete |
 | Centralized field policy and private attachments | Implemented | projector plus DB-backed safe metadata/content/ticket/audit controls are additive; future response coverage and provider storage/scanner remain incomplete |
 | Generalized authority limits | Partially implemented | Existing sales limits plus company/currency/time-bounded authority policies and current document/payment/journal/treasury adapters are additive; complete domain routing and escalation remain incomplete |
 | Provider object storage, scanner and attachment recovery | Requires external/provider evidence | Metadata and authorization hooks cannot establish provider IAM/KMS/scanning/recovery evidence |

@@ -1,60 +1,48 @@
 # Odin ERP verification record
 
-Verification date: 2026-08-08.
+Verification date: 2026-08-11.
 
-## Current tranche status — verification pending
+## Current release verification — PASSED
 
-The successful record below is preserved as historical evidence for application commit
-`b534bc240ff8033f4982ff6da01482f476f25fe9`. It does **not** verify the current enterprise access,
-Western-digit localization, loading, semantic-color, dashboard or documentation tranche. Do not
-copy its PASS labels, totals, artifact IDs or duration into the next release record. Replace this
-section only after the current commit is built and exercised in the required environment.
+The verified application commit is `7d747fb26cacc7874bc8753e416156a0347a3aa9` on
+`codex/enterprise-audit-access-hardening`. It was validated locally with Node `v24.14.0`, a clean
+PostgreSQL 17 disposable database, the built Nest API on port 8081 and the built Next application on
+port 8080. The evidence-only documentation commit is intentionally made after this immutable
+application verification; it does not alter the tested application.
 
-| Current-tranche scope | Classification | Evidence state |
-|---|---|---|
-| Named typecheck and migration-validation entry points | Implemented | Root `npm run typecheck` and `npm run db:validate` commands exist; full-tranche execution is pending |
-| Western-digit Arabic web/API/export policy | Implemented | Central locale resolution uses `ar-EG-u-nu-latn`; formatter/full-route/input/export evidence remains pending |
-| Loading/skeletons, semantic palette and module identity | Partially implemented | Architecture and accepted design concepts are recorded; route integration and regression evidence must be reconciled with the final application diff |
-| Company/security governance, field projection and private attachment repository controls | Implemented | Additive code is present, but no current-tranche PASS claim is permitted before database, API-tampering and browser reruns; broader limits remain partial |
-| Current clean migration replay and all automated suites | Not implemented | A new immutable commit/CI run, exact totals, failures/skips and durations have not yet been recorded |
-| Provider PITR, cross-region retention, IAM, KMS and production attachment recovery | Requires external/provider evidence | Repository tests and a logical restore drill cannot establish these provider controls |
+| Check | Result |
+|---|---|
+| Dependency install | PASS — `npm ci`, 983 packages in 16 seconds |
+| Prisma | PASS — client generation and schema validation; 17 migrations applied cleanly and seed produced 12 users/6 items |
+| TypeScript | PASS — `npm run lint` and explicit `npm run typecheck` for API and web |
+| Localization audit | PASS — six categories all zero: missing keys/values, duplicates, hardcoded English, Arabic outside dictionary and suspicious values |
+| Unit suite | PASS — 12 suites, 123 tests, 0 failures, 2.154 seconds |
+| PostgreSQL integration suite | PASS — 6 suites, 66 tests, 0 failures, 11.481 seconds |
+| Security suite | PASS — 13 suites, 159 tests, 0 failures, 12.496 seconds |
+| Aggregate API suite | PASS — 18 suites, 189 tests, 0 failures, 12.75 seconds; selector totals overlap and are not summed |
+| Integrity, before and after browser workflows | PASS — 5 posted journals; debit/credit `272830000`; ledger, inventory, AR and AP differences `0`; negative stock `0` |
+| Production build | PASS — Nest and Next production builds; demo mode is compiled as `false` unless explicitly enabled |
+| Dependency audit | PASS — 0 Critical, 2 reviewed High, 0 Moderate, 0 Low; `@nestjs/swagger`/`js-yaml` review expires 2026-09-08 |
+| Static security scan | PASS — 143 tracked text files, public-file and demo-control checks, and production browser-asset scan; demo identities are absent from the production bundle |
+| Chromium E2E | PASS — 33 scenarios: 31 passed, 0 failed, 2 staging-only scenarios skipped because `STAGING_BASE_URL` was unset (about 2 minutes 42 seconds) |
+| Browser evidence | PASS — 11 fresh reproducible screenshots in ignored `artifacts/screenshots/`; coverage includes EN/AR dashboards, purchasing, navigation, sales, and mobile RTL access governance |
+| Encrypted logical restore drill | PASS — 4 seconds; AES-256-CBC/PBKDF2-200000, mode `600`, checksum/catalog verification, 17 migrations, one tenant, zero unscoped runtime rows, two attachments/105 bytes and content manifest match, reconciliation and restored API startup |
 
-The current tranche must execute, at minimum, from the repository root:
+The drill evidence is stored outside the repository at
+`/private/tmp/odin-restore-evidence-release-final/restore-evidence.json`; it records backup SHA-256
+`ff90dee6b69143c41e19d0c1792b227a2907f31b82b65429a1457b5ee8c54668` and attachment-manifest
+SHA-256 `f370e7afa095e96301fab2fcb0d423f76865ca3c405b379a0eb43e691232f52c`. Its guarded cleanup
+confirmed that the temporary restored database was removed.
 
-```bash
-npm ci
-npm run db:generate
-npm run db:validate
-npm run db:migrate
-# npm run db:seed  # disposable verification database only; never production
-npm run lint
-npm run typecheck
-npm run i18n:audit
-npm run test:unit
-npm run test:db
-npm run test:security
-npm test
-npm run integrity
-npm run build
-npm run security:audit
-npm run security:scan
-npx playwright test tests/e2e/odin-ui.spec.ts tests/e2e/localization.spec.ts tests/e2e/access-security.spec.ts --project=chromium
-git diff --check
-```
-
-Record the PostgreSQL version and migration count, Jest suites/tests, Playwright tests/skips,
-reconciliation values, command durations, failure reasons, screenshots and final Git SHA. Run the
-encrypted restore drill separately when its PostgreSQL 17 source/restore URLs and ephemeral key are
-available.
-
-This record maps the acceptance briefs to executable evidence. The authoritative release evidence is
-[Quality gate run 31256037111](https://github.com/mohammaddashraff/odin-erp/actions/runs/31256037111),
-which completed successfully for branch head `b534bc240ff8033f4982ff6da01482f476f25fe9`. The browser suites are
+This record maps the acceptance briefs to executable evidence. The current local release evidence is
+the immutable application commit above. The prior
+[Quality gate run 31256037111](https://github.com/mohammaddashraff/odin-erp/actions/runs/31256037111)
+remains historical evidence for `b534bc240ff8033f4982ff6da01482f476f25fe9`. The browser suites are
 `tests/e2e/odin-ui.spec.ts`, `tests/e2e/localization.spec.ts`, and `tests/e2e/access-security.spec.ts`;
 backend controls are in `apps/api/src/*.spec.ts`; financial reconciliation is in
 `apps/api/src/scripts/integrity.ts`.
 
-## Automated evidence
+## Historical automated evidence (2026-08-08)
 
 | Check | Result |
 |---|---|

@@ -1,19 +1,19 @@
 # Backup and restore runbook
 
-Repository status: the pull-request quality gate performs an encrypted logical backup and a real clean-database restore on PostgreSQL 17. The drill verifies the archive checksum/catalog, applies migrations, starts the API against the restored database, validates unscoped runtime RLS, compares a non-empty DB-backed private-attachment content manifest, and runs journal, ledger, inventory, AR and AP reconciliation. CI evidence is retained for 35 days. Production provider PITR, cross-region storage, provider object recovery and malware-scanner operation still require environment-specific evidence before production readiness.
+Repository status: the encrypted logical backup and clean-database restore drill is verified locally on PostgreSQL 17 for application commit `7d747fb26cacc7874bc8753e416156a0347a3aa9`. It verifies the archive checksum/catalog, applies migrations, starts the API against the restored database, validates unscoped runtime RLS, compares a non-empty DB-backed private-attachment content manifest, and runs journal, ledger, inventory, AR and AP reconciliation. CI retention and production provider PITR, cross-region storage, provider object recovery and malware-scanner operation still require environment-specific evidence before production readiness.
 
 ## Evidence classification
 
 | Control | Classification | Current evidence and boundary |
 |---|---|---|
-| Repository logical backup and isolated restore | Tested | Historical quality run `31256037111` passed against deterministic non-production data at application commit `b534bc2`; the current tranche must be rerun before its new commit inherits that result |
-| Cross-platform drill mechanics | Implemented | The script accepts GNU `sha256sum` or BSD/macOS `shasum`, and GNU or BSD `stat`; current-tranche execution evidence is pending |
-| Migration compatibility and reconciliation rehearsal | Tested | The historical drill applied 14 migrations, started the restored API, checked unscoped RLS and produced zero reconciliation differences |
+| Repository logical backup and isolated restore | Tested | 2026-08-11 local drill passed against deterministic non-production data at application commit `7d747fb`; prior quality run `31256037111` remains historical |
+| Cross-platform drill mechanics | Tested | The script accepted macOS `shasum`/BSD `stat`; it refuses a source-target match, pre-existing restore database, stale evidence directory, or admin/runtime URL that is not bound to the new restore database |
+| Migration compatibility and reconciliation rehearsal | Tested | The current drill applied/validated 17 migrations, started the restored API, checked unscoped RLS and produced zero reconciliation differences |
 | Provider-managed PITR and continuous WAL recovery | Requires external/provider evidence | No repository test can prove provider recovery-point creation, freshness, restore precision or achieved RPO |
 | Cross-region replication and immutable retention | Requires external/provider evidence | Provider policy, replication state, legal hold and deletion controls require environment evidence |
 | Production IAM, KMS and key rotation | Requires external/provider evidence | Repository encryption uses an ephemeral drill key; production identities, KMS policy, key rotation and audit logs are external controls |
 | Database rollback by destructive migration reversal | Not implemented | Releases use compatibility plus forward-fix; an applied destructive migration is never blindly reversed |
-| DB-backed private attachment recovery | Implemented | The drill requires a non-empty seeded attachment and compares source/restored row count, byte total, stored SHA-256 values and actual-content MD5 values through a SHA-256 manifest; current-tranche execution evidence remains pending |
+| DB-backed private attachment recovery | Tested | Current drill compared 2 rows / 105 bytes plus stored SHA-256 and actual-content MD5 values through a matching SHA-256 manifest |
 | Provider object attachment recovery | Requires external/provider evidence | No provider object store is integrated, so repository evidence cannot establish object version recovery, replication, IAM or KMS behavior |
 
 ## Recovery objectives and ownership
@@ -43,6 +43,20 @@ The CI `restore` job creates disposable demo data, runs `scripts/backup-restore-
 7. Exact reconciliation through `npm run integrity`.
 8. API startup and `/api/health` against the restored runtime connection.
 9. JSON evidence with backup timestamp/ID/checksum, attachment recovery measurements, restore start/end/duration, application SHA and validation results.
+
+## Current local drill evidence (2026-08-11)
+
+The local release drill for application `7d747fb` passed in four seconds. It created backup
+`odin-drill-20260811T104457Z-local-release-20260811`, verified archive checksum
+`ff90dee6b69143c41e19d0c1792b227a2907f31b82b65429a1457b5ee8c54668`, applied/validated 17
+migrations, found one tenant and zero runtime rows without tenant scope, and started the restored
+API successfully. The two DB-backed attachments (105 bytes) matched before and after restore with
+manifest SHA-256 `f370e7afa095e96301fab2fcb0d423f76865ca3c405b379a0eb43e691232f52c`.
+
+The reproducible evidence JSON, health response, reconciliation result and lifecycle log are outside
+the repository at `/private/tmp/odin-restore-evidence-release-final/`. The temporary restored
+database was confirmed absent after the drill cleanup. This is local, deterministic,
+non-production evidence; it does not prove provider controls listed below.
 
 Equivalent local/staging command, with non-production URLs and an ephemeral key:
 

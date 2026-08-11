@@ -4,11 +4,11 @@
 
 | Operational capability | Classification | Boundary |
 |---|---|---|
-| API/database health and safe JSON request logging | Tested | Historical repository and browser evidence exists; current-tranche rerun is pending |
-| Authorization-denial and append-only audit evidence | Tested | Current pre-tranche HTTP 401/403 and database mutation-negative tests passed historically |
+| API/database health and safe JSON request logging | Tested | Current built API/web browser verification and restored API health checks passed for `7d747fb` |
+| Authorization-denial and append-only audit evidence | Tested | Current direct-API, security and persisted database mutation-negative suites passed for `7d747fb` |
 | Provider monitoring, alert delivery and on-call integration | Requires external/provider evidence | No production metrics, alert route, error tracker or paging evidence is present in the repository |
 | Provider PITR, cross-region backup, IAM and KMS controls | Requires external/provider evidence | Use the backup runbook evidence packet; repository restore evidence alone is insufficient |
-| DB-backed private attachment logical recovery | Implemented | Attachment bytes are part of the PostgreSQL logical backup; the drill requires a non-empty source and compares restored row count, byte total and deterministic metadata/content-hash manifests. Current-tranche execution is pending |
+| DB-backed private attachment logical recovery | Tested | Attachment bytes are part of the PostgreSQL logical backup; the current drill matched 2 rows/105 bytes and deterministic metadata/content-hash manifests |
 | Provider object storage recovery and malware-scanner operations | Requires external/provider evidence | No provider object store or malware scanner is integrated. Object versioning/replication/recovery, provider IAM/KMS and scanner operation cannot be inferred from the DB-backed drill |
 | Production deployment promotion and automated rollback | Not implemented | The release checklist is documented, but there is no repository-evidenced production deployment automation or rollback rehearsal |
 
@@ -31,8 +31,8 @@ The current `/api/health` checks API/database only. Add readiness/liveness depen
 The current attachment implementation stores private metadata and bytes in PostgreSQL. The logical
 backup/restore drill therefore treats attachments as database recovery scope: it refuses an empty
 source fixture and compares source/restored counts, byte totals, stored SHA-256 values and hashes of
-the recovered bytes. The script and checks are implemented and testable; the current-tranche drill
-result remains pending until the verification run completes.
+the recovered bytes. The script and checks are implemented and tested: the 2026-08-11 release drill
+matched two attachments/105 bytes and completed restore, migration, RLS, reconciliation and API-startup checks.
 
 This does not establish production PITR, achieved RPO/RTO, provider object recovery, cross-region
 replication, IAM/KMS controls or malware-scanner operation. Those controls require provider and

@@ -7,9 +7,9 @@ This document is the implementation and operations handoff for Odin ERP's tenant
 | Capability | Classification | Evidence boundary |
 |---|---|---|
 | Previously verified tenant/role/scope enforcement | Tested | Historical quality run `31256037111` applies only to commit `b534bc2` |
-| Company-aware and governed effective-access architecture | Partially implemented | Company/customer/supplier/branch and mapped bank/GL boundaries plus governed access APIs exist; remaining tenant-shared masters, full governance UI and current end-to-end evidence remain incomplete |
-| Western-digit Arabic policy | Implemented | Web and API/export locale resolution uses `ar-EG-u-nu-latn`; current full-route/input/export regression evidence is pending |
-| Current-tranche end-to-end verification | Partially implemented | Required sources exist, but do not reuse the 31 July or 8 August totals as evidence for the current working tree; final counts, failures/skips, duration and immutable SHA are pending |
+| Company-aware and governed effective-access architecture | Partially implemented | Company/customer/supplier/branch and mapped bank/GL boundaries plus governed access APIs exist and current direct-API/DB/browser paths pass; tenant-shared masters and full governance UI remain incomplete |
+| Western-digit Arabic policy | Tested | Web and API/export locale resolution uses `ar-EG-u-nu-latn`; current browser checks cover UI, editable inputs and CSV. PDF verification confirms locale request/valid PDF output, not glyph extraction |
+| Current-tranche end-to-end verification | Tested | Application commit `7d747fb26cacc7874bc8753e416156a0347a3aa9` passed the recorded Jest, direct-API, browser, security and restore gates. Local Playwright: 31 passed, 2 staging-only skips; see `VERIFICATION.md` |
 
 ## Audit summary
 

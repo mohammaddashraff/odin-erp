@@ -5,13 +5,13 @@ record when tenant policy is enabled, and outgoing supplier payments always requ
 authorized checker to approve or reject. Persisted tenant-scoped `WARN`/`BLOCK` rules seed four
 warnings, expose conflicts in effective-access/review/simulation results, and reject configured
 `BLOCK` conflicts on role create/update/duplicate, user primary/additional-role and override changes,
-temporary grants and delegations. Current final-suite evidence remains pending. A generalized
+temporary grants and delegations. The current final suite passed these regression paths. A generalized
 configurable same-record rule engine and governed exceptions are not claimed.
 
 | Capability | Classification | Boundary |
 |---|---|---|
-| Same-record document/journal/payment maker-checker | Implemented | dedicated server checks cover document and journal submission/approval plus outgoing payment maker/checker; current final regression record is pending |
-| Effective-access conflict warnings | Implemented | Seeded `WARN` rules evaluate effective role, override, temporary and delegated permissions in access views, reviews and simulation; current coverage rerun pending |
+| Same-record document/journal/payment maker-checker | Tested | dedicated server checks cover document and journal submission/approval plus outgoing payment maker/checker, including transition-race PostgreSQL regressions |
+| Effective-access conflict warnings | Tested | Seeded `WARN` rules evaluate effective role, override, temporary and delegated permissions in access views, reviews and simulation |
 | Configured assignment-time blocking | Partially implemented | Persisted `BLOCK` rules reject role create/update/duplicate, user primary/additional-role and override changes, temporary grants and delegations; this classification does not extend to same-record decisions |
 | Generalized same-record rules and governed exceptions | Not implemented | Current document/journal maker-checker is a dedicated submitter check, not a configurable `BLOCK_SAME_RECORD` engine; exception requests, independent approval, expiry and compensating-control evidence are absent |
 | Provider or external compliance attestation | Requires external/provider evidence | Organizational ownership, policy approval and external audit evidence are outside repository assertions |

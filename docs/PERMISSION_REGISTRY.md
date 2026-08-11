@@ -7,7 +7,7 @@ record, not in this architecture description.
 
 | Registry capability | Classification | Boundary |
 |---|---|---|
-| Pre-tranche unique normalized registry and literal decorator coverage | Implemented | Historical tests exist; current rerun pending |
+| Pre-tranche unique normalized registry and literal decorator coverage | Tested | Historical tests remain available and the current application regression suite passes |
 | Company governance and private attachment authorization | Partially implemented | current governance endpoints reuse company-scoped `settings.users_access.view/manage`; attachment routes resolve the owning document permission plus attachment scope/field policy. Finer dedicated lifecycle/action keys remain a registry gap |
 | Registry version/deprecation compatibility contract | Not implemented | A stable key set exists, but lifecycle versioning and consumer compatibility remain absent |
 

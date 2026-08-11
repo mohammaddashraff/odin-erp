@@ -4,9 +4,9 @@
 
 | Control | Classification | Evidence / remaining boundary |
 |---|---|---|
-| Side-effect-free application build | Tested | Historical quality run `31256037111` built NestJS and Next.js without applying migrations; current-tranche rerun is pending |
-| Explicit schema validation and release migration commands | Implemented | `npm run db:validate` and `npm run release:migrate` are named root commands; the current tranche still requires clean-database execution evidence |
-| Migration and restore rehearsal | Tested | Historical PostgreSQL 17 CI restore evidence exists for commit `b534bc2`; it does not verify the current working tree |
+| Side-effect-free application build | Tested | Current application `7d747fb` built NestJS and Next.js without applying migrations; quality run `31256037111` remains historical |
+| Explicit schema validation and release migration commands | Tested | `npm run db:validate` and `npm run release:migrate` are named root commands; all 17 migrations were applied to a clean disposable database |
+| Migration and restore rehearsal | Tested | Current PostgreSQL 17 logical restore evidence applies to `7d747fb`; prior CI evidence for `b534bc2` is historical |
 | Immutable release tag and artifact promotion | Not implemented | No signed/annotated release tag, artifact digest promotion or production deployment workflow is repository-evidenced |
 | Application rollback/forward-fix decision process | Implemented | The policy and stop conditions below are documented; a current release rollback rehearsal is not yet evidenced |
 | Production backup, IAM, KMS and PITR gate | Requires external/provider evidence | Provider recovery point, identities, keys, retention and replication must be attached to the release record |

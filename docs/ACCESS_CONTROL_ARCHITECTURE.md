@@ -67,13 +67,13 @@ leaks; future endpoints/nested payloads still require registry coverage.
 | Current-tranche capability | Classification | Evidence boundary |
 |---|---|---|
 | Company ownership, assignments and bounded administration | Partially implemented | Company/membership/branch mapping, customer/supplier ownership, mapped bank/GL ownership, compatibility triggers and actor/query bounds are implemented; tenant-shared reference/configuration masters and complete governance UI remain partial |
-| Selected financial-resource assignments | Partially implemented | Typed resources and assignments are implemented; bank/GL have operational adapters while other requested classes await their business domains; current direct-ID/output-channel negative rerun is pending |
-| Temporary access and delegation | Implemented | Company/start/end/reason/revocation plus deny/non-escalation rules are implemented; current expiry/envelope rerun pending |
-| SoD warning and assignment evaluation | Partially implemented | Initial rules are seeded as `WARN`; configured `BLOCK` rules reject conflicts on current role, user, temporary-grant and delegation permission-set mutations. A generalized configurable same-record engine and governed exceptions remain incomplete; current rerun pending |
-| Access review and simulator/preview | Implemented | Immutable review snapshots and non-mutating effective/proposed access explanations are implemented; mature campaign/attestation depth remains incomplete and the current authorization rerun is pending |
-| General field projection | Implemented | Central projection covers the identified customer/supplier/document/journal/payment/audit leaks; current negative rerun and future endpoint coverage remain required |
-| Private attachments | Implemented | DB-backed authenticated size/type/hash/ticket/download-audit controls and sales-document UI are implemented; scanner remains `NOT_CONFIGURED` and current rerun pending |
-| Generalized amount/approval limits | Partially implemented | Typed, currency-aware authority policies can be bounded by company, branch, role, department, document type and validity window. Enforcement adapters cover document approvals, receipts/payments, journal posting and treasury movement; complete domain coverage, routing and escalation remain incomplete and the current rerun is pending |
+| Selected financial-resource assignments | Partially implemented | Typed resources and assignments are implemented; bank/GL have operational adapters while other requested classes await their business domains; current direct-ID/output-channel negative regressions pass |
+| Temporary access and delegation | Tested | Company/start/end/reason/revocation plus deny/non-escalation rules are implemented; current expiry/envelope regressions pass |
+| SoD warning and assignment evaluation | Partially implemented | Initial rules are seeded as `WARN`; configured `BLOCK` rules reject conflicts on current role, user, temporary-grant and delegation permission-set mutations and current persisted regressions pass. A generalized configurable same-record engine and governed exceptions remain incomplete |
+| Access review and simulator/preview | Tested | Immutable review snapshots and non-mutating effective/proposed access explanations are implemented; current authorization coverage passes, while mature campaign/attestation depth remains incomplete |
+| General field projection | Tested | Central projection covers the identified customer/supplier/document/journal/payment/audit leaks and current negative regressions pass; future endpoint coverage remains required |
+| Private attachments | Tested | DB-backed authenticated size/type/hash/ticket/download-audit controls and sales-document UI are implemented and current HTTP/DB/browser regressions pass; scanner remains `NOT_CONFIGURED` |
+| Generalized amount/approval limits | Partially implemented | Typed, currency-aware authority policies can be bounded by company, branch, role, department, document type and validity window. Enforcement adapters cover document approvals, receipts/payments, journal posting and treasury movement and current regressions pass; complete domain coverage, routing and escalation remain incomplete |
 | Provider attachment storage/scanner and production IAM/KMS | Requires external/provider evidence | Do not classify provider operations as repository-tested without actual integration evidence |
 
 ## Current architecture
@@ -138,8 +138,8 @@ Explicit permission DENY overrides exact, wildcard, legacy, and Super Admin gran
 | Department assignments | Partially implemented | department data scope exists; user administrative assignment is not fully normalized |
 | Team assignments | Partially implemented | team actor/config scope exists; no complete normalized team membership UI/model |
 | Financial-resource assignments | Partially implemented | typed requested resource classes and assignments exist; operational enforcement currently has bank/GL adapters, while other types await business domains |
-| Temporary access | Implemented | company/scope/start/expiry/reason/grantor/revocation and active-window evaluation exist; current rerun pending |
-| Delegation | Implemented | bounded company/scope/validity/reason/revocation with deny/non-escalation exists; current rerun pending |
+| Temporary access | Tested | company/scope/start/expiry/reason/grantor/revocation and active-window evaluation exist; current expiry and mutation-path regressions pass |
+| Delegation | Tested | bounded company/scope/validity/reason/revocation with deny/non-escalation exists; current envelope and mutation-path regressions pass |
 | Segregation of duties | Partially implemented | document/journal/outgoing-payment maker-checker and seeded effective-access `WARN` rules exist; configured `BLOCK` rules reject current role, user, temporary-grant and delegation permission-set conflicts. Configurable same-record rules and governed exceptions remain incomplete |
 | Access reviews | Implemented | review output and immutable evidence exist; mature campaign depth remains incomplete |
 | Effective Access Simulator | Implemented | explainable effective-decision calculation exists without altering the target user's session |
@@ -153,8 +153,8 @@ The overall Phase 1 access program remains **partially complete** because normal
 resource-scope deny/custom predicates, automatic field/output coverage, configurable same-record SoD,
 governed exceptions, complete governance browser forms, mature review campaigns and generalized
 approval routing remain incomplete. Company governance APIs, temporary access, delegation, reviews,
-simulator and safe preview are implemented capabilities, with current-tranche verification still
-pending.
+simulator and safe preview are implemented capabilities, with current-tranche verification recorded
+in `VERIFICATION.md`.
 
 ## Target policy model
 

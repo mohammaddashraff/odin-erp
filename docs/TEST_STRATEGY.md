@@ -1,11 +1,13 @@
 # Test strategy
 
-## Current tranche verification contract (2026-08-11)
+## Current release verification (2026-08-11)
 
-Historical totals below remain valid only for their recorded commit. The enterprise access and UI/
-localization tranche has no current PASS record yet. Its implementation may be classified as
-**Implemented** or **Partially implemented**, but it becomes **Tested** only after the relevant
-unit, PostgreSQL, direct-API and Chromium suites pass on the same immutable commit.
+The enterprise access and UI/localization tranche is **Tested** at immutable application commit
+`7d747fb26cacc7874bc8753e416156a0347a3aa9`. The clean PostgreSQL 17 run passed 12/123 unit,
+6/66 database, 13/159 security and 18/189 aggregate Jest totals (selectors overlap; do not sum
+them), plus 31 Chromium scenarios with two explicitly staging-only skips. The API, direct-API,
+persisted PostgreSQL, browser and encrypted-restore evidence is recorded in `VERIFICATION.md`.
+Historical totals below remain valid only for their recorded commits.
 
 The root verification surface is `npm run lint`, `npm run typecheck`, `npm run db:validate`,
 `npm run test:unit`, `npm run test:db`, `npm run test:security`, `npm test`, `npm run integrity`,
@@ -21,7 +23,7 @@ alias makes the release command contract unambiguous. Database tests require Pos
 admin/runtime role URLs. Browser tests require the seeded database plus API on port 8081 and web
 application on port 8080; the Playwright config does not start services automatically.
 
-Required current-tranche regression evidence includes:
+The completed current-tranche regression evidence includes:
 
 - Arabic UI text, dates, times, currencies, percentages, counts and inputs contain Western digits
   and no Arabic-Indic or Persian digit glyphs.
