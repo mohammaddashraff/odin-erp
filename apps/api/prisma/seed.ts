@@ -18,7 +18,7 @@ const keys = (module: string, actions?: string[]) => PERMISSION_REGISTRY
   .map((permission) => permission.key);
 const pick = (...permissionKeys: string[]) => [...new Set(permissionKeys)];
 
-const rolePermissions: Record<string, string[]> = {
+export const rolePermissions: Record<string, string[]> = {
   'Super Admin': ['system.super_admin'],
   Administrator: pick(...PERMISSION_REGISTRY.filter(({ key }) => key !== 'system.super_admin' && !key.startsWith('settings.users_access.') && !key.startsWith('audit.access.')).map(({ key }) => key)),
   'Sales Manager': pick(...keys('dashboard'), ...keys('sales'), ...keys('approvals'), ...keys('reports'), 'payments.receipt.view'),
@@ -53,9 +53,9 @@ const rolePermissions: Record<string, string[]> = {
   'Read Only User': pick(...PERMISSION_REGISTRY.filter(({ action, key }) => action === 'view' && !key.startsWith('settings.users_access.') && !key.startsWith('audit.access.')).map(({ key }) => key)),
 };
 
-const roleKeys: Record<string, string> = Object.fromEntries(Object.keys(rolePermissions).map((name) => [name, name.toLowerCase().replaceAll(/[^a-z0-9]+/g, '_').replaceAll(/^_|_$/g, '')]));
+export const roleKeys: Record<string, string> = Object.fromEntries(Object.keys(rolePermissions).map((name) => [name, name.toLowerCase().replaceAll(/[^a-z0-9]+/g, '_').replaceAll(/^_|_$/g, '')]));
 
-const roleScopes: Record<string, DataScopeType> = {
+export const roleScopes: Record<string, DataScopeType> = {
   'Super Admin': DataScopeType.ALL, Administrator: DataScopeType.ALL, 'Sales Manager': DataScopeType.TEAM, 'Sales Employee': DataScopeType.OWN,
   Accountant: DataScopeType.ALL, 'Warehouse Keeper': DataScopeType.WAREHOUSE, 'HR Manager': DataScopeType.DEPARTMENT,
   'Branch Manager': DataScopeType.BRANCH, Auditor: DataScopeType.ALL, 'Finance Manager': DataScopeType.ALL,
@@ -63,7 +63,7 @@ const roleScopes: Record<string, DataScopeType> = {
   'Read Only User': DataScopeType.ALL,
 };
 
-const roleLimits: Record<string, Record<string, number>> = {
+export const roleLimits: Record<string, Record<string, number>> = {
   'Super Admin': { 'sales.discount_percent': 100, 'sales.quotation_amount_minor': 9_000_000_000_000, 'sales.credit_amount_minor': 9_000_000_000_000, 'sales.return_amount_minor': 9_000_000_000_000 },
   'Sales Manager': { 'sales.discount_percent': 15, 'sales.quotation_amount_minor': 50_000_000, 'sales.credit_amount_minor': 25_000_000, 'sales.return_amount_minor': 10_000_000 },
   'Sales Employee': { 'sales.discount_percent': 5, 'sales.quotation_amount_minor': 5_000_000, 'sales.credit_amount_minor': 0, 'sales.return_amount_minor': 0 },
