@@ -2,6 +2,47 @@ import type { Request } from 'express';
 
 export type ApiLanguage = 'en' | 'ar';
 
+const arabicDigits = /[\u0660-\u0669\u06f0-\u06f9]/g;
+export function normalizeWesternDigits(value: unknown): string {
+  return String(value ?? '').replace(arabicDigits, (digit) => {
+    const code = digit.codePointAt(0)!;
+    return String(code >= 0x06f0 ? code - 0x06f0 : code - 0x0660);
+  });
+}
+
+export function apiLocale(language: ApiLanguage) {
+  return language === 'ar' ? 'ar-EG-u-nu-latn' : 'en-EG-u-nu-latn';
+}
+
+function exactFixed(value: bigint, scale: bigint, fractionDigits: number, language: ApiLanguage) {
+  const negative = value < 0n;
+  const absolute = negative ? -value : value;
+  const integer = absolute / scale;
+  const fraction = (absolute % scale).toString().padStart(fractionDigits, '0');
+  const grouped = new Intl.NumberFormat(apiLocale(language), { maximumFractionDigits: 0 }).format(integer);
+  return normalizeWesternDigits(`${negative ? '-' : ''}${grouped}${fractionDigits ? `.${fraction}` : ''}`);
+}
+
+export function apiMinorCurrency(value: unknown, language: ApiLanguage, currency = 'EGP') {
+  const amount = BigInt(String(value || 0));
+  const exact = exactFixed(amount, 100n, 2, language);
+  const parts = new Intl.NumberFormat(apiLocale(language), { style: 'currency', currency, currencyDisplay: 'symbol' }).formatToParts(0);
+  const integerIndex = parts.findIndex((part) => part.type === 'integer');
+  const fractionIndex = parts.findIndex((part) => part.type === 'fraction');
+  const currencyLiteral = (part: Intl.NumberFormatPart) => part.type === 'currency' || part.type === 'literal';
+  const prefix = parts.slice(0, integerIndex).filter(currencyLiteral).map((part) => part.value).join('');
+  const suffix = parts.slice(fractionIndex < 0 ? integerIndex + 1 : fractionIndex + 1).filter(currencyLiteral).map((part) => part.value).join('');
+  return normalizeWesternDigits(`${prefix}${exact}${suffix}`.trim());
+}
+
+export function apiQuantity(value: unknown, language: ApiLanguage) {
+  return exactFixed(BigInt(String(value || 0)), 1000n, 3, language).replace(/\.?(?:0+)$/, '');
+}
+
+export function apiDateTime(value: Date | string, language: ApiLanguage) {
+  return normalizeWesternDigits(new Date(value).toLocaleString(apiLocale(language)));
+}
+
 const ar: Record<string, string> = {
   'POS RECEIPT': 'إيصال نقطة البيع', 'Walk-in customer': 'عميل نقدي', 'Internal': 'داخلي', 'Generated': 'تاريخ الإصدار', 'SUMMARY': 'الملخص',
   'Trial balance': 'ميزان المراجعة', 'General ledger': 'دفتر الأستاذ العام', 'Account ledger': 'كشف حساب الأستاذ', 'Income statement': 'قائمة الدخل', 'Balance sheet': 'قائمة المركز المالي',
@@ -37,13 +78,13 @@ export function requestLanguage(request: Request): ApiLanguage {
 }
 
 export function apiText(value: unknown, language: ApiLanguage): string {
-  const text = String(value ?? '');
+  const text = normalizeWesternDigits(value);
   if (language !== 'ar') return text;
-  if (ar[text]) return ar[text];
+  if (ar[text]) return normalizeWesternDigits(ar[text]);
   const documentTitle = text.match(/^(QUOTATION|SALES_ORDER|DELIVERY_NOTE|SALES_INVOICE|SALES_RETURN|CREDIT_NOTE|PURCHASE_REQUEST|PURCHASE_ORDER|GOODS_RECEIPT|PURCHASE_BILL|PURCHASE_RETURN|WAREHOUSE_TRANSFER|INVENTORY_ADJUSTMENT|STOCK_COUNT) (.+)$/);
-  if (documentTitle) return `${apiText(documentTitle[1], language)} ${documentTitle[2]}`;
+  if (documentTitle) return normalizeWesternDigits(`${apiText(documentTitle[1], language)} ${documentTitle[2]}`);
   const receipt = text.match(/^POS RECEIPT (.+)$/);
-  if (receipt) return `${ar['POS RECEIPT']} ${receipt[1]}`;
+  if (receipt) return normalizeWesternDigits(`${ar['POS RECEIPT']} ${receipt[1]}`);
   return text;
 }
 

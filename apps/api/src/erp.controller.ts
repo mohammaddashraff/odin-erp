@@ -5,7 +5,7 @@ import { existsSync } from 'node:fs';
 import { Actor, AuthService, publicActor } from './auth';
 import { RequireAnyPermission, RequirePermissions } from './authorization.guard';
 import { ErpService } from './erp.service';
-import { apiLabel, ApiLanguage, apiText, requestLanguage } from './i18n';
+import { apiDateTime, apiLabel, ApiLanguage, apiMinorCurrency, apiQuantity, apiText, requestLanguage } from './i18n';
 import { RequireStepUp } from './step-up.guard';
 
 type AuthRequest = Request & { actor: Actor };
@@ -202,6 +202,18 @@ export class ErpController {
   @RequireAnyPermission('payments.receipt.create', 'payments.payment.create')
   createPayment(@Req() request: AuthRequest, @Body() body: any) { return this.erp.createPayment(request.actor, body); }
 
+  @Post('payments/:id/approve')
+  @RequirePermissions('payments.payment.approve')
+  approvePayment(@Req() request: AuthRequest, @Param('id') paymentId: string, @Body() body: any) {
+    return this.erp.paymentWorkflow(request.actor, id(paymentId), 'approve', body);
+  }
+
+  @Post('payments/:id/reject')
+  @RequirePermissions('payments.payment.reject')
+  rejectPayment(@Req() request: AuthRequest, @Param('id') paymentId: string, @Body() body: any) {
+    return this.erp.paymentWorkflow(request.actor, id(paymentId), 'reject', body);
+  }
+
   @Get('journals')
   @RequirePermissions('accounting.journal.view')
   journals(@Req() request: AuthRequest) { return this.erp.journals(request.actor); }
@@ -261,7 +273,7 @@ export class ErpController {
     const sale: any = await this.erp.posSaleDetail(request.actor, id(saleId));
     const language = requestLanguage(request);
     const rows = sale.lines.map((line: any) => ({ sku: line.item.sku, item: language === 'ar' && line.item.nameAr && line.item.nameAr !== line.item.name ? line.item.nameAr : apiText(line.item.name, language), quantityMilli: line.quantityMilli, unitPriceMinor: line.unitPriceMinor, discountMinor: line.discountMinor, taxMinor: line.taxMinor, totalMinor: line.totalMinor }));
-    this.writePdf(response, `POS RECEIPT ${sale.number}`, rows, { customer: sale.customer?.name || 'Walk-in customer', register: sale.shift.registerCode, subtotalMinor: sale.subtotalMinor, discountMinor: sale.discountMinor, taxMinor: sale.taxMinor, totalMinor: sale.totalMinor, tenders: sale.tenders.map((tender: any) => `${apiText(tender.method, language)} ${Number(tender.amountMinor) / 100}`).join(' + ') }, `${sale.number}.pdf`, language);
+    this.writePdf(response, `POS RECEIPT ${sale.number}`, rows, { customer: sale.customer?.name || 'Walk-in customer', register: sale.shift.registerCode, subtotalMinor: sale.subtotalMinor, discountMinor: sale.discountMinor, taxMinor: sale.taxMinor, totalMinor: sale.totalMinor, tenders: sale.tenders.map((tender: any) => `${apiText(tender.method, language)} ${apiMinorCurrency(tender.amountMinor, language)}`).join(' + ') }, `${sale.number}.pdf`, language);
   }
 
   @Get('banking')
@@ -339,8 +351,8 @@ export class ErpController {
     }
     const align = language === 'ar' ? 'right' : 'left';
     const display = (key: string, value: unknown) => {
-      if (key.toLowerCase().includes('minor')) return new Intl.NumberFormat(language === 'ar' ? 'ar-EG' : 'en-EG', { style: 'currency', currency: 'EGP' }).format(Number(BigInt(String(value || 0))) / 100);
-      if (key.toLowerCase().includes('quantity')) return (Number(BigInt(String(value || 0))) / 1000).toLocaleString(language === 'ar' ? 'ar-EG' : 'en-EG', { maximumFractionDigits: 3 });
+      if (key.toLowerCase().includes('minor')) return apiMinorCurrency(value, language);
+      if (key.toLowerCase().includes('quantity')) return apiQuantity(value, language);
       if (key.toLowerCase().includes('date') && value) return new Date(String(value)).toISOString().slice(0, 10);
       return apiText(value, language);
     };
@@ -351,7 +363,7 @@ export class ErpController {
     const drawPageHeader = () => {
       doc.fillColor('#2b6cff').fontSize(10).text('ODIN ERP', 42, 42, { width: 511, characterSpacing: 2 });
       doc.fillColor('#101828').fontSize(21).text(localizedTitle, 42, 62, { width: 511, align, ellipsis: true, lineBreak: false });
-      doc.fillColor('#667085').fontSize(9).text(`${apiText('Generated', language)} ${new Date().toLocaleString(language === 'ar' ? 'ar-EG' : 'en-EG')}`, 42, 94, { width: 511, align, lineBreak: false });
+      doc.fillColor('#667085').fontSize(9).text(`${apiText('Generated', language)} ${apiDateTime(new Date(), language)}`, 42, 94, { width: 511, align, lineBreak: false });
       doc.strokeColor('#d0d5dd').moveTo(42, 114).lineTo(553, 114).stroke();
     };
     const columnWidth = 511 / Math.max(rowKeys.length, 1);

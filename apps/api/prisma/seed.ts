@@ -1,9 +1,10 @@
 import { PrismaPg } from '@prisma/adapter-pg';
-import { AccountType, DataScopeType, DocumentType, FieldAccessLevel, JournalStatus, PrismaClient, WorkflowStatus } from '@prisma/client';
+import { AccountType, DataScopeType, DocumentType, FieldAccessLevel, JournalStatus, PrismaClient, SodEnforcement, WorkflowStatus } from '@prisma/client';
 import { hash } from 'bcryptjs';
+import { createHash } from 'node:crypto';
 import { config } from 'dotenv';
 import { resolve } from 'node:path';
-import { enforceTlsVerification } from '../src/database-url';
+import { normalizeDatabaseUrl } from '../src/database-url';
 import { demoResetEnabled } from '../src/deployment-config';
 import { DATA_SCOPE_RESOURCES, FIELD_REGISTRY, PERMISSION_REGISTRY } from '../src/permissions';
 
@@ -101,7 +102,7 @@ export async function seed(initiatedBy = 'CLI', targetTenantId?: bigint) {
     || process.env.DATABASE_ADMIN_URL
     || process.env.DATABASE_URL;
   if (!adminUrl) throw new Error('DATABASE_ADMIN_URL is required');
-  const db = new PrismaClient({ adapter: new PrismaPg(enforceTlsVerification(adminUrl)) });
+  const db = new PrismaClient({ adapter: new PrismaPg(normalizeDatabaseUrl(adminUrl)) });
   let resetVersion = 0;
   await db.$transaction(async (tx) => {
     const hasExistingTenant = targetTenantId !== undefined || await tx.tenant.count() > 0;
@@ -113,12 +114,14 @@ export async function seed(initiatedBy = 'CLI', targetTenantId?: bigint) {
       if (!existing) throw new Error('Selected demo tenant no longer exists');
       resetVersion = existing.resetVersion + 1;
       const tenantTables = [
+        'private_attachments', 'access_review_records', 'delegations', 'temporary_access_grants', 'financial_resource_assignments',
+        'authority_limit_policies', 'company_memberships',
         'access_audit_logs', 'user_permission_overrides', 'user_roles', 'role_limits', 'role_data_scopes', 'role_field_permissions', 'role_permissions',
         'refresh_sessions', 'currency_rates', 'currencies', 'employees', 'departments', 'master_sequences',
         'bank_statement_lines', 'bank_statements', 'bank_transactions', 'bank_accounts', 'pos_tenders', 'pos_sale_lines', 'pos_sales', 'pos_shifts',
         'payment_allocations', 'payments', 'journal_lines', 'journal_entries', 'document_lines', 'documents', 'stock_movements', 'stock_balances',
-        'items', 'units_of_measure', 'item_categories', 'suppliers', 'customers', 'document_sequences', 'accounts', 'fiscal_periods',
-        'approval_events', 'audit_events', 'idempotency_keys', 'users', 'roles', 'permissions', 'warehouses', 'branches',
+        'items', 'units_of_measure', 'item_categories', 'suppliers', 'customers', 'document_sequences', 'financial_resources', 'accounts', 'fiscal_periods',
+        'approval_events', 'audit_events', 'idempotency_keys', 'users', 'roles', 'permissions', 'sod_rules', 'company_branches', 'warehouses', 'branches', 'companies',
       ];
       for (const table of tenantTables) await tx.$executeRawUnsafe(`DELETE FROM ${table} WHERE tenant_id = $1`, targetTenantId);
       await tx.$executeRaw`DELETE FROM tenants WHERE id = ${targetTenantId}`;
@@ -128,6 +131,7 @@ export async function seed(initiatedBy = 'CLI', targetTenantId?: bigint) {
   });
 
   const tenant = await db.tenant.create({ data: { ...(targetTenantId ? { id: targetTenantId } : {}), name: 'Odin Distribution Egypt', baseCurrency: 'EGP', negativeStock: false, makerChecker: true, approvalLimit: 5_000_000n, resetVersion } });
+  const company = await db.company.findUniqueOrThrow({ where: { tenantId_code: { tenantId: tenant.id, code: 'DEFAULT' } } });
   const branch = await db.branch.create({ data: { tenantId: tenant.id, code: 'CAI', name: 'Cairo Headquarters' } });
   const alex = await db.branch.create({ data: { tenantId: tenant.id, code: 'ALX', name: 'Alexandria Branch' } });
   const main = await db.warehouse.create({ data: { tenantId: tenant.id, branchId: branch.id, code: 'CAI-MAIN', name: 'Cairo Main Warehouse' } });
@@ -137,6 +141,15 @@ export async function seed(initiatedBy = 'CLI', targetTenantId?: bigint) {
   await db.permission.createMany({ data: PERMISSION_REGISTRY.map((permission) => ({ tenantId: tenant.id, ...permission })) });
   const permissionRows = await db.permission.findMany({ where: { tenantId: tenant.id } });
   const permissionIds = new Map(permissionRows.map((permission) => [permission.key, permission.id]));
+  await db.sodRule.createMany({ data: [
+    ['supplier-maker-approver', 'Supplier maker and approver', ['purchasing.supplier.create'], ['purchasing.supplier.approve']],
+    ['payment-maker-approver', 'Payment maker and approver', ['payments.payment.create'], ['payments.payment.approve']],
+    ['journal-maker-approver-poster', 'Journal maker and approver/poster', ['accounting.journal.create', 'accounting.journal.edit'], ['accounting.journal.approve', 'accounting.journal.post']],
+    ['purchase-order-maker-approver', 'Purchase order maker and approver', ['purchasing.order.create'], ['purchasing.order.approve']],
+  ].map(([key, name, leftPermissions, rightPermissions]) => ({
+    tenantId: tenant.id, key: key as string, name: name as string, description: `${name} duties should be separated.`,
+    leftPermissions, rightPermissions, enforcement: SodEnforcement.WARN,
+  })) });
   const roles = new Map<string, bigint>();
   for (const [name, permissions] of Object.entries(rolePermissions)) {
     const role = await db.role.create({ data: { tenantId: tenant.id, key: roleKeys[name], name, description: `${name} access policy`, permissions } });
@@ -144,7 +157,11 @@ export async function seed(initiatedBy = 'CLI', targetTenantId?: bigint) {
     await db.rolePermission.createMany({ data: permissions.map((permission) => ({ tenantId: tenant.id, roleId: role.id, permissionId: permissionIds.get(permission)! })) });
     await db.roleDataScope.createMany({ data: DATA_SCOPE_RESOURCES.map((resource) => {
       let scope = roleScopes[name] || DataScopeType.NONE;
-      if (name !== 'Super Admin' && ['company', 'team', 'pos_terminal', 'cost_center', 'project', 'attachment'].includes(resource)) scope = DataScopeType.NONE;
+      if (name !== 'Super Admin' && ['company', 'team', 'pos_terminal', 'cost_center', 'project'].includes(resource)) scope = DataScopeType.NONE;
+      if (name !== 'Super Admin' && resource === 'attachment') {
+        const hasDocumentAccess = permissions.some((key) => /^(sales|purchasing|inventory)\..+\.(view|create|edit)$/.test(key));
+        scope = hasDocumentAccess ? (roleScopes[name] || DataScopeType.NONE) : DataScopeType.NONE;
+      }
       if (name === 'POS Cashier' && resource === 'pos_terminal') scope = DataScopeType.BRANCH;
       if (name !== 'Super Admin' && resource === 'supplier') scope = permissions.includes('purchasing.supplier.view') ? DataScopeType.ALL : DataScopeType.NONE;
       if (name !== 'Super Admin' && resource === 'bank_account') scope = permissions.some((key) => key.startsWith('banking.') || key.startsWith('payments.')) ? DataScopeType.ALL : DataScopeType.NONE;
@@ -163,6 +180,13 @@ export async function seed(initiatedBy = 'CLI', targetTenantId?: bigint) {
       else if (resource === 'party' && field === 'taxNumber') access = financialEditor || ['Sales Manager', 'Sales Employee', 'Purchasing Manager', 'Branch Manager'].includes(name) ? FieldAccessLevel.EDIT : FieldAccessLevel.HIDDEN;
       else if (resource === 'bankAccount') access = financialEditor ? FieldAccessLevel.EDIT : financialViewer ? FieldAccessLevel.VIEW : FieldAccessLevel.HIDDEN;
       else if (resource === 'journal') access = financialEditor ? FieldAccessLevel.EDIT : financialViewer ? FieldAccessLevel.VIEW : FieldAccessLevel.HIDDEN;
+      else if (resource === 'approval') access = permissions.some((key) => key.startsWith('approvals.') || key.endsWith('.approve') || key.endsWith('.reject')) ? FieldAccessLevel.VIEW : FieldAccessLevel.HIDDEN;
+      else if (resource === 'audit') access = permissions.some((key) => key.startsWith('audit.')) ? FieldAccessLevel.VIEW : FieldAccessLevel.HIDDEN;
+      else if (resource === 'attachment') {
+        const canEditAttachment = permissions.some((key) => /^(sales|purchasing|inventory)\..+\.(create|edit)$/.test(key));
+        const canViewAttachment = permissions.some((key) => /^(sales|purchasing|inventory)\..+\.view$/.test(key));
+        access = canEditAttachment ? FieldAccessLevel.EDIT : canViewAttachment ? FieldAccessLevel.VIEW : FieldAccessLevel.HIDDEN;
+      }
       else if (resource === 'item') access = financialEditor || ['Purchasing Manager', 'Warehouse Manager', 'Branch Manager'].includes(name) ? FieldAccessLevel.EDIT : name === 'Sales Manager' ? FieldAccessLevel.VIEW : FieldAccessLevel.HIDDEN;
       else if (resource === 'document') access = financialEditor || ['Purchasing Manager', 'Sales Manager', 'Warehouse Manager', 'Branch Manager'].includes(name) ? FieldAccessLevel.VIEW : FieldAccessLevel.HIDDEN;
       return { tenantId: tenant.id, roleId: role.id, resource, field, access };
@@ -170,6 +194,11 @@ export async function seed(initiatedBy = 'CLI', targetTenantId?: bigint) {
     const configuredLimits = roleLimits[name] || {};
     if (Object.keys(configuredLimits).length) await db.roleLimit.createMany({ data: Object.entries(configuredLimits).map(([key, value]) => ({ tenantId: tenant.id, roleId: role.id, key, value })) });
   }
+  await db.authorityLimitPolicy.createMany({ data: [
+    { tenantId: tenant.id, companyId: company.id, roleId: roles.get('Sales Manager')!, key: 'sales.quotation_amount_minor', currency: 'EGP', maxAmountMinor: 50_000_000n },
+    { tenantId: tenant.id, companyId: company.id, roleId: roles.get('Purchasing Manager')!, key: 'purchasing.order_approval_amount_minor', currency: 'EGP', maxAmountMinor: 75_000_000n },
+    { tenantId: tenant.id, companyId: company.id, roleId: roles.get('Finance Manager')!, key: 'payments.payment_amount_minor', currency: 'EGP', maxAmountMinor: 100_000_000n },
+  ] });
   const passwordHash = await hash('password', 12);
   const createdUsers = new Map<string, bigint>();
   for (const [email, name, role] of users) {
@@ -237,12 +266,12 @@ export async function seed(initiatedBy = 'CLI', targetTenantId?: bigint) {
   await db.bankAccount.create({ data: { tenantId: tenant.id, code: 'CIB-EGP', name: 'CIB Current Account', type: 'BANK', glAccountId: accounts.get('1010')!, bankName: 'Commercial International Bank', accountNumber: 'ODIN-001-EGP' } });
   await db.bankAccount.create({ data: { tenantId: tenant.id, code: 'CARD-EGP', name: 'Card Settlement Clearing', type: 'CARD_CLEARING', glAccountId: accounts.get('1020')! } });
 
-  const customer = await db.customer.create({ data: { tenantId: tenant.id, code: 'CUS-000001', name: 'Nile Retail Group', taxNumber: '200-111-901', registrationNumber: 'CR-458219', email: 'ap@nileretail.example', phone: '+20 2 5550 1000', address: 'New Cairo', billingAddress: '90th Street, New Cairo', shippingAddress: 'Nile Logistics Hub, Obour City', city: 'Cairo', defaultBranchId: branch.id, ownerUserId: createdUsers.get('sales.employee@odin.demo'), defaultCurrency: 'EGP', creditLimitMinor: 2_000_000_00n, paymentTermsDays: 30 } });
-  const alexCustomer = await db.customer.create({ data: { tenantId: tenant.id, code: 'CUS-000002', name: 'Alexandria Office Supplies', taxNumber: '200-111-902', email: 'finance@alexoffice.example', phone: '+20 3 555 1880', city: 'Alexandria', defaultBranchId: alex.id, ownerUserId: createdUsers.get('sales@odin.demo'), defaultCurrency: 'EGP', creditLimitMinor: null, paymentTermsDays: null } });
-  const meridianCustomer = await db.customer.create({ data: { tenantId: tenant.id, code: 'CUS-000003', name: 'Meridian Facilities Management', taxNumber: '200-111-903', email: 'accounts@meridianfm.example', phone: '+20 2 5550 2110', city: 'Giza', defaultBranchId: branch.id, ownerUserId: createdUsers.get('sales.employee@odin.demo'), defaultCurrency: 'USD', creditLimitMinor: 1_250_000_00n, paymentTermsDays: null } });
+  const customer = await db.customer.create({ data: { tenantId: tenant.id, companyId: company.id, code: 'CUS-000001', name: 'Nile Retail Group', taxNumber: '200-111-901', registrationNumber: 'CR-458219', email: 'ap@nileretail.example', phone: '+20 2 5550 1000', address: 'New Cairo', billingAddress: '90th Street, New Cairo', shippingAddress: 'Nile Logistics Hub, Obour City', city: 'Cairo', defaultBranchId: branch.id, ownerUserId: createdUsers.get('sales.employee@odin.demo'), defaultCurrency: 'EGP', creditLimitMinor: 2_000_000_00n, paymentTermsDays: 30 } });
+  const alexCustomer = await db.customer.create({ data: { tenantId: tenant.id, companyId: company.id, code: 'CUS-000002', name: 'Alexandria Office Supplies', taxNumber: '200-111-902', email: 'finance@alexoffice.example', phone: '+20 3 555 1880', city: 'Alexandria', defaultBranchId: alex.id, ownerUserId: createdUsers.get('sales@odin.demo'), defaultCurrency: 'EGP', creditLimitMinor: null, paymentTermsDays: null } });
+  const meridianCustomer = await db.customer.create({ data: { tenantId: tenant.id, companyId: company.id, code: 'CUS-000003', name: 'Meridian Facilities Management', taxNumber: '200-111-903', email: 'accounts@meridianfm.example', phone: '+20 2 5550 2110', city: 'Giza', defaultBranchId: branch.id, ownerUserId: createdUsers.get('sales.employee@odin.demo'), defaultCurrency: 'USD', creditLimitMinor: 1_250_000_00n, paymentTermsDays: null } });
   await db.masterSequence.create({ data: { tenantId: tenant.id, key: 'CUSTOMER', prefix: tenant.customerCodePrefix, nextValue: 4n } });
-  const supplier = await db.supplier.create({ data: { tenantId: tenant.id, code: 'SUP-001', name: 'Delta Technology Imports', taxNumber: '100-222-701', email: 'sales@deltatech.example', city: 'Cairo', paymentTermsDays: 30 } });
-  await db.supplier.create({ data: { tenantId: tenant.id, code: 'SUP-002', name: 'Sphinx Office Systems', taxNumber: '100-222-702', city: 'Giza', paymentTermsDays: 45 } });
+  const supplier = await db.supplier.create({ data: { tenantId: tenant.id, companyId: company.id, code: 'SUP-001', name: 'Delta Technology Imports', taxNumber: '100-222-701', email: 'sales@deltatech.example', city: 'Cairo', paymentTermsDays: 30 } });
+  await db.supplier.create({ data: { tenantId: tenant.id, companyId: company.id, code: 'SUP-002', name: 'Sphinx Office Systems', taxNumber: '100-222-702', city: 'Giza', paymentTermsDays: 45 } });
 
   const category = await db.itemCategory.create({ data: { tenantId: tenant.id, code: 'TECH', name: 'Technology and Office Equipment' } });
   const uom = await db.unitOfMeasure.create({ data: { tenantId: tenant.id, code: 'EA', name: 'Each', precision: 3 } });
@@ -329,6 +358,13 @@ export async function seed(initiatedBy = 'CLI', targetTenantId?: bigint) {
   await db.stockMovement.create({ data: { tenantId: tenant.id, branchId: branch.id, warehouseId: main.id, itemId: laptop.id, postingDate: d('2026-07-02'), quantityOutMilli: 2_000n, unitCostMinor: laptop.purchasePriceMinor, totalCostMinor: 80_000_00n, runningQuantityMilli: 8_000n, runningValueMinor: 320_000_00n, sourceType: DocumentType.DELIVERY_NOTE, sourceId: delivery.id, sourceNumber: delivery.number, createdById: adminId } });
   const deliveryLine = await db.documentLine.findFirstOrThrow({ where: { documentId: delivery.id } });
   const invoice = await db.document.create({ data: { tenantId: tenant.id, type: DocumentType.SALES_INVOICE, number: 'SI-2026-00001', status: WorkflowStatus.APPROVED, branchId: branch.id, customerId: customer.id, salespersonId: employees.get('EMP-0015'), sourceDocumentId: delivery.id, documentDate: d('2026-07-02'), dueDate: d('2026-08-01'), subtotalMinor: 120_000_00n, taxMinor: 16_800_00n, totalMinor: 136_800_00n, createdById: adminId, submittedById: createdUsers.get('sales@odin.demo'), approvedById: createdUsers.get('cfo@odin.demo'), submittedAt: new Date(), approvedAt: new Date(), lines: { create: { tenantId: tenant.id, itemId: laptop.id, uomId: uom.id, sourceLineId: deliveryLine.id, quantityMilli: 2_000n, unitPriceMinor: laptop.salePriceMinor, taxableMinor: 120_000_00n, taxMinor: 16_800_00n, totalMinor: 136_800_00n, unitCostMinor: laptop.purchasePriceMinor } } } });
+  const recoveryAttachment = Buffer.from('%PDF-1.7\nOdin ERP deterministic recovery attachment\n%%EOF', 'utf8');
+  await db.privateAttachment.create({ data: {
+    tenantId: tenant.id, companyId: company.id, documentId: invoice.id, uploadedById: adminId,
+    storageKey: '00000000-0000-4000-8000-000000000001',
+    filename: 'recovery-fixture.pdf', contentType: 'application/pdf', sizeBytes: BigInt(recoveryAttachment.length),
+    sha256: createHash('sha256').update(recoveryAttachment).digest('hex'), content: recoveryAttachment,
+  } });
   const invoiceJournal = await journal('JE-2026-00003', d('2026-07-02'), DocumentType.SALES_INVOICE, invoice.id, `Invoice ${invoice.number}`, [['1100', 136_800_00n, 0n, 'Customer receivable'], ['4000', 0n, 120_000_00n, 'Sales revenue'], ['2200', 0n, 16_800_00n, 'Output VAT']]);
   await db.document.update({ where: { id: invoice.id }, data: { status: WorkflowStatus.POSTED, journalEntryId: invoiceJournal.id, postedById: adminId, postedAt: new Date() } });
 

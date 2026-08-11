@@ -154,30 +154,42 @@ export class CustomerReceivablesService {
       : document);
   }
 
-  async customerBalances(tx: Tx, customerIds?: bigint[], branchIds?: bigint[]) {
+  async customerBalances(tx: Tx, customerIds?: bigint[], branchIds?: bigint[], documentScope?: Prisma.DocumentWhereInput) {
     if (customerIds && !customerIds.length) return new Map<string, bigint>();
-    const documents = await tx.document.findMany({
-      where: {
-        type: { in: [...RECEIVABLE_DOCUMENT_TYPES] },
-        status: WorkflowStatus.POSTED,
-        customerId: customerIds ? { in: customerIds } : { not: null },
-        ...this.branchWhere(branchIds),
-      },
+    const baseWhere: Prisma.DocumentWhereInput = {
+      type: DocumentType.SALES_INVOICE,
+      status: WorkflowStatus.POSTED,
+      customerId: customerIds ? { in: customerIds } : { not: null },
+      ...this.branchWhere(branchIds),
+    };
+    const invoices = await tx.document.findMany({
+      where: documentScope ? { AND: [baseWhere, documentScope] } : baseWhere,
       select: {
+        id: true,
         customerId: true,
-        type: true,
         totalMinor: true,
         paidMinor: true,
         exchangeRateMicros: true,
       },
     });
+    const corrections = invoices.length ? await tx.document.findMany({
+      where: {
+        type: { in: [DocumentType.SALES_RETURN, DocumentType.CREDIT_NOTE] },
+        status: WorkflowStatus.POSTED,
+        sourceDocumentId: { in: invoices.map(({ id }) => id) },
+      },
+      select: { customerId: true, totalMinor: true, exchangeRateMicros: true },
+    }) : [];
     const balances = new Map<string, bigint>();
-    for (const document of documents) {
-      const key = document.customerId!.toString();
-      const movement = document.type === DocumentType.SALES_INVOICE
-        ? receivableBaseMinor(document.totalMinor, document.exchangeRateMicros) - receivableBaseMinor(document.paidMinor, document.exchangeRateMicros)
-        : -receivableBaseMinor(document.totalMinor, document.exchangeRateMicros);
+    for (const invoice of invoices) {
+      const key = invoice.customerId!.toString();
+      const movement = receivableBaseMinor(invoice.totalMinor, invoice.exchangeRateMicros) - receivableBaseMinor(invoice.paidMinor, invoice.exchangeRateMicros);
       balances.set(key, (balances.get(key) || 0n) + movement);
+    }
+    for (const correction of corrections) {
+      const key = correction.customerId!.toString();
+      const movement = receivableBaseMinor(correction.totalMinor, correction.exchangeRateMicros);
+      balances.set(key, (balances.get(key) || 0n) - movement);
     }
     return balances;
   }
@@ -187,15 +199,16 @@ export class CustomerReceivablesService {
     return [...balances.values()].reduce((sum, balance) => sum + balance, 0n);
   }
 
-  async ageing(tx: Tx, options: { customerId?: bigint; branchIds?: bigint[]; asOf?: Date } = {}) {
+  async ageing(tx: Tx, options: { customerId?: bigint; branchIds?: bigint[]; asOf?: Date; documentScope?: Prisma.DocumentWhereInput } = {}) {
     const asOf = options.asOf || new Date();
+    const baseWhere: Prisma.DocumentWhereInput = {
+      type: DocumentType.SALES_INVOICE,
+      status: WorkflowStatus.POSTED,
+      ...(options.customerId ? { customerId: options.customerId } : {}),
+      ...this.branchWhere(options.branchIds),
+    };
     const invoices = await tx.document.findMany({
-      where: {
-        type: DocumentType.SALES_INVOICE,
-        status: WorkflowStatus.POSTED,
-        ...(options.customerId ? { customerId: options.customerId } : {}),
-        ...this.branchWhere(options.branchIds),
-      },
+      where: options.documentScope ? { AND: [baseWhere, options.documentScope] } : baseWhere,
       include: { customer: true },
       orderBy: [{ dueDate: 'asc' }, { id: 'asc' }],
     });
@@ -224,12 +237,24 @@ export class CustomerReceivablesService {
     });
   }
 
-  async customerStatement(tx: Tx, options: { customerId?: bigint; branchIds?: bigint[] } = {}) {
-    const documentWhere: Prisma.DocumentWhereInput = {
+  async customerStatement(tx: Tx, options: {
+    customerId?: bigint;
+    branchIds?: bigint[];
+    documentScope?: Prisma.DocumentWhereInput;
+    paymentScope?: Prisma.PaymentWhereInput;
+    allocationDocumentScope?: Prisma.DocumentWhereInput;
+  } = {}) {
+    const baseDocumentWhere: Prisma.DocumentWhereInput = {
       type: { in: [...RECEIVABLE_DOCUMENT_TYPES] },
       status: WorkflowStatus.POSTED,
       ...(options.customerId ? { customerId: options.customerId } : {}),
       ...this.branchWhere(options.branchIds),
+    };
+    const documentWhere: Prisma.DocumentWhereInput = options.documentScope ? { AND: [baseDocumentWhere, options.documentScope] } : baseDocumentWhere;
+    const basePaymentWhere: Prisma.PaymentWhereInput = {
+      kind: PaymentKind.RECEIPT,
+      ...(options.customerId ? { customerId: options.customerId } : {}),
+      ...(options.branchIds ? { allocations: { some: { document: { branchId: { in: options.branchIds } } } } } : {}),
     };
     const [documents, payments, tenant] = await Promise.all([
       tx.document.findMany({
@@ -237,15 +262,14 @@ export class CustomerReceivablesService {
         include: { customer: true, sourceDocument: { select: { number: true } } },
       }),
       tx.payment.findMany({
-        where: {
-          kind: PaymentKind.RECEIPT,
-          ...(options.customerId ? { customerId: options.customerId } : {}),
-          ...(options.branchIds ? { allocations: { some: { document: { branchId: { in: options.branchIds } } } } } : {}),
-        },
+        where: options.paymentScope ? { AND: [basePaymentWhere, options.paymentScope] } : basePaymentWhere,
         include: {
           customer: true,
           bankAccount: true,
-          allocations: { include: { document: { select: { number: true, branchId: true, exchangeRateMicros: true, currency: true } } } },
+          allocations: {
+            ...(options.allocationDocumentScope ? { where: { document: options.allocationDocumentScope } } : {}),
+            include: { document: { select: { number: true, branchId: true, exchangeRateMicros: true, currency: true } } },
+          },
         },
       }),
       tx.tenant.findFirstOrThrow({ select: { baseCurrency: true } }),

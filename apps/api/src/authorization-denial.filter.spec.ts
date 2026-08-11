@@ -17,6 +17,11 @@ const actor = (overrides: Partial<Actor> = {}): Actor => ({
   limits: {},
   branchIds: ['11'],
   warehouseIds: ['21'],
+  companyIds: ['31'],
+  companyAdminIds: [],
+  companyBranchIds: { '31': ['11'] },
+  companyScopedPermissions: {},
+  companyResourceAssignments: {},
   sessionId: 'f67c978e-5a88-4eb2-9aef-646ef4f76de2',
   ...overrides,
 });

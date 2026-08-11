@@ -62,6 +62,12 @@ enum PaymentKind {
   PAYMENT
 }
 
+enum PaymentStatus {
+  SUBMITTED
+  POSTED
+  REJECTED
+}
+
 enum PaymentMethod {
   CASH
   CARD
@@ -114,16 +120,52 @@ enum FieldAccessLevel {
   EDIT
 }
 
+enum CompanyMembershipRole {
+  MEMBER
+  ADMINISTRATOR
+}
+
+enum FinancialResourceType {
+  TREASURY
+  WALLET
+  PAYMENT_CARD
+  CASH_SOURCE
+  CHEQUE_BOOK
+  COST_CENTER
+  PROJECT
+  BANK_ACCOUNT
+  GL_ACCOUNT
+}
+
+enum SodEnforcement {
+  WARN
+  BLOCK
+}
+
+enum AccessReviewDecision {
+  CONFIRMED
+  REVOKE_REQUIRED
+  ESCALATED
+}
+
+enum AttachmentScanStatus {
+  NOT_CONFIGURED
+  PENDING
+  CLEAN
+  QUARANTINED
+  REJECTED
+}
+
 model Tenant {
-  id                   BigInt                   @id @default(autoincrement())
+  id                   BigInt                        @id @default(autoincrement())
   name                 String
-  baseCurrency         String                   @default("EGP") @map("base_currency")
-  customerCodePrefix   String                   @default("CUS") @map("customer_code_prefix")
-  negativeStock        Boolean                  @default(false) @map("negative_stock")
-  makerChecker         Boolean                  @default(true) @map("maker_checker")
-  approvalLimit        BigInt                   @default(5000000) @map("approval_limit_minor")
-  resetVersion         Int                      @default(0) @map("reset_version")
-  createdAt            DateTime                 @default(now()) @map("created_at") @db.Timestamptz(3)
+  baseCurrency         String                        @default("EGP") @map("base_currency")
+  customerCodePrefix   String                        @default("CUS") @map("customer_code_prefix")
+  negativeStock        Boolean                       @default(false) @map("negative_stock")
+  makerChecker         Boolean                       @default(true) @map("maker_checker")
+  approvalLimit        BigInt                        @default(5000000) @map("approval_limit_minor")
+  resetVersion         Int                           @default(0) @map("reset_version")
+  createdAt            DateTime                      @default(now()) @map("created_at") @db.Timestamptz(3)
   branches             Branch[]
   warehouses           Warehouse[]
   departments          Department[]
@@ -170,25 +212,39 @@ model Tenant {
   roleFieldPermissions RoleFieldPermission[]
   accessAuditLogs      AccessAuditLog[]
   mfaChallenges        MfaChallenge[]
+  companies            Company[]
+  companyMemberships   CompanyMembership[]
+  companyBranches      CompanyBranch[]
+  financialResources   FinancialResource[]
+  resourceAssignments  FinancialResourceAssignment[]
+  temporaryGrants      TemporaryAccessGrant[]
+  delegations          Delegation[]
+  sodRules             SodRule[]
+  accessReviews        AccessReviewRecord[]
+  authorityPolicies    AuthorityLimitPolicy[]
+  privateAttachments   PrivateAttachment[]
 
   @@map("tenants")
 }
 
 model Branch {
-  id               BigInt             @id @default(autoincrement())
-  tenantId         BigInt             @map("tenant_id")
-  code             String
-  name             String
-  tenant           Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  warehouses       Warehouse[]
-  documents        Document[]
-  journals         JournalEntry[]
-  stockMoves       StockMovement[]
-  posShifts        PosShift[]
-  bankTxns         BankTransaction[]
-  sequences        DocumentSequence[]
-  defaultCustomers Customer[]         @relation("CustomerDefaultBranch")
-  accessAuditLogs  AccessAuditLog[]
+  id                BigInt                 @id @default(autoincrement())
+  tenantId          BigInt                 @map("tenant_id")
+  code              String
+  name              String
+  tenant            Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  warehouses        Warehouse[]
+  documents         Document[]
+  journals          JournalEntry[]
+  payments          Payment[]
+  stockMoves        StockMovement[]
+  posShifts         PosShift[]
+  bankTxns          BankTransaction[]
+  sequences         DocumentSequence[]
+  defaultCustomers  Customer[]             @relation("CustomerDefaultBranch")
+  accessAuditLogs   AccessAuditLog[]
+  companyLinks      CompanyBranch[]
+  authorityPolicies AuthorityLimitPolicy[]
 
   @@unique([tenantId, code])
   @@index([tenantId, name])
@@ -196,16 +252,16 @@ model Branch {
 }
 
 model Warehouse {
-  id              BigInt          @id @default(autoincrement())
-  tenantId        BigInt          @map("tenant_id")
-  branchId        BigInt          @map("branch_id")
+  id              BigInt           @id @default(autoincrement())
+  tenantId        BigInt           @map("tenant_id")
+  branchId        BigInt           @map("branch_id")
   code            String
   name            String
-  active          Boolean         @default(true)
-  tenant          Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  branch          Branch          @relation(fields: [branchId], references: [id])
-  sourceDocuments Document[]      @relation("DocumentWarehouse")
-  targetDocuments Document[]      @relation("DocumentDestinationWarehouse")
+  active          Boolean          @default(true)
+  tenant          Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branch          Branch           @relation(fields: [branchId], references: [id])
+  sourceDocuments Document[]       @relation("DocumentWarehouse")
+  targetDocuments Document[]       @relation("DocumentDestinationWarehouse")
   stockBalances   StockBalance[]
   stockMovements  StockMovement[]
   posShifts       PosShift[]
@@ -217,24 +273,25 @@ model Warehouse {
 }
 
 model Role {
-  id                    BigInt                @id @default(autoincrement())
-  tenantId              BigInt                @map("tenant_id")
+  id                    BigInt                 @id @default(autoincrement())
+  tenantId              BigInt                 @map("tenant_id")
   key                   String?
   name                  String
   description           String?
   permissions           Json
-  active                Boolean               @default(true)
-  archivedAt            DateTime?             @map("archived_at") @db.Timestamptz(3)
-  createdAt             DateTime              @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt             DateTime              @updatedAt @map("updated_at") @db.Timestamptz(3)
-  tenant                Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  active                Boolean                @default(true)
+  archivedAt            DateTime?              @map("archived_at") @db.Timestamptz(3)
+  createdAt             DateTime               @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt             DateTime               @updatedAt @map("updated_at") @db.Timestamptz(3)
+  tenant                Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   users                 User[]
   additionalUsers       UserRole[]
   permissionAssignments RolePermission[]
   limits                RoleLimit[]
   dataScopes            RoleDataScope[]
   fieldPermissions      RoleFieldPermission[]
-  accessAuditLogs       AccessAuditLog[]      @relation("AccessAuditSubjectRole")
+  accessAuditLogs       AccessAuditLog[]       @relation("AccessAuditSubjectRole")
+  authorityPolicies     AuthorityLimitPolicy[]
 
   @@unique([tenantId, name])
   @@unique([tenantId, key])
@@ -243,50 +300,63 @@ model Role {
 }
 
 model User {
-  id                  BigInt                   @id @default(autoincrement())
-  tenantId            BigInt                   @map("tenant_id")
-  roleId              BigInt                   @map("role_id")
+  id                  BigInt                        @id @default(autoincrement())
+  tenantId            BigInt                        @map("tenant_id")
+  roleId              BigInt                        @map("role_id")
   email               String
   name                String
-  passwordHash        String                   @map("password_hash")
-  branchIds           Json                     @map("branch_ids")
-  warehouseIds        Json                     @map("warehouse_ids")
-  language            String                   @default("en")
-  active              Boolean                  @default(true)
-  authVersion         Int                      @default(0) @map("auth_version")
-  mfaEnabled          Boolean                  @default(false) @map("mfa_enabled")
-  mfaRequired         Boolean                  @default(false) @map("mfa_required")
-  mfaSecretEncrypted  String?                  @map("mfa_secret_encrypted")
-  mfaRecoveryHashes   Json                     @default("[]") @map("mfa_recovery_hashes")
-  mfaEnrolledAt       DateTime?                @map("mfa_enrolled_at") @db.Timestamptz(3)
-  tenant              Tenant                   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  role                Role                     @relation(fields: [roleId], references: [id])
-  createdDocuments    Document[]               @relation("DocumentCreator")
-  submittedDocuments  Document[]               @relation("DocumentSubmitter")
-  approvedDocuments   Document[]               @relation("DocumentApprover")
-  postedDocuments     Document[]               @relation("DocumentPoster")
-  createdJournals     JournalEntry[]           @relation("JournalCreator")
-  submittedJournals   JournalEntry[]           @relation("JournalSubmitter")
-  approvedJournals    JournalEntry[]           @relation("JournalApprover")
-  postedJournals      JournalEntry[]           @relation("JournalPoster")
+  passwordHash        String                        @map("password_hash")
+  branchIds           Json                          @map("branch_ids")
+  warehouseIds        Json                          @map("warehouse_ids")
+  language            String                        @default("en")
+  active              Boolean                       @default(true)
+  authVersion         Int                           @default(0) @map("auth_version")
+  mfaEnabled          Boolean                       @default(false) @map("mfa_enabled")
+  mfaRequired         Boolean                       @default(false) @map("mfa_required")
+  mfaSecretEncrypted  String?                       @map("mfa_secret_encrypted")
+  mfaRecoveryHashes   Json                          @default("[]") @map("mfa_recovery_hashes")
+  mfaEnrolledAt       DateTime?                     @map("mfa_enrolled_at") @db.Timestamptz(3)
+  tenant              Tenant                        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  role                Role                          @relation(fields: [roleId], references: [id])
+  createdDocuments    Document[]                    @relation("DocumentCreator")
+  submittedDocuments  Document[]                    @relation("DocumentSubmitter")
+  approvedDocuments   Document[]                    @relation("DocumentApprover")
+  postedDocuments     Document[]                    @relation("DocumentPoster")
+  createdJournals     JournalEntry[]                @relation("JournalCreator")
+  submittedJournals   JournalEntry[]                @relation("JournalSubmitter")
+  approvedJournals    JournalEntry[]                @relation("JournalApprover")
+  postedJournals      JournalEntry[]                @relation("JournalPoster")
   stockMovements      StockMovement[]
-  payments            Payment[]
+  createdPayments     Payment[]                     @relation("PaymentCreator")
+  approvedPayments    Payment[]                     @relation("PaymentApprover")
+  rejectedPayments    Payment[]                     @relation("PaymentRejector")
   approvals           ApprovalEvent[]
   auditEvents         AuditEvent[]
-  openedShifts        PosShift[]               @relation("ShiftOpener")
-  closedShifts        PosShift[]               @relation("ShiftCloser")
+  openedShifts        PosShift[]                    @relation("ShiftOpener")
+  closedShifts        PosShift[]                    @relation("ShiftCloser")
   posSales            PosSale[]
   bankTxns            BankTransaction[]
   bankStatements      BankStatement[]
   refreshSessions     RefreshSession[]
   additionalRoles     UserRole[]
-  permissionOverrides UserPermissionOverride[] @relation("PermissionOverrideSubject")
-  createdOverrides    UserPermissionOverride[] @relation("PermissionOverrideCreator")
-  accessAuditActions  AccessAuditLog[]         @relation("AccessAuditActor")
-  accessAuditSubjects AccessAuditLog[]         @relation("AccessAuditSubjectUser")
+  permissionOverrides UserPermissionOverride[]      @relation("PermissionOverrideSubject")
+  createdOverrides    UserPermissionOverride[]      @relation("PermissionOverrideCreator")
+  accessAuditActions  AccessAuditLog[]              @relation("AccessAuditActor")
+  accessAuditSubjects AccessAuditLog[]              @relation("AccessAuditSubjectUser")
   employee            Employee?
-  ownedCustomers      Customer[]               @relation("CustomerOwner")
+  ownedCustomers      Customer[]                    @relation("CustomerOwner")
   mfaChallenges       MfaChallenge[]
+  companyMemberships  CompanyMembership[]           @relation("CompanyMembershipUser")
+  createdMemberships  CompanyMembership[]           @relation("CompanyMembershipCreator")
+  resourceAssignments FinancialResourceAssignment[] @relation("FinancialResourceAssignee")
+  grantedAssignments  FinancialResourceAssignment[] @relation("FinancialResourceGrantor")
+  temporaryGrants     TemporaryAccessGrant[]        @relation("TemporaryAccessGrantee")
+  createdTempGrants   TemporaryAccessGrant[]        @relation("TemporaryAccessGrantor")
+  delegationsGiven    Delegation[]                  @relation("DelegationGrantor")
+  delegationsReceived Delegation[]                  @relation("DelegationGrantee")
+  accessReviews       AccessReviewRecord[]          @relation("AccessReviewSubject")
+  completedReviews    AccessReviewRecord[]          @relation("AccessReviewReviewer")
+  uploadedAttachments PrivateAttachment[]           @relation("AttachmentUploader")
 
   @@unique([tenantId, email])
   @@index([tenantId, roleId, active])
@@ -413,38 +483,38 @@ model RoleFieldPermission {
 }
 
 model AccessAuditLog {
-  id                  BigInt   @id @default(autoincrement())
-  tenantId            BigInt?  @map("tenant_id")
-  actorUserId         BigInt?  @map("actor_user_id")
-  subjectUserId       BigInt?  @map("subject_user_id")
-  subjectRoleId       BigInt?  @map("subject_role_id")
+  id                  BigInt     @id @default(autoincrement())
+  tenantId            BigInt?    @map("tenant_id")
+  actorUserId         BigInt?    @map("actor_user_id")
+  subjectUserId       BigInt?    @map("subject_user_id")
+  subjectRoleId       BigInt?    @map("subject_role_id")
   action              String
-  permissionKey       String?  @map("permission_key")
-  previousValue       Json?    @map("previous_value")
-  newValue            Json?    @map("new_value")
-  companyId           String?  @map("company_id")
-  branchId            BigInt?  @map("branch_id")
-  warehouseId         BigInt?  @map("warehouse_id")
-  resourceType        String?  @map("resource_type")
-  resourceId          String?  @map("resource_id")
-  requestedAction     String?  @map("requested_action")
+  permissionKey       String?    @map("permission_key")
+  previousValue       Json?      @map("previous_value")
+  newValue            Json?      @map("new_value")
+  companyId           String?    @map("company_id")
+  branchId            BigInt?    @map("branch_id")
+  warehouseId         BigInt?    @map("warehouse_id")
+  resourceType        String?    @map("resource_type")
+  resourceId          String?    @map("resource_id")
+  requestedAction     String?    @map("requested_action")
   route               String?
-  httpMethod          String?  @map("http_method")
-  ipAddress           String?  @map("ip_address")
-  userAgent           String?  @map("user_agent")
-  sessionId           String?  @map("session_id")
-  requestId           String?  @map("request_id")
-  denialReason        String?  @map("denial_reason")
-  dataScopeReason     String?  @map("data_scope_reason")
-  fieldSecurityReason String?  @map("field_security_reason")
-  roleLimitReason     String?  @map("role_limit_reason")
-  createdAt           DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
-  tenant              Tenant?  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  actorUser     User?    @relation("AccessAuditActor", fields: [actorUserId], references: [id], onDelete: SetNull)
-  subjectUser   User?    @relation("AccessAuditSubjectUser", fields: [subjectUserId], references: [id], onDelete: SetNull)
-  subjectRole   Role?    @relation("AccessAuditSubjectRole", fields: [subjectRoleId], references: [id], onDelete: SetNull)
-  branch        Branch?  @relation(fields: [branchId], references: [id], onDelete: SetNull)
-  warehouse     Warehouse? @relation(fields: [warehouseId], references: [id], onDelete: SetNull)
+  httpMethod          String?    @map("http_method")
+  ipAddress           String?    @map("ip_address")
+  userAgent           String?    @map("user_agent")
+  sessionId           String?    @map("session_id")
+  requestId           String?    @map("request_id")
+  denialReason        String?    @map("denial_reason")
+  dataScopeReason     String?    @map("data_scope_reason")
+  fieldSecurityReason String?    @map("field_security_reason")
+  roleLimitReason     String?    @map("role_limit_reason")
+  createdAt           DateTime   @default(now()) @map("created_at") @db.Timestamptz(3)
+  tenant              Tenant?    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  actorUser           User?      @relation("AccessAuditActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+  subjectUser         User?      @relation("AccessAuditSubjectUser", fields: [subjectUserId], references: [id], onDelete: SetNull)
+  subjectRole         Role?      @relation("AccessAuditSubjectRole", fields: [subjectRoleId], references: [id], onDelete: SetNull)
+  branch              Branch?    @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  warehouse           Warehouse? @relation(fields: [warehouseId], references: [id], onDelete: SetNull)
 
   @@index([tenantId, createdAt])
   @@index([tenantId, actorUserId, action])
@@ -453,14 +523,258 @@ model AccessAuditLog {
   @@map("access_audit_logs")
 }
 
+model Company {
+  id                 BigInt                 @id @default(autoincrement())
+  tenantId           BigInt                 @map("tenant_id")
+  code               String
+  name               String
+  baseCurrency       String                 @default("EGP") @map("base_currency")
+  active             Boolean                @default(true)
+  createdAt          DateTime               @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt          DateTime               @updatedAt @map("updated_at") @db.Timestamptz(3)
+  tenant             Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  memberships        CompanyMembership[]
+  branchLinks        CompanyBranch[]
+  financialResources FinancialResource[]
+  temporaryGrants    TemporaryAccessGrant[]
+  delegations        Delegation[]
+  accessReviews      AccessReviewRecord[]
+  authorityPolicies  AuthorityLimitPolicy[]
+  privateAttachments PrivateAttachment[]
+  customers          Customer[]
+  suppliers          Supplier[]
+
+  @@unique([tenantId, code])
+  @@index([tenantId, active, name])
+  @@map("companies")
+}
+
+model CompanyMembership {
+  id          BigInt                @id @default(autoincrement())
+  tenantId    BigInt                @map("tenant_id")
+  companyId   BigInt                @map("company_id")
+  userId      BigInt                @map("user_id")
+  role        CompanyMembershipRole @default(MEMBER)
+  active      Boolean               @default(true)
+  validFrom   DateTime              @default(now()) @map("valid_from") @db.Timestamptz(3)
+  validUntil  DateTime?             @map("valid_until") @db.Timestamptz(3)
+  createdById BigInt?               @map("created_by_id")
+  createdAt   DateTime              @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime              @updatedAt @map("updated_at") @db.Timestamptz(3)
+  tenant      Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  company     Company               @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  user        User                  @relation("CompanyMembershipUser", fields: [userId], references: [id], onDelete: Cascade)
+  createdBy   User?                 @relation("CompanyMembershipCreator", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@unique([tenantId, companyId, userId])
+  @@index([tenantId, userId, active, validUntil])
+  @@map("company_memberships")
+}
+
+model CompanyBranch {
+  id        BigInt   @id @default(autoincrement())
+  tenantId  BigInt   @map("tenant_id")
+  companyId BigInt   @map("company_id")
+  branchId  BigInt   @unique @map("branch_id")
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  company   Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  branch    Branch   @relation(fields: [branchId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, companyId, branchId])
+  @@index([tenantId, companyId, active])
+  @@map("company_branches")
+}
+
+model FinancialResource {
+  id                  String                        @id @default(uuid()) @db.Uuid
+  tenantId            BigInt                        @map("tenant_id")
+  companyId           BigInt                        @map("company_id")
+  type                FinancialResourceType
+  code                String
+  name                String
+  linkedBankAccountId BigInt?                       @unique @map("linked_bank_account_id")
+  linkedAccountId     BigInt?                       @map("linked_account_id")
+  metadata            Json?
+  active              Boolean                       @default(true)
+  createdAt           DateTime                      @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt           DateTime                      @updatedAt @map("updated_at") @db.Timestamptz(3)
+  tenant              Tenant                        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  company             Company                       @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  linkedBankAccount   BankAccount?                  @relation(fields: [linkedBankAccountId], references: [id], onDelete: Cascade)
+  linkedAccount       Account?                      @relation(fields: [linkedAccountId], references: [id], onDelete: Cascade)
+  assignments         FinancialResourceAssignment[]
+
+  @@unique([tenantId, companyId, type, code])
+  @@index([tenantId, companyId, type, active])
+  @@map("financial_resources")
+}
+
+model FinancialResourceAssignment {
+  id          BigInt            @id @default(autoincrement())
+  tenantId    BigInt            @map("tenant_id")
+  userId      BigInt            @map("user_id")
+  resourceId  String            @map("resource_id") @db.Uuid
+  validFrom   DateTime          @default(now()) @map("valid_from") @db.Timestamptz(3)
+  validUntil  DateTime?         @map("valid_until") @db.Timestamptz(3)
+  reason      String
+  grantedById BigInt            @map("granted_by_id")
+  revokedAt   DateTime?         @map("revoked_at") @db.Timestamptz(3)
+  createdAt   DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
+  tenant      Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user        User              @relation("FinancialResourceAssignee", fields: [userId], references: [id], onDelete: Cascade)
+  resource    FinancialResource @relation(fields: [resourceId], references: [id], onDelete: Cascade)
+  grantedBy   User              @relation("FinancialResourceGrantor", fields: [grantedById], references: [id], onDelete: Restrict)
+
+  @@index([tenantId, userId, revokedAt, validUntil])
+  @@index([tenantId, resourceId, revokedAt])
+  @@map("financial_resource_assignments")
+}
+
+model TemporaryAccessGrant {
+  id                  String    @id @default(uuid()) @db.Uuid
+  tenantId            BigInt    @map("tenant_id")
+  companyId           BigInt    @map("company_id")
+  userId              BigInt    @map("user_id")
+  grantedById         BigInt    @map("granted_by_id")
+  permissions         Json
+  resourceAssignments Json      @default("{}") @map("resource_assignments")
+  reason              String
+  validFrom           DateTime  @map("valid_from") @db.Timestamptz(3)
+  validUntil          DateTime  @map("valid_until") @db.Timestamptz(3)
+  revokedAt           DateTime? @map("revoked_at") @db.Timestamptz(3)
+  createdAt           DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  tenant              Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  company             Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  user                User      @relation("TemporaryAccessGrantee", fields: [userId], references: [id], onDelete: Cascade)
+  grantedBy           User      @relation("TemporaryAccessGrantor", fields: [grantedById], references: [id], onDelete: Restrict)
+
+  @@index([tenantId, userId, validFrom, validUntil, revokedAt])
+  @@map("temporary_access_grants")
+}
+
+model Delegation {
+  id                  String    @id @default(uuid()) @db.Uuid
+  tenantId            BigInt    @map("tenant_id")
+  companyId           BigInt    @map("company_id")
+  delegatorId         BigInt    @map("delegator_id")
+  delegateeId         BigInt    @map("delegatee_id")
+  permissions         Json
+  resourceAssignments Json      @default("{}") @map("resource_assignments")
+  reason              String
+  validFrom           DateTime  @map("valid_from") @db.Timestamptz(3)
+  validUntil          DateTime  @map("valid_until") @db.Timestamptz(3)
+  revokedAt           DateTime? @map("revoked_at") @db.Timestamptz(3)
+  createdAt           DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  tenant              Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  company             Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  delegator           User      @relation("DelegationGrantor", fields: [delegatorId], references: [id], onDelete: Cascade)
+  delegatee           User      @relation("DelegationGrantee", fields: [delegateeId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, delegateeId, validFrom, validUntil, revokedAt])
+  @@index([tenantId, delegatorId, revokedAt])
+  @@map("delegations")
+}
+
+model SodRule {
+  id               BigInt         @id @default(autoincrement())
+  tenantId         BigInt         @map("tenant_id")
+  key              String
+  name             String
+  description      String
+  leftPermissions  Json           @map("left_permissions")
+  rightPermissions Json           @map("right_permissions")
+  enforcement      SodEnforcement @default(WARN)
+  active           Boolean        @default(true)
+  createdAt        DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt        DateTime       @updatedAt @map("updated_at") @db.Timestamptz(3)
+  tenant           Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, key])
+  @@index([tenantId, active, enforcement])
+  @@map("sod_rules")
+}
+
+model AccessReviewRecord {
+  id            String               @id @default(uuid()) @db.Uuid
+  tenantId      BigInt               @map("tenant_id")
+  companyId     BigInt               @map("company_id")
+  subjectUserId BigInt               @map("subject_user_id")
+  reviewerId    BigInt               @map("reviewer_id")
+  decision      AccessReviewDecision
+  reason        String
+  snapshot      Json
+  reviewedAt    DateTime             @default(now()) @map("reviewed_at") @db.Timestamptz(3)
+  tenant        Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  company       Company              @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  subjectUser   User                 @relation("AccessReviewSubject", fields: [subjectUserId], references: [id], onDelete: Restrict)
+  reviewer      User                 @relation("AccessReviewReviewer", fields: [reviewerId], references: [id], onDelete: Restrict)
+
+  @@index([tenantId, companyId, subjectUserId, reviewedAt])
+  @@map("access_review_records")
+}
+
+model AuthorityLimitPolicy {
+  id             BigInt      @id @default(autoincrement())
+  tenantId       BigInt      @map("tenant_id")
+  companyId      BigInt      @map("company_id")
+  branchId       BigInt?     @map("branch_id")
+  roleId         BigInt?     @map("role_id")
+  departmentId   BigInt?     @map("department_id")
+  key            String
+  documentType   String?     @map("document_type")
+  currency       String
+  maxAmountMinor BigInt?     @map("max_amount_minor")
+  maxPercentBps  Int?        @map("max_percent_bps")
+  priority       Int         @default(0)
+  validFrom      DateTime    @default(now()) @map("valid_from") @db.Timestamptz(3)
+  validUntil     DateTime?   @map("valid_until") @db.Timestamptz(3)
+  active         Boolean     @default(true)
+  createdAt      DateTime    @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime    @updatedAt @map("updated_at") @db.Timestamptz(3)
+  tenant         Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  company        Company     @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  branch         Branch?     @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  role           Role?       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  department     Department? @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, companyId, key, currency, active, priority])
+  @@map("authority_limit_policies")
+}
+
+model PrivateAttachment {
+  id           String               @id @default(uuid()) @db.Uuid
+  tenantId     BigInt               @map("tenant_id")
+  companyId    BigInt               @map("company_id")
+  documentId   BigInt               @map("document_id")
+  uploadedById BigInt               @map("uploaded_by_id")
+  storageKey   String               @unique @map("storage_key") @db.Uuid
+  filename     String
+  contentType  String               @map("content_type")
+  sizeBytes    BigInt               @map("size_bytes")
+  sha256       String
+  scanStatus   AttachmentScanStatus @default(NOT_CONFIGURED) @map("scan_status")
+  content      Bytes
+  createdAt    DateTime             @default(now()) @map("created_at") @db.Timestamptz(3)
+  tenant       Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  company      Company              @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  document     Document             @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  uploadedBy   User                 @relation("AttachmentUploader", fields: [uploadedById], references: [id], onDelete: Restrict)
+
+  @@index([tenantId, companyId, documentId, createdAt])
+  @@map("private_attachments")
+}
+
 model Department {
-  id        BigInt     @id @default(autoincrement())
-  tenantId  BigInt     @map("tenant_id")
-  code      String
-  name      String
-  active    Boolean    @default(true)
-  tenant    Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  employees Employee[]
+  id                BigInt                 @id @default(autoincrement())
+  tenantId          BigInt                 @map("tenant_id")
+  code              String
+  name              String
+  active            Boolean                @default(true)
+  tenant            Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  employees         Employee[]
+  authorityPolicies AuthorityLimitPolicy[]
 
   @@unique([tenantId, code])
   @@index([tenantId, name, active])
@@ -471,11 +785,11 @@ model Employee {
   id             BigInt     @id @default(autoincrement())
   tenantId       BigInt     @map("tenant_id")
   departmentId   BigInt     @map("department_id")
-  userId          BigInt?    @unique @map("user_id")
+  userId         BigInt?    @unique @map("user_id")
   code           String
   name           String
   jobTitle       String?    @map("job_title")
-  salaryMinor     BigInt?    @map("salary_minor")
+  salaryMinor    BigInt?    @map("salary_minor")
   salesEligible  Boolean    @default(false) @map("sales_eligible")
   branchIds      Json       @map("branch_ids")
   active         Boolean    @default(true)
@@ -533,18 +847,18 @@ model MasterSequence {
 }
 
 model RefreshSession {
-  id         String    @id @default(uuid()) @db.Uuid
-  tenantId   BigInt    @map("tenant_id")
-  userId     BigInt    @map("user_id")
-  tokenHash  String    @unique @map("token_hash")
-  persistent Boolean   @default(true)
-  expiresAt  DateTime  @map("expires_at") @db.Timestamptz(3)
-  revokedAt  DateTime? @map("revoked_at") @db.Timestamptz(3)
-  lastUsedAt DateTime  @default(now()) @map("last_used_at") @db.Timestamptz(3)
+  id            String    @id @default(uuid()) @db.Uuid
+  tenantId      BigInt    @map("tenant_id")
+  userId        BigInt    @map("user_id")
+  tokenHash     String    @unique @map("token_hash")
+  persistent    Boolean   @default(true)
+  expiresAt     DateTime  @map("expires_at") @db.Timestamptz(3)
+  revokedAt     DateTime? @map("revoked_at") @db.Timestamptz(3)
+  lastUsedAt    DateTime  @default(now()) @map("last_used_at") @db.Timestamptz(3)
   mfaVerifiedAt DateTime? @map("mfa_verified_at") @db.Timestamptz(3)
-  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
-  tenant     Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  tenant        Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([tenantId, userId, expiresAt])
   @@map("refresh_sessions")
@@ -597,21 +911,22 @@ model FiscalPeriod {
 }
 
 model Account {
-  id                 BigInt            @id @default(autoincrement())
-  tenantId           BigInt            @map("tenant_id")
+  id                 BigInt              @id @default(autoincrement())
+  tenantId           BigInt              @map("tenant_id")
   code               String
   name               String
   type               AccountType
-  parentId           BigInt?           @map("parent_id")
-  postingAllowed     Boolean           @default(true) @map("posting_allowed")
-  controlType        String?           @map("control_type")
-  active             Boolean           @default(true)
-  tenant             Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  parent             Account?          @relation("AccountTree", fields: [parentId], references: [id])
-  children           Account[]         @relation("AccountTree")
+  parentId           BigInt?             @map("parent_id")
+  postingAllowed     Boolean             @default(true) @map("posting_allowed")
+  controlType        String?             @map("control_type")
+  active             Boolean             @default(true)
+  tenant             Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  parent             Account?            @relation("AccountTree", fields: [parentId], references: [id])
+  children           Account[]           @relation("AccountTree")
   journalLines       JournalLine[]
   bankAccounts       BankAccount[]
-  bankCounterparties BankTransaction[] @relation("BankCounterparty")
+  bankCounterparties BankTransaction[]   @relation("BankCounterparty")
+  financialResources FinancialResource[]
 
   @@unique([tenantId, code])
   @@index([tenantId, type, active])
@@ -635,6 +950,7 @@ model DocumentSequence {
 model Customer {
   id                 BigInt     @id @default(autoincrement())
   tenantId           BigInt     @map("tenant_id")
+  companyId          BigInt?    @map("company_id")
   code               String
   name               String
   customerType       String     @default("BUSINESS") @map("customer_type")
@@ -655,6 +971,7 @@ model Customer {
   creditHold         Boolean    @default(false) @map("credit_hold")
   active             Boolean    @default(true)
   tenant             Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  company            Company?   @relation(fields: [companyId], references: [id], onDelete: Restrict)
   defaultBranch      Branch?    @relation("CustomerDefaultBranch", fields: [defaultBranchId], references: [id])
   ownerUser          User?      @relation("CustomerOwner", fields: [ownerUserId], references: [id], onDelete: SetNull)
   documents          Document[]
@@ -667,12 +984,14 @@ model Customer {
   @@index([tenantId, email])
   @@index([tenantId, taxNumber])
   @@index([tenantId, ownerUserId])
+  @@index([tenantId, companyId, active, name])
   @@map("customers")
 }
 
 model Supplier {
   id               BigInt     @id @default(autoincrement())
   tenantId         BigInt     @map("tenant_id")
+  companyId        BigInt?    @map("company_id")
   code             String
   name             String
   taxNumber        String?    @map("tax_number")
@@ -683,11 +1002,13 @@ model Supplier {
   paymentTermsDays Int        @default(30) @map("payment_terms_days")
   active           Boolean    @default(true)
   tenant           Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  company          Company?   @relation(fields: [companyId], references: [id], onDelete: Restrict)
   documents        Document[]
   payments         Payment[]
 
   @@unique([tenantId, code])
   @@index([tenantId, name])
+  @@index([tenantId, companyId, active, name])
   @@map("suppliers")
 }
 
@@ -847,6 +1168,7 @@ model Document {
   approvedBy             User?               @relation("DocumentApprover", fields: [approvedById], references: [id])
   postedBy               User?               @relation("DocumentPoster", fields: [postedById], references: [id])
   allocations            PaymentAllocation[]
+  privateAttachments     PrivateAttachment[]
 
   @@unique([tenantId, type, number])
   @@index([tenantId, type, status, documentDate])
@@ -952,30 +1274,42 @@ model JournalLine {
 }
 
 model Payment {
-  id             BigInt              @id @default(autoincrement())
-  tenantId       BigInt              @map("tenant_id")
-  kind           PaymentKind
-  partyType      PartyType           @map("party_type")
-  customerId     BigInt?             @map("customer_id")
-  supplierId     BigInt?             @map("supplier_id")
-  bankAccountId  BigInt              @map("bank_account_id")
-  number         String
-  postingDate    DateTime            @map("posting_date") @db.Date
-  amountMinor    BigInt              @map("amount_minor")
-  method         PaymentMethod
-  reference      String?
-  journalEntryId BigInt              @map("journal_entry_id")
-  createdById    BigInt              @map("created_by_id")
-  createdAt      DateTime            @default(now()) @map("created_at") @db.Timestamptz(3)
-  tenant         Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  customer       Customer?           @relation(fields: [customerId], references: [id])
-  supplier       Supplier?           @relation(fields: [supplierId], references: [id])
-  bankAccount    BankAccount         @relation(fields: [bankAccountId], references: [id])
-  journalEntry   JournalEntry        @relation(fields: [journalEntryId], references: [id])
-  createdBy      User                @relation(fields: [createdById], references: [id])
-  allocations    PaymentAllocation[]
+  id              BigInt              @id @default(autoincrement())
+  tenantId        BigInt              @map("tenant_id")
+  branchId        BigInt              @map("branch_id")
+  kind            PaymentKind
+  status          PaymentStatus       @default(SUBMITTED)
+  partyType       PartyType           @map("party_type")
+  customerId      BigInt?             @map("customer_id")
+  supplierId      BigInt?             @map("supplier_id")
+  bankAccountId   BigInt              @map("bank_account_id")
+  number          String
+  postingDate     DateTime            @map("posting_date") @db.Date
+  amountMinor     BigInt              @map("amount_minor")
+  method          PaymentMethod
+  reference       String?
+  allocationPlan  Json                @default("[]") @map("allocation_plan")
+  journalEntryId  BigInt?             @map("journal_entry_id")
+  createdById     BigInt              @map("created_by_id")
+  approvedById    BigInt?             @map("approved_by_id")
+  rejectedById    BigInt?             @map("rejected_by_id")
+  approvedAt      DateTime?           @map("approved_at") @db.Timestamptz(3)
+  rejectedAt      DateTime?           @map("rejected_at") @db.Timestamptz(3)
+  decisionComment String?             @map("decision_comment")
+  createdAt       DateTime            @default(now()) @map("created_at") @db.Timestamptz(3)
+  tenant          Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branch          Branch              @relation(fields: [branchId], references: [id])
+  customer        Customer?           @relation(fields: [customerId], references: [id])
+  supplier        Supplier?           @relation(fields: [supplierId], references: [id])
+  bankAccount     BankAccount         @relation(fields: [bankAccountId], references: [id])
+  journalEntry    JournalEntry?       @relation(fields: [journalEntryId], references: [id])
+  createdBy       User                @relation("PaymentCreator", fields: [createdById], references: [id])
+  approvedBy      User?               @relation("PaymentApprover", fields: [approvedById], references: [id])
+  rejectedBy      User?               @relation("PaymentRejector", fields: [rejectedById], references: [id])
+  allocations     PaymentAllocation[]
 
   @@unique([tenantId, number])
+  @@index([tenantId, branchId, kind, status, createdAt])
   @@index([tenantId, customerId, postingDate])
   @@index([tenantId, supplierId, postingDate])
   @@map("payments")
@@ -1027,12 +1361,15 @@ model AuditEvent {
   userAgent         String?  @map("user_agent")
   postingReference  String?  @map("posting_reference")
   approvalReference String?  @map("approval_reference")
+  companyId         String?  @map("company_id")
+  branchId          BigInt?  @map("branch_id")
   createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
   tenant            Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   user              User     @relation(fields: [userId], references: [id])
 
   @@index([tenantId, entityType, entityId, createdAt])
   @@index([tenantId, userId, createdAt])
+  @@index([tenantId, companyId, branchId, createdAt])
   @@map("audit_events")
 }
 
@@ -1130,21 +1467,22 @@ model PosTender {
 }
 
 model BankAccount {
-  id            BigInt            @id @default(autoincrement())
-  tenantId      BigInt            @map("tenant_id")
-  code          String
-  name          String
-  type          BankAccountType
-  currency      String            @default("EGP")
-  glAccountId   BigInt            @map("gl_account_id")
-  bankName      String?           @map("bank_name")
-  accountNumber String?           @map("account_number")
-  active        Boolean           @default(true)
-  tenant        Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  glAccount     Account           @relation(fields: [glAccountId], references: [id])
-  payments      Payment[]
-  transactions  BankTransaction[]
-  statements    BankStatement[]
+  id                 BigInt              @id @default(autoincrement())
+  tenantId           BigInt              @map("tenant_id")
+  code               String
+  name               String
+  type               BankAccountType
+  currency           String              @default("EGP")
+  glAccountId        BigInt              @map("gl_account_id")
+  bankName           String?             @map("bank_name")
+  accountNumber      String?             @map("account_number")
+  active             Boolean             @default(true)
+  tenant             Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  glAccount          Account             @relation(fields: [glAccountId], references: [id])
+  payments           Payment[]
+  transactions       BankTransaction[]
+  statements         BankStatement[]
+  financialResources FinancialResource[]
 
   @@unique([tenantId, code])
   @@index([tenantId, type, active])

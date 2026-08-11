@@ -20,8 +20,10 @@ export class AuthorizationGuard implements CanActivate {
     const request = context.switchToHttp().getRequest<any>();
     const actor = request.actor as Actor | undefined;
     if (!actor) return false;
-    const missing = required.find((permission) => !hasPermission(actor.permissions, actor.deniedPermissions, permission));
-    const hasAny = !any.length || any.some((permission) => hasPermission(actor.permissions, actor.deniedPermissions, permission));
+    const hasEffectivePermission = (permission: string) => hasPermission(actor.permissions, actor.deniedPermissions, permission)
+      || Object.values(actor.companyScopedPermissions || {}).some((grants) => hasPermission(grants, actor.deniedPermissions, permission));
+    const missing = required.find((permission) => !hasEffectivePermission(permission));
+    const hasAny = !any.length || any.some(hasEffectivePermission);
     if (!missing && hasAny) return true;
     const permission = missing || any[0];
     const explicitDeny = actor.deniedPermissions.some((candidate) => permissionMatches(candidate, permission));

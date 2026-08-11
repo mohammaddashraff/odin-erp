@@ -2,10 +2,12 @@ import { CanActivate, ExecutionContext, ForbiddenException, Injectable, Unauthor
 import { compare, hash } from 'bcryptjs';
 import { createHash, randomBytes } from 'node:crypto';
 import { sign, verify, type SignOptions } from 'jsonwebtoken';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from './prisma.service';
 import { privilegedMfaRequired, tokenSigningSecret } from './deployment-config';
 import { consumeRecoveryCode, decryptMfaSecret, encryptMfaSecret, hashRecoveryCodes, newMfaSecret, newRecoveryCodes, otpAuthUri, verifyTotp } from './mfa-security';
 import { hasPermission, normalizePermissions, permissionMatches } from './permissions';
+import { resolveEffectiveAccess } from './access-governance';
 
 export type EffectiveDataScope = { resource: string; scope: 'NONE' | 'OWN' | 'ASSIGNED' | 'TEAM' | 'BRANCH' | 'WAREHOUSE' | 'DEPARTMENT' | 'ALL'; config?: unknown };
 export type EffectiveFieldPermission = { resource: string; field: string; access: 'HIDDEN' | 'VIEW' | 'EDIT' };
@@ -25,6 +27,11 @@ export type Actor = {
   limits: Record<string, unknown>;
   branchIds: string[];
   warehouseIds: string[];
+  companyIds: string[];
+  companyAdminIds: string[];
+  companyBranchIds: Record<string, string[]>;
+  companyScopedPermissions: Record<string, string[]>;
+  companyResourceAssignments: Record<string, Record<string, string[]>>;
   employeeId?: string;
   departmentId?: string;
   sessionId?: string;
@@ -45,63 +52,73 @@ export type AuthenticationContext = { ipAddress?: string; userAgent?: string };
 export class AuthService {
   constructor(private readonly db: PrismaService) {}
 
-  private actorFor(user: any): Actor {
-    const roles = [user.role, ...(user.additionalRoles || []).map((assignment: any) => assignment.role)]
-      .filter((role: any) => role?.active !== false && !role?.archivedAt);
-    const legacyPermissions = [...new Set<string>(roles.flatMap((role: any) => Array.isArray(role.permissions) ? role.permissions : []))];
-    const assignedPermissions = roles.flatMap((role: any) => (role.permissionAssignments || []).map((assignment: any) => assignment.permission.key));
-    const grants = new Set<string>([...normalizePermissions(legacyPermissions), ...assignedPermissions]);
-    const denies = new Set<string>();
-    for (const override of user.permissionOverrides || []) {
-      if (override.effect === 'DENY') denies.add(override.permission.key);
-      else grants.add(override.permission.key);
+  actorFor(user: any): Actor {
+    const effective = resolveEffectiveAccess(user);
+    if (hasPermission(effective.permissions, effective.deniedPermissions, 'system.super_admin')) {
+      effective.companyIds = (user.tenant.companies || []).filter((company: any) => company.active !== false).map((company: any) => company.id.toString()).sort();
+      effective.companyAdminIds = [...effective.companyIds];
+      effective.companyBranchIds = Object.fromEntries((user.tenant.companies || []).filter((company: any) => company.active !== false).map((company: any) => [
+        company.id.toString(),
+        (company.branchLinks || []).filter((link: any) => link.active !== false).map((link: any) => link.branchId.toString()).sort(),
+      ]));
     }
-    const scopeRank: Record<string, number> = { NONE: 0, OWN: 1, ASSIGNED: 2, TEAM: 3, DEPARTMENT: 4, WAREHOUSE: 5, BRANCH: 6, ALL: 7 };
-    const scopes = new Map<string, EffectiveDataScope>();
-    for (const scope of roles.flatMap((role: any) => role.dataScopes || [])) {
-      const existing = scopes.get(scope.resource);
-      if (!existing || scopeRank[scope.scope] > scopeRank[existing.scope]) scopes.set(scope.resource, { resource: scope.resource, scope: scope.scope, config: scope.config });
-    }
-    const fieldRank: Record<string, number> = { HIDDEN: 0, VIEW: 1, EDIT: 2 };
-    const fields = new Map<string, EffectiveFieldPermission>();
-    for (const field of roles.flatMap((role: any) => role.fieldPermissions || [])) {
-      const key = `${field.resource}.${field.field}`;
-      const existing = fields.get(key);
-      if (!existing || fieldRank[field.access] > fieldRank[existing.access]) fields.set(key, { resource: field.resource, field: field.field, access: field.access });
-    }
-    const limits: Record<string, unknown> = {};
-    for (const limit of roles.flatMap((role: any) => role.limits || [])) {
-      const previous = Number(limits[limit.key]);
-      const current = Number(typeof limit.value === 'object' && limit.value !== null && 'value' in limit.value ? limit.value.value : limit.value);
-      if (!Number.isFinite(previous) || current > previous) limits[limit.key] = limit.value;
-    }
+    const membershipBranches = new Set(Object.values(effective.companyBranchIds).flat());
+    const branchIds = (user.branchIds as string[]).map(String).filter((branchId) => membershipBranches.has(branchId));
+    const membershipWarehouses = new Set((user.companyMemberships || []).flatMap((membership: any) => (membership.company?.branchLinks || [])
+      .filter((link: any) => membershipBranches.has(link.branchId.toString()))
+      .flatMap((link: any) => link.branch?.warehouses || []).map((warehouse: any) => warehouse.id.toString())));
+    const warehouseIds = (user.warehouseIds as string[]).map(String).filter((warehouseId) => membershipWarehouses.has(warehouseId));
     return {
       userId: user.id,
       tenantId: user.tenantId,
       email: user.email,
       name: user.name,
       role: user.role.name,
-      roleIds: roles.map((role: any) => role.id.toString()),
-      permissions: [...grants].sort(),
-      deniedPermissions: [...denies].sort(),
-      legacyPermissions,
-      dataScopes: [...scopes.values()],
-      fieldPermissions: [...fields.values()],
-      limits,
-      branchIds: user.branchIds as string[],
-      warehouseIds: user.warehouseIds as string[],
+      roleIds: effective.roles.map((role: any) => role.id.toString()),
+      permissions: effective.permissions,
+      deniedPermissions: effective.deniedPermissions,
+      legacyPermissions: effective.legacyPermissions,
+      dataScopes: effective.dataScopes,
+      fieldPermissions: effective.fieldPermissions,
+      limits: effective.limits,
+      branchIds,
+      warehouseIds,
+      companyIds: effective.companyIds,
+      companyAdminIds: effective.companyAdminIds,
+      companyBranchIds: effective.companyBranchIds,
+      companyScopedPermissions: effective.companyScopedPermissions,
+      companyResourceAssignments: effective.companyResourceAssignments,
       employeeId: user.employee?.id?.toString(),
       departmentId: user.employee?.departmentId?.toString(),
       mfaEnabled: user.mfaEnabled,
     };
   }
 
-  private userInclude = {
-    tenant: true,
+  readonly userInclude = {
+    tenant: { include: { companies: { include: { branchLinks: true } } } },
     employee: true,
     role: { include: { permissionAssignments: { include: { permission: true } }, limits: true, dataScopes: true, fieldPermissions: true } },
     additionalRoles: { include: { role: { include: { permissionAssignments: { include: { permission: true } }, limits: true, dataScopes: true, fieldPermissions: true } } } },
     permissionOverrides: { include: { permission: true } },
+    companyMemberships: {
+      include: {
+        company: {
+          include: {
+            branchLinks: { include: { branch: { include: { warehouses: true } } } },
+            financialResources: true,
+          },
+        },
+      },
+    },
+    resourceAssignments: { include: { resource: true } },
+    temporaryGrants: true,
+    delegationsReceived: { include: { delegator: { include: {
+      role: { include: { permissionAssignments: { include: { permission: true } } } },
+      additionalRoles: { include: { role: { include: { permissionAssignments: { include: { permission: true } } } } } },
+      permissionOverrides: { include: { permission: true } },
+      resourceAssignments: { include: { resource: true } },
+      companyMemberships: { include: { company: true } },
+    } } } },
   } as const;
 
   private accessToken(actor: Actor, resetVersion: number, authVersion: number) {
@@ -110,11 +127,16 @@ export class AuthService {
     return sign({ ...publicActor(actor), sessionId: actor.sessionId, mfaVerifiedAt: actor.mfaVerifiedAt, resetVersion, authVersion }, secret, { expiresIn });
   }
 
-  private async createRefreshSession(user: any, rememberMe = true, mfaVerifiedAt?: Date) {
+  private async createRefreshSession(
+    user: any,
+    rememberMe = true,
+    mfaVerifiedAt?: Date,
+    client: Pick<Prisma.TransactionClient, 'refreshSession'> = this.db.admin,
+  ) {
     const token = randomBytes(48).toString('base64url');
     const durationDays = rememberMe ? 30 : 1;
     const expiresAt = new Date(Date.now() + durationDays * 24 * 60 * 60 * 1000);
-    const session = await this.db.admin.refreshSession.create({ data: {
+    const session = await client.refreshSession.create({ data: {
       tenantId: user.tenantId,
       userId: user.id,
       tokenHash: refreshHash(token),
@@ -141,7 +163,7 @@ export class AuthService {
   }
 
   private isPrivileged(actor: Actor) {
-    return can(actor, 'system.super_admin') || can(actor, 'settings.users_access.manage');
+    return isPrivilegedActor(actor);
   }
 
   private throttleKeys(email: string, ipAddress?: string) {
@@ -178,8 +200,13 @@ export class AuthService {
     await this.db.admin.authThrottle.deleteMany({ where: { keyHash: { in: keys.map(({ keyHash }) => keyHash) } } });
   }
 
-  private async authAudit(user: any, action: string, values: Record<string, unknown> = {}) {
-    await this.db.admin.auditEvent.create({ data: {
+  private async authAudit(
+    user: any,
+    action: string,
+    values: Record<string, unknown> = {},
+    client: Pick<Prisma.TransactionClient, 'auditEvent'> = this.db.admin,
+  ) {
+    await client.auditEvent.create({ data: {
       tenantId: user.tenantId,
       userId: user.id,
       action,
@@ -244,10 +271,10 @@ export class AuthService {
   }
 
   private async verifyMfa(user: any, code?: string, recoveryCode?: string) {
-    if (!user.mfaSecretEncrypted) return { accepted: false, recoveryHashes: user.mfaRecoveryHashes as string[] };
-    const secret = decryptMfaSecret(user.mfaSecretEncrypted);
-    if (code && verifyTotp(secret, code)) return { accepted: true, recoveryHashes: user.mfaRecoveryHashes as string[] };
     const recoveryHashes = Array.isArray(user.mfaRecoveryHashes) ? user.mfaRecoveryHashes.map(String) : [];
+    if (!user.mfaSecretEncrypted) return { accepted: false, recoveryHashes };
+    const secret = decryptMfaSecret(user.mfaSecretEncrypted);
+    if (code && verifyTotp(secret, code)) return { accepted: true, recoveryHashes };
     if (recoveryCode) {
       const consumed = await consumeRecoveryCode(recoveryHashes, recoveryCode);
       return { accepted: consumed.accepted, recoveryHashes: consumed.remaining };
@@ -256,32 +283,64 @@ export class AuthService {
   }
 
   async completeMfaChallenge(rawToken: string, code?: string, recoveryCode?: string) {
-    const challenge = rawToken ? await this.db.admin.mfaChallenge.findUnique({
-      where: { tokenHash: refreshHash(rawToken) }, include: { user: { include: this.userInclude } },
-    }) : null;
-    if (!challenge || challenge.consumedAt || challenge.expiresAt <= new Date() || !challenge.user.active) throw new UnauthorizedException('MFA challenge is invalid or expired');
-    const user = challenge.user;
-    let accepted = false;
-    let recoveryHashes = Array.isArray(user.mfaRecoveryHashes) ? user.mfaRecoveryHashes.map(String) : [];
-    if (challenge.purpose === 'ENROLLMENT' && user.mfaSecretEncrypted && code) accepted = verifyTotp(decryptMfaSecret(user.mfaSecretEncrypted), code);
-    else ({ accepted, recoveryHashes } = await this.verifyMfa(user, code, recoveryCode));
-    if (!accepted) {
-      const attempts = challenge.attempts + 1;
-      await this.db.admin.mfaChallenge.update({ where: { id: challenge.id }, data: { attempts, consumedAt: attempts >= 5 ? new Date() : undefined } });
-      throw new UnauthorizedException('MFA code is invalid');
-    }
-    const verifiedAt = new Date();
-    const updated = await this.db.admin.$transaction(async (tx) => {
-      await tx.mfaChallenge.update({ where: { id: challenge.id }, data: { consumedAt: verifiedAt } });
-      return tx.user.update({ where: { id: user.id }, data: {
+    if (!rawToken) throw new UnauthorizedException('MFA challenge is invalid or expired');
+    const tokenHash = refreshHash(rawToken);
+    const outcome = await this.db.admin.$transaction(async (tx) => {
+      const locked = await tx.$queryRaw<Array<{ id: string; userId: bigint }>>(Prisma.sql`
+        SELECT id, user_id AS "userId"
+        FROM mfa_challenges
+        WHERE token_hash = ${tokenHash}
+        FOR UPDATE
+      `);
+      if (!locked[0]) return { kind: 'INVALID_CHALLENGE' } as const;
+
+      // A user lock serializes recovery-code consumption across distinct login
+      // challenges as well as against step-up authentication.
+      await tx.$queryRaw(Prisma.sql`SELECT id FROM users WHERE id = ${locked[0].userId} FOR UPDATE`);
+      const challenge = await tx.mfaChallenge.findUnique({
+        where: { id: locked[0].id }, include: { user: { include: this.userInclude } },
+      });
+      const now = new Date();
+      if (!challenge || challenge.consumedAt || challenge.expiresAt <= now || !challenge.user.active) {
+        return { kind: 'INVALID_CHALLENGE' } as const;
+      }
+
+      const user = challenge.user;
+      let accepted = false;
+      let recoveryHashes = Array.isArray(user.mfaRecoveryHashes) ? user.mfaRecoveryHashes.map(String) : [];
+      if (challenge.purpose === 'ENROLLMENT' && user.mfaSecretEncrypted && code) {
+        accepted = verifyTotp(decryptMfaSecret(user.mfaSecretEncrypted), code);
+      } else {
+        ({ accepted, recoveryHashes } = await this.verifyMfa(user, code, recoveryCode));
+      }
+      if (!accepted) {
+        const attempts = challenge.attempts + 1;
+        await tx.mfaChallenge.update({
+          where: { id: challenge.id },
+          data: { attempts, consumedAt: attempts >= 5 ? now : undefined },
+        });
+        return { kind: 'INVALID_CODE' } as const;
+      }
+
+      const updated = await tx.user.update({ where: { id: user.id }, data: {
         mfaEnabled: true,
-        mfaEnrolledAt: challenge.purpose === 'ENROLLMENT' ? verifiedAt : undefined,
+        mfaEnrolledAt: challenge.purpose === 'ENROLLMENT' ? now : undefined,
         mfaRecoveryHashes: recoveryHashes,
       }, include: this.userInclude });
-    });
-    const refresh = await this.createRefreshSession(updated, challenge.rememberMe, verifiedAt);
-    await this.authAudit(updated, challenge.purpose === 'ENROLLMENT' ? 'MFA_ENROLLMENT_COMPLETED' : 'MFA_VERIFIED', { recoveryCode: Boolean(recoveryCode) });
-    return this.sessionResult(updated, refresh);
+      await tx.mfaChallenge.update({ where: { id: challenge.id }, data: { consumedAt: now } });
+      const refresh = await this.createRefreshSession(updated, challenge.rememberMe, now, tx);
+      await this.authAudit(
+        updated,
+        challenge.purpose === 'ENROLLMENT' ? 'MFA_ENROLLMENT_COMPLETED' : 'MFA_VERIFIED',
+        { recoveryCode: Boolean(recoveryCode) },
+        tx,
+      );
+      return { kind: 'VERIFIED', updated, refresh } as const;
+    }, { maxWait: 10_000, timeout: 30_000 });
+
+    if (outcome.kind === 'INVALID_CHALLENGE') throw new UnauthorizedException('MFA challenge is invalid or expired');
+    if (outcome.kind === 'INVALID_CODE') throw new UnauthorizedException('MFA code is invalid');
+    return this.sessionResult(outcome.updated, outcome.refresh);
   }
 
   async beginMfaEnrollment(actor: Actor, password: string) {
@@ -308,18 +367,24 @@ export class AuthService {
   }
 
   async stepUp(actor: Actor, password: string, code?: string, recoveryCode?: string) {
-    const user = await this.db.admin.user.findUnique({ where: { id: actor.userId }, include: this.userInclude });
-    if (!user || !await compare(password, user.passwordHash)) throw new UnauthorizedException('Step-up authentication failed');
-    if (user.mfaEnabled) {
-      const result = await this.verifyMfa(user, code, recoveryCode);
-      if (!result.accepted) throw new UnauthorizedException('Step-up authentication failed');
-      if (recoveryCode) await this.db.admin.user.update({ where: { id: user.id }, data: { mfaRecoveryHashes: result.recoveryHashes } });
-    } else if (user.mfaRequired || (privilegedMfaRequired() && this.isPrivileged(actor))) {
-      throw new ForbiddenException('MFA enrollment is required for privileged actions');
-    }
-    const token = sign({ purpose: 'step-up', userId: actor.userId.toString(), tenantId: actor.tenantId.toString(), sessionId: actor.sessionId, authVersion: user.authVersion }, tokenSigningSecret(), { expiresIn: '5m' });
-    await this.authAudit(user, 'STEP_UP_SUCCEEDED', { mfa: user.mfaEnabled });
-    return { stepUpToken: token, expiresInSeconds: 300 };
+    const result = await this.db.admin.$transaction(async (tx) => {
+      await tx.$queryRaw(Prisma.sql`SELECT id FROM users WHERE id = ${actor.userId} FOR UPDATE`);
+      const lockedUser = await tx.user.findUnique({ where: { id: actor.userId }, include: this.userInclude });
+      if (!lockedUser || !await compare(password, lockedUser.passwordHash)) throw new UnauthorizedException('Step-up authentication failed');
+      if (lockedUser.mfaEnabled) {
+        const result = await this.verifyMfa(lockedUser, code, recoveryCode);
+        if (!result.accepted) throw new UnauthorizedException('Step-up authentication failed');
+        if (recoveryCode) {
+          await tx.user.update({ where: { id: lockedUser.id }, data: { mfaRecoveryHashes: result.recoveryHashes } });
+        }
+      } else if (lockedUser.mfaRequired || (privilegedMfaRequired() && this.isPrivileged(actor))) {
+        throw new ForbiddenException('MFA enrollment is required for privileged actions');
+      }
+      const stepUpToken = sign({ purpose: 'step-up', userId: actor.userId.toString(), tenantId: actor.tenantId.toString(), sessionId: actor.sessionId, authVersion: lockedUser.authVersion }, tokenSigningSecret(), { expiresIn: '5m' });
+      await this.authAudit(lockedUser, 'STEP_UP_SUCCEEDED', { mfa: lockedUser.mfaEnabled }, tx);
+      return { stepUpToken };
+    }, { maxWait: 10_000, timeout: 30_000 });
+    return { stepUpToken: result.stepUpToken, expiresInSeconds: 300 };
   }
 
   verifyStepUp(token: string, actor: Actor) {
@@ -471,4 +536,11 @@ export function requirePermission(actor: Actor, permission: string) {
 
 export function can(actor: Actor, permission: string) {
   return hasPermission(actor.permissions, actor.deniedPermissions, permission);
+}
+
+export function isPrivilegedActor(actor: Actor) {
+  return can(actor, 'system.super_admin')
+    || can(actor, 'settings.users_access.manage')
+    || Object.values(actor.companyScopedPermissions || {})
+      .some((permissions) => hasPermission(permissions, actor.deniedPermissions, 'settings.users_access.manage'));
 }

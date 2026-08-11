@@ -3,9 +3,10 @@ import { resolve } from 'node:path';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '@prisma/client';
 import { receivableBaseMinor } from '../customer-receivables';
+import { normalizeDatabaseUrl } from '../database-url';
 
 config({ path: resolve(process.cwd(), '../../.env'), quiet: true });
-const db = new PrismaClient({ adapter: new PrismaPg(process.env.DATABASE_ADMIN_URL!) });
+const db = new PrismaClient({ adapter: new PrismaPg(normalizeDatabaseUrl(process.env.DATABASE_ADMIN_URL!)) });
 
 async function main() {
   const journalRows = await db.$queryRaw<Array<{ id: bigint; number: string; debit: bigint; credit: bigint }>>`

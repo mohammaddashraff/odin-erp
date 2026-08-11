@@ -1,5 +1,6 @@
 import { config } from 'dotenv';
 import { resolve } from 'node:path';
+import { normalizeDatabaseUrl } from './database-url';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '@prisma/client';
 
@@ -10,10 +11,10 @@ describe('PostgreSQL accounting controls', () => {
   let app: PrismaClient;
 
   beforeAll(async () => {
-    admin = new PrismaClient({ adapter: new PrismaPg(process.env.DATABASE_ADMIN_URL!) });
-    app = new PrismaClient({ adapter: new PrismaPg(process.env.DATABASE_URL!) });
+    admin = new PrismaClient({ adapter: new PrismaPg(normalizeDatabaseUrl(process.env.DATABASE_ADMIN_URL!)) });
+    app = new PrismaClient({ adapter: new PrismaPg(normalizeDatabaseUrl(process.env.DATABASE_URL!)) });
     await admin.$transaction(async (tx) => {
-      await tx.$executeRawUnsafe('SET LOCAL session_replication_role = replica');
+      await tx.$executeRaw`SELECT set_config('app.reset_mode', 'on', true)`;
       await tx.tenant.deleteMany({ where: { name: { startsWith: 'Access isolation ' } } });
     });
   });
@@ -78,7 +79,7 @@ describe('PostgreSQL accounting controls', () => {
       expect(foreign).toEqual({ roles: 1, permissions: 1, assignments: 1, audit: 1 });
     } finally {
       await admin.$transaction(async (tx) => {
-        await tx.$executeRawUnsafe('SET LOCAL session_replication_role = replica');
+        await tx.$executeRaw`SELECT set_config('app.reset_mode', 'on', true)`;
         await tx.tenant.delete({ where: { id: foreignTenant.id } });
       });
     }
@@ -151,7 +152,7 @@ describe('PostgreSQL accounting controls', () => {
       })).rejects.toThrow(/append-only/i);
     } finally {
       await admin.$transaction(async (tx) => {
-        await tx.$executeRawUnsafe('SET LOCAL session_replication_role = replica');
+        await tx.$executeRaw`SELECT set_config('app.reset_mode', 'on', true)`;
         await tx.accessAuditLog.deleteMany({ where: { tenantId: 1n, action: 'APPEND_ONLY_TEST' } });
       });
     }

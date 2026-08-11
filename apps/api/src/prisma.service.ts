@@ -1,7 +1,7 @@
 import { Injectable, OnModuleDestroy } from '@nestjs/common';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { Prisma, PrismaClient } from '@prisma/client';
-import { enforceTlsVerification } from './database-url';
+import { normalizeDatabaseUrl } from './database-url';
 
 @Injectable()
 export class PrismaService implements OnModuleDestroy {
@@ -15,8 +15,8 @@ export class PrismaService implements OnModuleDestroy {
       || process.env.DATABASE_URL;
     const appUrl = process.env.DATABASE_URL || adminUrl;
     if (!adminUrl || !appUrl) throw new Error('DATABASE_ADMIN_URL and DATABASE_URL are required');
-    this.admin = new PrismaClient({ adapter: new PrismaPg(enforceTlsVerification(adminUrl)) });
-    this.app = new PrismaClient({ adapter: new PrismaPg(enforceTlsVerification(appUrl)) });
+    this.admin = new PrismaClient({ adapter: new PrismaPg(normalizeDatabaseUrl(adminUrl)) });
+    this.app = new PrismaClient({ adapter: new PrismaPg(normalizeDatabaseUrl(appUrl)) });
   }
 
   async tenant<T>(tenantId: bigint, work: (tx: Prisma.TransactionClient) => Promise<T>): Promise<T> {

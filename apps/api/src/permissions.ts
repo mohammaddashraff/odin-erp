@@ -58,7 +58,7 @@ export const PERMISSION_REGISTRY: readonly PermissionDefinition[] = [
   ...document('accounting', 'account'),
   ...resourcePermissions('accounting', 'period', ['view', 'manage']),
   ...resourcePermissions('payments', 'receipt', ['view', 'create', 'edit', 'delete', 'print', 'export', 'history']),
-  ...resourcePermissions('payments', 'payment', ['view', 'create', 'edit', 'delete', 'print', 'export', 'history']),
+  ...resourcePermissions('payments', 'payment', ['view', 'create', 'edit', 'delete', 'approve', 'reject', 'print', 'export', 'history']),
   ...resourcePermissions('banking', 'account', ['view', 'create', 'edit', 'delete', 'history']),
   ...resourcePermissions('banking', 'transaction', ['view', 'create', 'edit', 'delete', 'print', 'export', 'history']),
   ...resourcePermissions('banking', 'statement', ['view', 'create', 'reconcile', 'export', 'history']),
@@ -146,16 +146,20 @@ export const FIELD_REGISTRY = [
   ['document', 'profitMargin', 'Profit margin'], ['customer', 'creditLimitMinor', 'Credit limit'], ['customer', 'paymentTermsDays', 'Payment terms'],
   ['customer', 'balanceMinor', 'Customer balance'], ['bankAccount', 'accountNumber', 'Bank account details'], ['employee', 'salaryMinor', 'Employee salary'],
   ['journal', 'lines', 'Journal entry details'], ['party', 'taxNumber', 'Tax information'],
+  ['document', 'notes', 'Internal document notes'], ['attachment', 'metadata', 'Private attachment metadata'],
+  ['approval', 'evidence', 'Approval comments, actors, and timestamps'],
+  ['audit', 'values', 'Audit before and after values'], ['audit', 'metadata', 'Privileged audit request and actor metadata'],
+  ['audit', 'references', 'Posting and approval references'],
 ] as const;
 
 export const DATA_SCOPE_RESOURCES = [
   'company', 'branch', 'warehouse', 'department', 'team',
-  'customer', 'supplier', 'employee', 'salesperson',
+  'customer', 'supplier', 'employee', 'salesperson', 'item',
   'quotation', 'order', 'delivery', 'invoice', 'return', 'credit_note',
   'purchase_request', 'rfq', 'purchase_order', 'receipt', 'bill', 'purchase_return',
   'transfer', 'adjustment', 'stock_count',
   'pos_terminal', 'bank_account', 'account', 'cost_center', 'project',
-  'journal', 'approval_queue', 'report', 'export', 'print', 'attachment',
+  'journal', 'payment', 'approval_queue', 'report', 'export', 'print', 'attachment',
 ] as const;
 
 export const LIMIT_REGISTRY = [
@@ -163,4 +167,12 @@ export const LIMIT_REGISTRY = [
   { key: 'sales.quotation_amount_minor', description: 'Maximum quotation amount', unit: 'minor_currency' },
   { key: 'sales.credit_amount_minor', description: 'Credit sale approval threshold', unit: 'minor_currency' },
   { key: 'sales.return_amount_minor', description: 'Return approval threshold', unit: 'minor_currency' },
+  { key: 'purchasing.order_approval_amount_minor', description: 'Maximum purchase-order approval amount', unit: 'minor_currency' },
+  { key: 'purchasing.bill_approval_amount_minor', description: 'Maximum supplier-bill approval amount', unit: 'minor_currency' },
+  { key: 'payments.receipt_amount_minor', description: 'Maximum incoming receipt amount', unit: 'minor_currency' },
+  { key: 'payments.payment_amount_minor', description: 'Maximum outgoing payment amount', unit: 'minor_currency' },
+  { key: 'treasury.movement_amount_minor', description: 'Maximum treasury movement amount', unit: 'minor_currency' },
+  { key: 'accounting.journal_post_amount_minor', description: 'Maximum journal posting amount', unit: 'minor_currency' },
+  { key: 'expenses.approval_amount_minor', description: 'Maximum expense approval amount', unit: 'minor_currency' },
+  { key: 'sales.credit_exposure_amount_minor', description: 'Maximum customer credit exposure', unit: 'minor_currency' },
 ] as const;

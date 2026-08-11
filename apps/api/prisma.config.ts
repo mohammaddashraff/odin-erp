@@ -1,7 +1,7 @@
 import { config } from 'dotenv';
 import { resolve } from 'node:path';
 import { defineConfig } from 'prisma/config';
-import { enforceTlsVerification } from './src/database-url';
+import { normalizeDatabaseUrl } from './src/database-url';
 
 config({ path: resolve(process.cwd(), '.env'), quiet: true });
 config({ path: resolve(process.cwd(), '../../.env'), quiet: true });
@@ -13,7 +13,7 @@ export default defineConfig({
     seed: 'tsx prisma/seed.ts',
   },
   datasource: {
-    url: enforceTlsVerification(process.env.DATABASE_URL_UNPOOLED
+    url: normalizeDatabaseUrl(process.env.DATABASE_URL_UNPOOLED
       ?? process.env.POSTGRES_URL_NON_POOLING
       ?? process.env.DATABASE_ADMIN_URL
       ?? process.env.DATABASE_URL
