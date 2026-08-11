@@ -1,3 +1,5 @@
+import { formatInteger, localeFor, normalizeWesternDigits } from './formatters';
+
 export type Language = 'en' | 'ar';
 
 type Namespace = Record<string, string>;
@@ -5,6 +7,9 @@ type Namespace = Record<string, string>;
 const common: Namespace = {
   'Loading…': 'جارٍ التحميل…',
   'Loading secured company data…': 'جارٍ تحميل بيانات الشركة الآمنة…',
+  'Loading page…': 'جارٍ تحميل الصفحة…',
+  'Loading Odin ERP…': 'جارٍ تحميل أودين ERP…',
+  'Notifications': 'الإشعارات',
   'Reconciling live ledgers…': 'جارٍ مطابقة دفاتر الأستاذ الحية…',
   'Cancel': 'إلغاء',
   'Close': 'إغلاق',
@@ -30,6 +35,13 @@ const common: Namespace = {
   'Create': 'إنشاء',
   'Creating…': 'جارٍ الإنشاء…',
   'Saving…': 'جارٍ الحفظ…',
+  'Approving…': 'جارٍ الاعتماد…',
+  'Rejecting…': 'جارٍ الرفض…',
+  'Posting…': 'جارٍ الترحيل…',
+  'Opening shift…': 'جارٍ فتح الوردية…',
+  'Closing shift…': 'جارٍ إغلاق الوردية…',
+  'Holding sale…': 'جارٍ تعليق عملية البيع…',
+  'Completing sale…': 'جارٍ إكمال عملية البيع…',
   'Saved': 'تم الحفظ',
   'Completed': 'تم بنجاح',
   'Action blocked': 'تعذر تنفيذ الإجراء',
@@ -66,6 +78,21 @@ const common: Namespace = {
   'Entity': 'الكيان',
   'Recorded values': 'القيم المسجلة',
   'No evidence recorded yet.': 'لا توجد أدلة مسجلة حتى الآن.',
+  'Private attachments': 'المرفقات الخاصة',
+  'Files are private, scope-filtered, and downloaded with a short-lived ticket.': 'الملفات خاصة وتخضع لنطاق الصلاحيات ويجري تنزيلها بتذكرة قصيرة الصلاحية.',
+  'Choose a PDF or image': 'اختر ملف PDF أو صورة',
+  'Upload file': 'رفع ملف',
+  'Uploading…': 'جارٍ رفع الملف…',
+  'Downloading…': 'جارٍ تنزيل الملف…',
+  'Download': 'تنزيل',
+  'No private attachments': 'لا توجد مرفقات خاصة',
+  'Upload supporting PDF or image evidence after the document is saved.': 'ارفع أدلة داعمة بصيغة PDF أو صورة بعد حفظ المستند.',
+  'Unable to load attachments.': 'تعذر تحميل المرفقات.',
+  'Unable to upload the attachment.': 'تعذر رفع المرفق.',
+  'Unable to authorize the download.': 'تعذر التصريح بالتنزيل.',
+  'Unable to download the attachment.': 'تعذر تنزيل المرفق.',
+  'Malware scanning is not configured. The file passed type and signature validation only.': 'فحص البرمجيات الضارة غير مُهيأ؛ اجتاز الملف التحقق من النوع والتوقيع فقط.',
+  'Private attachment uploaded': 'تم رفع المرفق الخاص',
   'Close dialog': 'إغلاق مربع الحوار',
   'Close document': 'إغلاق المستند',
   'Module unavailable': 'الوحدة غير متاحة',
@@ -246,8 +273,13 @@ const dashboard: Namespace = {
   'Management overview across sales, cash, working capital and operational exceptions': 'نظرة إدارية على المبيعات والنقدية ورأس المال العامل والاستثناءات التشغيلية',
   'SALES': 'المبيعات',
   'PURCHASES': 'المشتريات',
+  'INVENTORY': 'المخزون',
   'CASH & BANK': 'النقدية والبنوك',
   'Cash & bank balance': 'رصيد النقدية والبنوك',
+  'Posted purchasing': 'المشتريات المرحلة',
+  'Current balance composition': 'تكوين الأرصدة الحالية',
+  'Posted balances at this moment': 'الأرصدة المرحلة في هذه اللحظة',
+  'A current-state comparison of posted balances; this is not a historical trend.': 'مقارنة للحالة الحالية للأرصدة المرحلة، وليست اتجاهًا تاريخيًا.',
   'Operational exceptions': 'الاستثناءات التشغيلية',
   'Items requiring attention': 'بنود تتطلب المتابعة',
   'Approval queue': 'قائمة الموافقات',
@@ -713,6 +745,7 @@ const accounting: Namespace = {
   'PERIOD CONTROL': 'رقابة الفترات المالية',
   'Closed dates reject posting at service and DB boundaries': 'تُرفض عمليات الترحيل في الفترات المغلقة على مستوى الخدمة وقاعدة البيانات',
   'Description / lines': 'البيان / السطور',
+  'Journal lines are restricted for your role.': 'سطور القيد محجوبة عن دورك.',
   'Reverses entry': 'يعكس القيد',
   'Dr': 'مدين',
   'Cr': 'دائن',
@@ -747,12 +780,25 @@ const accounting: Namespace = {
 const payments: Namespace = {
   'Receipts and payments': 'المقبوضات والمدفوعات',
   'Allocate cash or bank movements to posted invoices and bills': 'اربط الحركات النقدية أو البنكية بفواتير العملاء والموردين المرحلة',
+  'Receipts post immediately; supplier payments require an independent checker': 'تُرحّل المقبوضات فورًا؛ وتتطلب مدفوعات الموردين مُعتمدًا مستقلاً',
   'Allocate payment': 'تسجيل وتخصيص دفعة',
   'No allocated payments': 'لا توجد دفعات مخصصة',
   'Use the button above to settle a posted invoice or purchase bill.': 'استخدم الزر أعلاه لسداد فاتورة عميل أو فاتورة مورد مرحلة.',
   'Kind': 'نوع الحركة',
   'Bank / cash': 'الحساب النقدي / البنكي',
   'Allocation': 'التخصيص',
+  'Allocation details outside your scope': 'تفاصيل التخصيص خارج نطاق صلاحياتك',
+  'No allocations': 'لا توجد تخصيصات',
+  'Not posted': 'غير مُرحّل',
+  'Awaiting another checker': 'بانتظار مُعتمد آخر',
+  'Approve and post': 'اعتماد وترحيل',
+  'Approve and post payment {0}? This will settle the supplier bill and create the bank journal.': 'هل تريد اعتماد وترحيل الدفعة {0}؟ سيؤدي ذلك إلى تسوية فاتورة المورد وإنشاء القيد البنكي.',
+  'Why are you rejecting payment {0}?': 'لماذا ترفض الدفعة {0}؟',
+  'Enter a rejection reason of at least 3 characters.': 'أدخل سببًا للرفض لا يقل عن 3 أحرف.',
+  'Payment {0} approved, allocated, and posted': 'تم اعتماد الدفعة {0} وتخصيصها وترحيلها',
+  'Payment {0} rejected without financial effects': 'تم رفض الدفعة {0} دون أي آثار مالية',
+  'Payment {0} submitted for independent approval; no funds have posted': 'تم إرسال الدفعة {0} لاعتماد مستقل؛ ولم تُرحّل أي أموال',
+  'Payment {0} posted, allocated, and journaled': 'تم ترحيل الدفعة {0} وتخصيصها وإنشاء قيدها',
   'Allocate receipt or payment': 'تسجيل وتخصيص مقبوض أو مدفوع',
   'Direction': 'اتجاه الحركة',
   'Customer receipt': 'تحصيل من عميل',
@@ -761,7 +807,10 @@ const payments: Namespace = {
   'Open document': 'المستند المفتوح',
   'outstanding': 'المتبقي',
   'Allocation amount': 'مبلغ التخصيص',
+  'Requested posting date': 'تاريخ الترحيل المطلوب',
   'There are no open posted documents for this direction.': 'لا توجد مستندات مرحلة ومفتوحة لهذا النوع من السداد.',
+  'Supplier payments remain unposted until an independent checker approves them.': 'تظل مدفوعات الموردين غير مُرحّلة حتى يعتمدها مُعتمد مستقل.',
+  'Submitting for approval…': 'جارٍ الإرسال للاعتماد…',
   'Posting allocation…': 'جارٍ ترحيل التخصيص…',
   'Post and allocate': 'ترحيل وتخصيص',
 };
@@ -1134,6 +1183,50 @@ const permissionsUi: Namespace = {
   'Role archived successfully.': 'تمت أرشفة الدور بنجاح.',
   'User access updated successfully.': 'تم تحديث صلاحيات المستخدم بنجاح.',
   'Loading access policies…': 'جارٍ تحميل سياسات الصلاحيات…',
+  'Access Governance': 'حوكمة الصلاحيات',
+  'Loading access governance…': 'جارٍ تحميل حوكمة الصلاحيات…',
+  'Governed companies': 'الشركات الخاضعة للحوكمة',
+  'companies': 'شركات',
+  'members': 'أعضاء',
+  'Company administrator': 'مسؤول الشركة',
+  'Financial resources': 'الموارد المالية',
+  'Effective access': 'الصلاحيات الفعلية',
+  'Read-only evaluation for the selected user and company': 'تقييم للقراءة فقط للمستخدم والشركة المحددين',
+  'Company member': 'عضو الشركة',
+  'Permanent permissions': 'الصلاحيات الدائمة',
+  'Company permissions': 'صلاحيات الشركة',
+  'Explicitly denied': 'الصلاحيات الممنوعة صراحةً',
+  'None': 'لا يوجد',
+  'Segregation-of-duties warnings': 'تحذيرات فصل المهام',
+  'Data scopes': 'نطاقات البيانات',
+  'Resource assignments': 'إسنادات الموارد',
+  'Field permissions': 'صلاحيات الحقول',
+  'Approval limits': 'حدود الاعتماد',
+  'Access sources and risk': 'مصادر الصلاحيات والمخاطر',
+  'Select a company member': 'اختر عضوًا في الشركة',
+  'Safe access preview': 'معاينة آمنة للصلاحيات',
+  'No changes are applied': 'لا يتم تطبيق أي تغييرات',
+  'Enter proposed permission keys to evaluate the resulting access before changing any role.': 'أدخل رموز الصلاحيات المقترحة لتقييم النتيجة قبل تغيير أي دور.',
+  'Proposed permission keys': 'رموز الصلاحيات المقترحة',
+  'Evaluating…': 'جارٍ التقييم…',
+  'Run safe preview': 'تشغيل المعاينة الآمنة',
+  'Mutation detected': 'تم اكتشاف تعديل',
+  'SAFE PREVIEW · no mutation': 'معاينة آمنة · بلا تعديل',
+  'Added': 'مضاف',
+  'Removed': 'محذوف',
+  'Access reviews': 'مراجعات الصلاحيات',
+  'Immutable governance evidence': 'دليل حوكمة غير قابل للتعديل',
+  'Decision': 'القرار',
+  'Confirmed': 'مؤكد',
+  'Revoke required': 'يلزم سحب الصلاحية',
+  'Escalated': 'تم التصعيد',
+  'Record access review': 'تسجيل مراجعة الصلاحيات',
+  'Recording review…': 'جارٍ تسجيل المراجعة…',
+  'Submitting a governance decision may require step-up authentication.': 'قد يتطلب تسجيل قرار الحوكمة مصادقة إضافية.',
+  'No reviews recorded for this selection.': 'لا توجد مراجعات مسجلة لهذا الاختيار.',
+  'Access review recorded.': 'تم تسجيل مراجعة الصلاحيات.',
+  'No governed companies': 'لا توجد شركات خاضعة للحوكمة',
+  'No company administration memberships are available for this account.': 'لا توجد عضويات لإدارة الشركات متاحة لهذا الحساب.',
   'Primary Role': 'الدور الأساسي',
   'Additional Roles': 'أدوار إضافية',
   'Individual Overrides': 'استثناءات المستخدم',
@@ -1242,9 +1335,9 @@ export const translationNamespaces = Object.keys(translationCatalog) as Array<ke
 const ar: Record<string, string> = Object.assign({}, ...Object.values(translationCatalog));
 const englishByArabic = new Map(Object.entries(ar).map(([english, arabic]) => [arabic, english]));
 
-const arabicNumber = (value: string | number) => new Intl.NumberFormat('ar-EG').format(Number(value));
+const arabicNumber = (value: string | number) => formatInteger(value, 'ar');
 
-export const t = (value: string, language: Language): string => {
+const translate = (value: string, language: Language): string => {
   if (!value) return value;
   if (language === 'en') return englishByArabic.get(value) ?? value;
   if (ar[value]) return ar[value];
@@ -1339,6 +1432,10 @@ export const t = (value: string, language: Language): string => {
   return value;
 };
 
+/** Translation is also a display boundary, so dynamic Arabic copy cannot
+ * reintroduce Arabic-Indic digits received from an API or legacy fixture. */
+export const t = (value: string, language: Language): string => normalizeWesternDigits(translate(value, language));
+
 const englishEnums: Record<string, string> = {
   QUOTATION: 'Sales Quotation',
   PURCHASE_REQUEST: 'Purchase Request',
@@ -1346,7 +1443,7 @@ const englishEnums: Record<string, string> = {
 };
 
 export const enumLabel = (value: string, language: Language) => language === 'en' ? (englishEnums[value] || t(value, language)) : t(value, language);
-export const locale = (language: Language) => language === 'ar' ? 'ar-EG' : 'en-EG';
+export const locale = (language: Language) => localeFor(language);
 
 const errorMessages: Array<[RegExp, string]> = [
   [/invalid email or password/i, 'البريد الإلكتروني أو كلمة المرور غير صحيحة'],

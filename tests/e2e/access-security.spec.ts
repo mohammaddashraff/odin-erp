@@ -12,10 +12,11 @@ async function loginApi(request: APIRequestContext, email: string) {
 }
 
 async function loginUi(page: Page, email: string) {
+  if (/^https?:/.test(page.url())) await page.evaluate(() => localStorage.clear());
   await page.context().clearCookies();
-  await page.goto('/dashboard');
-  await page.evaluate(() => localStorage.clear());
-  await page.reload();
+  const response = await page.goto('/dashboard', { waitUntil: 'domcontentloaded' });
+  expect(response?.ok(), `dashboard bootstrap returned ${response?.status() ?? 'no response'}`).toBeTruthy();
+  await expect(page.getByTestId('login-email')).toBeVisible();
   await page.getByTestId('login-email').fill(email);
   await page.getByTestId('login-password').fill(password);
   await page.getByTestId('login-submit').click();
@@ -176,6 +177,16 @@ test('administrator policy enforces financial assignment, explicit DENY, field r
       expect(row).not.toHaveProperty('paymentTermsDays');
       expect(row).not.toHaveProperty('outstandingMinor');
       expect(row).not.toHaveProperty('taxNumber');
+    }
+    for (const path of [
+      '/api/reports/ar-aging',
+      '/api/reports/customer-balances',
+      '/api/reports/customer-statement',
+      '/api/reports/customer-statement/csv',
+      '/api/reports/customer-statement/pdf',
+    ]) {
+      const hiddenBalanceOutput = await request.get(path, { headers: authorization(scopedToken) });
+      expect(hiddenBalanceOutput.status(), `${path}: ${await hiddenBalanceOutput.text()}`).toBe(403);
     }
 
     const unassignedBank = await request.post('/api/banking/transactions', {

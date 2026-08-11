@@ -28,11 +28,13 @@ export type ModuleId =
   | 'reports'
   | 'admin';
 
+export type ModuleTone = 'brand' | 'info' | 'success' | 'warning' | 'analytics' | 'neutral';
+
 export interface RouteDefinition {
   id: string;
   label: string;
   route: `/${string}`;
-  permission: string;
+  permission: string | readonly string[];
   namespace: string;
   screen: ScreenKind;
   documentType?: string;
@@ -46,6 +48,7 @@ export interface ModuleDefinition {
   label: string;
   route: `/${string}`;
   icon: IconName;
+  tone: ModuleTone;
   permission: string;
   category: 'management' | 'operations' | 'finance' | 'governance';
   children: readonly RouteDefinition[];
@@ -57,6 +60,7 @@ export const modules: readonly ModuleDefinition[] = [
     label: 'Command Center',
     route: '/dashboard',
     icon: 'dashboard',
+    tone: 'brand',
     permission: 'dashboard.overview.view',
     category: 'management',
     children: [
@@ -68,6 +72,7 @@ export const modules: readonly ModuleDefinition[] = [
     label: 'Sales',
     route: '/sales/overview',
     icon: 'sales',
+    tone: 'success',
     permission: 'sales.overview.view',
     category: 'operations',
     children: [
@@ -87,6 +92,7 @@ export const modules: readonly ModuleDefinition[] = [
     label: 'Purchasing & Suppliers',
     route: '/purchasing/overview',
     icon: 'purchases',
+    tone: 'warning',
     permission: 'purchasing.overview.view',
     category: 'operations',
     children: [
@@ -106,6 +112,7 @@ export const modules: readonly ModuleDefinition[] = [
     label: 'Inventory & Products',
     route: '/inventory/overview',
     icon: 'inventory',
+    tone: 'analytics',
     permission: 'inventory.overview.view',
     category: 'operations',
     children: [
@@ -126,6 +133,7 @@ export const modules: readonly ModuleDefinition[] = [
     label: 'Human Resources',
     route: '/hr/employees',
     icon: 'customer',
+    tone: 'info',
     permission: 'hr.employee.view',
     category: 'operations',
     children: [
@@ -137,6 +145,7 @@ export const modules: readonly ModuleDefinition[] = [
     label: 'Point of Sale',
     route: '/pos/workspace',
     icon: 'pos',
+    tone: 'info',
     permission: 'pos.register.view',
     category: 'operations',
     children: [
@@ -148,6 +157,7 @@ export const modules: readonly ModuleDefinition[] = [
     label: 'Accounting & Finance',
     route: '/accounting/overview',
     icon: 'accounting',
+    tone: 'brand',
     permission: 'accounting.overview.view',
     category: 'finance',
     children: [
@@ -166,12 +176,13 @@ export const modules: readonly ModuleDefinition[] = [
     label: 'Cash & Banking',
     route: '/banking/overview',
     icon: 'banking',
+    tone: 'success',
     permission: 'banking.account.view',
     category: 'finance',
     children: [
       { id: 'banking-overview', label: 'Cash & Bank Overview', route: '/banking/overview', permission: 'banking.account.view', namespace: 'banking', screen: 'domain-overview' },
       { id: 'bank-accounts', label: 'Cash & Bank Accounts', route: '/banking/accounts', permission: 'banking.account.view', namespace: 'masters', screen: 'master-data', masterKind: 'bank' },
-      { id: 'payment-allocations', label: 'Receipts & Payments', route: '/banking/allocations', permission: 'payments.receipt.view', namespace: 'payments', screen: 'payments' },
+      { id: 'payment-allocations', label: 'Receipts & Payments', route: '/banking/allocations', permission: ['payments.receipt.view', 'payments.payment.view'], namespace: 'payments', screen: 'payments' },
       { id: 'bank-transactions', label: 'Bank Transactions & Transfers', route: '/banking/transactions', permission: 'banking.transaction.view', namespace: 'banking', screen: 'banking' },
       { id: 'bank-statements', label: 'Bank Statements', route: '/banking/statements', permission: 'banking.statement.view', namespace: 'banking', screen: 'banking' },
       { id: 'bank-reconciliation', label: 'Bank Reconciliation', route: '/banking/reconciliation', permission: 'banking.statement.reconcile', namespace: 'banking', screen: 'banking' },
@@ -182,6 +193,7 @@ export const modules: readonly ModuleDefinition[] = [
     label: 'Approvals & Workflow',
     route: '/approvals/inbox',
     icon: 'approvals',
+    tone: 'warning',
     permission: 'approvals.queue.view',
     category: 'governance',
     children: [
@@ -193,6 +205,7 @@ export const modules: readonly ModuleDefinition[] = [
     label: 'Reports & Analytics',
     route: '/reports/overview',
     icon: 'reports',
+    tone: 'analytics',
     permission: 'reports.standard.view',
     category: 'governance',
     children: [
@@ -210,11 +223,13 @@ export const modules: readonly ModuleDefinition[] = [
     label: 'Administration & Control',
     route: '/admin/overview',
     icon: 'audit',
+    tone: 'neutral',
     permission: 'audit.business.view',
     category: 'governance',
     children: [
       { id: 'admin-overview', label: 'Administration Overview', route: '/admin/overview', permission: 'audit.business.view', namespace: 'admin', screen: 'domain-overview' },
       { id: 'audit-log', label: 'Audit Log', route: '/admin/audit', permission: 'audit.business.view', namespace: 'audit', screen: 'audit' },
+      { id: 'access-governance', label: 'Access Governance', route: '/settings/access/governance', permission: 'settings.users_access.view', namespace: 'permissions', screen: 'access' },
       { id: 'access-users', label: 'Users', route: '/settings/access/users', permission: 'system.super_admin', namespace: 'permissions', screen: 'access' },
       { id: 'access-roles', label: 'Roles', route: '/settings/access/roles', permission: 'system.super_admin', namespace: 'permissions', screen: 'access' },
       { id: 'access-permissions', label: 'Permissions', route: '/settings/access/permissions', permission: 'system.super_admin', namespace: 'permissions', screen: 'access' },
@@ -247,7 +262,26 @@ export function routeForDocumentType(type: string) {
   return allRoutes.find(({ child }) => child.documentType === type)?.child.route || '/dashboard';
 }
 
-export function canAccess(permissions: readonly string[], permission: string) {
-  return permissions.includes('system.super_admin') || permissions.includes(permission)
-    || permissions.some((candidate) => candidate.endsWith('.*') && permission.startsWith(candidate.slice(0, -1)));
+const permissionMatches = (granted: string, requested: string) => granted === 'system.super_admin' || granted === requested
+  || granted.endsWith('.*') && requested.startsWith(granted.slice(0, -1));
+
+/**
+ * Company-scoped and temporary grants are valid for navigation visibility even
+ * though they intentionally remain separate in the session actor. Denials are
+ * carried as display-only markers so an explicit deny still wins over a broad
+ * grant. API authorization remains the source of truth for the selected
+ * company, branch, and resource.
+ */
+export function displayPermissionsFor(user: { permissions?: readonly string[]; companyScopedPermissions?: Readonly<Record<string, readonly string[]>>; deniedPermissions?: readonly string[] }) {
+  const grants = [...(user.permissions || []), ...Object.values(user.companyScopedPermissions || {}).flat()];
+  const denials = (user.deniedPermissions || []).map((permission) => `!${permission}`);
+  return [...new Set([...grants, ...denials])].sort();
+}
+
+export function canAccess(permissions: readonly string[], permission: string | readonly string[]) {
+  const alternatives = typeof permission === 'string' ? [permission] : permission;
+  return alternatives.some((requested) => {
+    if (permissions.some((candidate) => candidate.startsWith('!') && permissionMatches(candidate.slice(1), requested))) return false;
+    return permissions.some((candidate) => !candidate.startsWith('!') && permissionMatches(candidate, requested));
+  });
 }

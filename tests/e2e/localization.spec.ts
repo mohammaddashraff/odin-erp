@@ -2,6 +2,20 @@ import { expect, Page, test } from '@playwright/test';
 import { mkdirSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { t } from '../../apps/web/src/app/i18n';
+import { canAccess, displayPermissionsFor } from '../../apps/web/src/app/navigation';
+import {
+  formatCurrency,
+  formatDate,
+  formatDateTime,
+  formatExchangeRate,
+  formatInteger,
+  formatNumber,
+  formatPercentage,
+  formatQuantity,
+  localeFor,
+  normalizeWesternDigits,
+  normalizeWesternNumberInput,
+} from '../../apps/web/src/app/formatters';
 
 const password = 'password';
 const screenshots = resolve(process.cwd(), 'artifacts/screenshots');
@@ -15,6 +29,7 @@ test.beforeEach(async ({ page }) => {
   page.on('console', (message) => {
     if (message.type() === 'error' && !message.text().includes('400 (Bad Request)')) errors.push(`console: ${message.text()}`);
   });
+  page.on('pageerror', (error) => errors.push(`page: ${error.message}`));
   page.on('response', (response) => {
     if (response.status() >= 500) errors.push(`HTTP ${response.status()}: ${response.url()}`);
   });
@@ -23,13 +38,14 @@ test.beforeEach(async ({ page }) => {
 test.afterEach(async ({ page }) => expect(problems.get(page) || []).toEqual([]));
 
 async function login(page: Page, language: 'ar' | 'en' = 'ar') {
+  if (/^https?:/.test(page.url())) await page.evaluate(() => localStorage.clear());
   await page.context().clearCookies();
   await page.context().addCookies([{ name: 'odin_language', value: language, url: 'http://127.0.0.1:8080' }]);
-  await page.goto('/dashboard');
-  await page.evaluate(() => localStorage.clear());
-  await page.reload();
+  const response = await page.goto('/dashboard', { waitUntil: 'domcontentloaded' });
+  expect(response?.ok(), `dashboard bootstrap returned ${response?.status() ?? 'no response'}`).toBeTruthy();
   await expect(page.locator('html')).toHaveAttribute('lang', language);
   await expect(page.locator('html')).toHaveAttribute('dir', language === 'ar' ? 'rtl' : 'ltr');
+  await expect(page.getByTestId('login-email')).toBeVisible();
   await page.getByTestId('login-email').fill('admin@odin.demo');
   await page.getByTestId('login-password').fill(password);
   await page.getByTestId('login-submit').click();
@@ -40,6 +56,74 @@ async function toggleLanguage(page: Page) {
   await page.getByTestId('account-menu').click();
   await page.getByTestId('language-toggle').click();
 }
+
+test('Arabic formatters enforce Western digits, separators, dates, currency and exact large values', () => {
+  const outputs = [
+    formatNumber('12345.67', 'ar'),
+    formatInteger(12345, 'ar'),
+    formatCurrency(12_545_075n, 'EGP', 'ar'),
+    formatCurrency(900_719_925_474_099_312_345n, 'EGP', 'ar'),
+    formatQuantity(1_234_567n, 'ar'),
+    formatPercentage('12.5', 'ar'),
+    formatExchangeRate(1_234_567n, 'ar'),
+    formatDate('2026-08-09T00:00:00.000Z', 'ar'),
+    formatDateTime('2026-08-09T13:45:00.000Z', 'ar'),
+    t('23 records', 'ar'),
+  ];
+
+  expect(localeFor('ar')).toBe('ar-EG-u-nu-latn');
+  expect(formatNumber('12345.67', 'ar')).toBe('12,345.67');
+  expect(formatCurrency(12_545_075n, 'EGP', 'ar')).toContain('125,450.75');
+  expect(formatCurrency(900_719_925_474_099_312_345n, 'EGP', 'ar')).toContain('9,007,199,254,740,993,123.45');
+  expect(formatQuantity(1_234_567n, 'ar')).toBe('1,234.567');
+  expect(formatExchangeRate(1_234_567n, 'ar')).toBe('1.234567');
+  expect(formatPercentage('12.5', 'ar')).toContain('12.5');
+  expect(formatDate('2026-08-09T00:00:00.000Z', 'ar')).toContain('2026');
+  expect(normalizeWesternDigits('طلب ١٢۳')).toBe('طلب 123');
+  expect(normalizeWesternNumberInput('١٢٣٬٤٥٦٫٧٨')).toBe('123,456.78');
+  for (const output of outputs) expect(output).not.toMatch(/[٠-٩۰-۹]/);
+});
+
+test('display permissions include company-scoped grants while explicit denials still win', () => {
+  const permissions = displayPermissionsFor({
+    permissions: ['dashboard.overview.view', 'sales.*'],
+    companyScopedPermissions: { '10': ['banking.account.view'], '20': ['reports.standard.view'] },
+    deniedPermissions: ['sales.customer.view'],
+  });
+
+  expect(canAccess(permissions, 'banking.account.view')).toBe(true);
+  expect(canAccess(permissions, 'reports.standard.view')).toBe(true);
+  expect(canAccess(permissions, 'sales.order.view')).toBe(true);
+  expect(canAccess(permissions, 'sales.customer.view')).toBe(false);
+  expect(canAccess(permissions, ['sales.customer.view', 'reports.standard.view'])).toBe(true);
+  expect(canAccess(permissions, ['sales.customer.view', 'settings.system.view'])).toBe(false);
+  expect(canAccess(permissions, 'settings.system.view')).toBe(false);
+});
+
+test('Arabic rendered UI and typed or pasted values never retain Arabic or Persian digit glyphs', async ({ page }) => {
+  await login(page, 'ar');
+  await expect(page.locator('.app-shell')).toHaveAttribute('data-module', 'command');
+  await expect(page.locator('.app-shell')).toHaveAttribute('data-module-tone', 'brand');
+  await expect(page.locator('.primary-kpis .metric')).toHaveCount(6);
+  await expect(page.locator('.primary-kpis .metric[data-tone="success"]')).toHaveCount(1);
+  await expect(page.locator('.composition-chart')).toBeVisible();
+  expect(await page.locator('body').innerText()).not.toMatch(/[٠-٩۰-۹]/);
+  expect(await page.locator('.primary-kpis .western-digits').first().evaluate((element) => getComputedStyle(element).direction)).toBe('ltr');
+
+  await page.goto('/sales/customers');
+  await expect(page.getByRole('heading', { name: 'العملاء', exact: true })).toBeVisible();
+  expect(await page.locator('body').innerText()).not.toMatch(/[٠-٩۰-۹]/);
+  await page.getByTestId('new-customer').click();
+  const name = page.getByTestId('master-customer-name');
+  await name.fill('عميل ١٢۳');
+  await expect(name).toHaveValue('عميل 123');
+  const creditLimit = page.getByLabel('الحد الائتماني');
+  const westernControls = page.locator('input[type="number"], input[type="date"], input[type="datetime-local"], input[type="month"], input[type="week"], input[type="time"], input[type="tel"], input[inputmode="numeric"], input[inputmode="decimal"], input[inputmode="tel"]');
+  expect(await westernControls.count()).toBeGreaterThan(0);
+  expect(await westernControls.evaluateAll((controls) => controls.filter((control) => control.getAttribute('lang') !== 'en' || control.getAttribute('dir') !== 'ltr').length)).toBe(0);
+  await creditLimit.fill('١٢٣٬٤٥٦٫٧٨');
+  await expect(creditLimit).toHaveValue('123,456.78');
+});
 
 test('Arabic purchasing is complete across the route, RFQ form, supplier form, validation, dialogs and reload', async ({ page }) => {
   await login(page, 'ar');
@@ -91,6 +175,9 @@ test('Arabic purchasing is complete across the route, RFQ form, supplier form, v
   await page.getByTestId('new-document').click();
   const rfq = page.locator('.modal');
   await expect(rfq.getByRole('heading', { name: 'طلب عرض سعر جديد' })).toBeVisible();
+  const nativeLocaleControls = rfq.locator('input[type="date"], input[type="number"], input[type="tel"], input[inputmode="numeric"], input[inputmode="decimal"]');
+  expect(await nativeLocaleControls.count()).toBeGreaterThan(0);
+  expect(await nativeLocaleControls.evaluateAll((controls) => controls.filter((control) => control.getAttribute('lang') !== 'en' || control.getAttribute('dir') !== 'ltr').length)).toBe(0);
   await expect(rfq.getByLabel('المورد')).toBeVisible();
   await expect(rfq.getByRole('option', { name: /دلتا لاستيراد التكنولوجيا/ })).toHaveCount(1);
   await expect(rfq.getByRole('option', { name: /سفنكس للأنظمة المكتبية/ })).toHaveCount(1);
@@ -213,7 +300,10 @@ test('Arabic dynamic values, finance forms, audit entities, technical labels and
 
   expect(t('RFQ-2026-00001 saved as draft', 'ar')).toBe('تم حفظ RFQ-2026-00001 كمسودة');
   expect(t('JE-2026-00006 created and balanced', 'ar')).toBe('تم إنشاء JE-2026-00006 والتحقق من توازنه');
-  expect(t('Shift closed · difference ‏٠٫٠٠ ج.م.‏', 'ar')).toContain('تم إغلاق الوردية');
+  const localizedDifference = t('Shift closed · difference ‏٠٫٠٠ ج.م.‏', 'ar');
+  expect(localizedDifference).toContain('تم إغلاق الوردية');
+  expect(localizedDifference.match(/[0-9]/g)?.join('')).toBe('000');
+  expect(localizedDifference).not.toMatch(/[٠-٩۰-۹]/);
   expect(t('Bank statement line imported and awaiting match', 'ar')).toBe('تم استيراد حركة كشف الحساب وهي بانتظار المطابقة');
 });
 
@@ -255,7 +345,10 @@ test('Arabic and English report/PDF export endpoints honor the requested locale'
 
   const arabicCsv = await request.get('/api/reports/reconciliation/csv', { headers: { ...authorization, 'Accept-Language': 'ar', 'X-Odin-Language': 'ar' } });
   expect(arabicCsv.ok()).toBeTruthy();
-  expect(await arabicCsv.text()).toContain('حساب المراقبة');
+  const arabicCsvText = await arabicCsv.text();
+  expect(arabicCsvText).toContain('حساب المراقبة');
+  expect(arabicCsvText).toMatch(/[0-9]/);
+  expect(arabicCsvText).not.toMatch(/[٠-٩۰-۹]/);
 
   const englishCsv = await request.get('/api/reports/reconciliation/csv', { headers: { ...authorization, 'Accept-Language': 'en', 'X-Odin-Language': 'en' } });
   expect(englishCsv.ok()).toBeTruthy();

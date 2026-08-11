@@ -15,6 +15,7 @@ test.beforeEach(async ({ page }) => {
   page.on('console', (message) => {
     if (message.type() === 'error' && !message.text().includes('400 (Bad Request)')) errors.push(`console: ${message.text()}`);
   });
+  page.on('pageerror', (error) => errors.push(`page: ${error.message}`));
   page.on('response', (response) => {
     if (response.status() >= 500) errors.push(`HTTP ${response.status()}: ${response.url()}`);
   });
@@ -23,11 +24,12 @@ test.beforeEach(async ({ page }) => {
 test.afterEach(async ({ page }) => expect(problems.get(page) || []).toEqual([]));
 
 async function login(page: Page, email = 'admin@odin.demo', language: 'en' | 'ar' = 'en') {
+  if (/^https?:/.test(page.url())) await page.evaluate(() => localStorage.clear());
   await page.context().clearCookies();
   await page.context().addCookies([{ name: 'odin_language', value: language, url: 'http://127.0.0.1:8080' }]);
-  await page.goto('/dashboard');
-  await page.evaluate(() => localStorage.clear());
-  await page.reload();
+  const response = await page.goto('/dashboard', { waitUntil: 'domcontentloaded' });
+  expect(response?.ok(), `dashboard bootstrap returned ${response?.status() ?? 'no response'}`).toBeTruthy();
+  await expect(page.getByTestId('login-email')).toBeVisible();
   await page.getByTestId('login-email').fill(email);
   await page.getByTestId('login-password').fill(password);
   await page.getByTestId('login-submit').click();
@@ -36,11 +38,11 @@ async function login(page: Page, email = 'admin@odin.demo', language: 'en' | 'ar
 
 test('login password visibility is opt-in', async ({ page }) => {
   await page.context().clearCookies();
-  await page.goto('/dashboard');
-  await page.evaluate(() => localStorage.clear());
-  await page.reload();
+  const response = await page.goto('/dashboard', { waitUntil: 'domcontentloaded' });
+  expect(response?.ok(), `dashboard bootstrap returned ${response?.status() ?? 'no response'}`).toBeTruthy();
 
   const passwordInput = page.getByTestId('login-password');
+  await expect(passwordInput).toBeVisible();
   await passwordInput.fill('VisiblePasswordExample!');
   await expect(passwordInput).toHaveAttribute('type', 'password');
 
@@ -50,6 +52,63 @@ test('login password visibility is opt-in', async ({ page }) => {
 
   await page.getByTestId('show-password').uncheck();
   await expect(passwordInput).toHaveAttribute('type', 'password');
+});
+
+test('loading states preserve action geometry, expose dashboard skeletons, and honor reduced motion', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+
+  let releaseLogin!: () => void;
+  let markLoginSeen!: () => void;
+  const loginRelease = new Promise<void>((resolve) => { releaseLogin = resolve; });
+  const loginSeen = new Promise<void>((resolve) => { markLoginSeen = resolve; });
+  await page.route('**/api/auth/login', async (route) => {
+    markLoginSeen();
+    await loginRelease;
+    await route.continue();
+  });
+
+  let releaseBootstrap!: () => void;
+  let markBootstrapSeen!: () => void;
+  const bootstrapRelease = new Promise<void>((resolve) => { releaseBootstrap = resolve; });
+  const bootstrapSeen = new Promise<void>((resolve) => { markBootstrapSeen = resolve; });
+  await page.route('**/api/bootstrap', async (route) => {
+    markBootstrapSeen();
+    await bootstrapRelease;
+    await route.continue();
+  });
+
+  await page.context().clearCookies();
+  const response = await page.goto('/dashboard', { waitUntil: 'domcontentloaded' });
+  expect(response?.ok(), `dashboard bootstrap returned ${response?.status() ?? 'no response'}`).toBeTruthy();
+  await expect(page.getByTestId('login-email')).toBeVisible();
+  await page.getByTestId('login-email').fill('admin@odin.demo');
+  await page.getByTestId('login-password').fill(password);
+
+  const submit = page.getByTestId('login-submit');
+  const idleWidth = await submit.evaluate((element) => element.getBoundingClientRect().width);
+  await submit.click();
+  await loginSeen;
+  await expect(submit).toBeDisabled();
+  await expect(submit).toHaveAttribute('aria-busy', 'true');
+  await expect(submit.locator('.loading-button-busy')).toContainText('Authenticating…');
+  const busyWidth = await submit.evaluate((element) => element.getBoundingClientRect().width);
+  expect(Math.abs(busyWidth - idleWidth)).toBeLessThanOrEqual(1);
+  await expect(submit.locator('.inline-spinner')).toHaveCSS('animation-name', 'none');
+
+  releaseLogin();
+  await bootstrapSeen;
+  const skeleton = page.getByRole('status', { name: 'Loading secured company data…' });
+  await expect(skeleton).toBeVisible();
+  await expect(skeleton.locator('.skeleton-card')).toHaveCount(6);
+  await expect(skeleton.locator('.skeleton-block').first()).toHaveCSS('animation-name', 'none');
+  const skeletonColumns = await skeleton.locator('.skeleton-metric-grid').evaluate((element) =>
+    getComputedStyle(element).gridTemplateColumns.split(' ').filter(Boolean).length,
+  );
+  expect(skeletonColumns).toBe(6);
+
+  releaseBootstrap();
+  await expect(page.getByRole('heading', { name: 'Command Center', exact: true })).toBeVisible();
+  await expect(page.locator('.route-transition')).toHaveCSS('animation-name', 'none');
 });
 
 const modules = [
@@ -123,6 +182,7 @@ const routes = [
   ['/admin/overview', 'Administration & Control', 'Administration & Control', 'Administration Overview'],
   ['/admin/audit', 'Audit Log', 'Administration & Control', 'Audit Log'],
   ['/settings/access/users', 'Users & Access', 'Administration & Control', 'Users'],
+  ['/settings/access/governance', 'Users & Access', 'Administration & Control', 'Access Governance'],
   ['/settings/access/roles', 'Users & Access', 'Administration & Control', 'Roles'],
   ['/settings/access/permissions', 'Users & Access', 'Administration & Control', 'Permissions'],
   ['/settings/access/audit', 'Users & Access', 'Administration & Control', 'Access Audit Log'],
@@ -200,6 +260,7 @@ test('every registered route resolves its Arabic heading and breadcrumb during d
     await expect(breadcrumb).toContainText(t(parent, 'ar'));
     await expect(breadcrumb).toContainText(t(child, 'ar'));
     expect(t(heading, 'ar')).not.toBe(heading);
+    expect(await page.locator('body').innerText(), `${path} rendered Arabic-Indic or Persian digit glyphs`).not.toMatch(/[٠-٩۰-۹]/);
   }
 });
 
@@ -287,6 +348,17 @@ test('role-based navigation exposes business domains instead of disabled unautho
   await expect(page.getByTestId('nav-goods-receipts')).toHaveCount(0);
 });
 
+test('outgoing-payment-only users can reach their authorized payment workspace', async ({ page }) => {
+  await login(page, 'purchasing@odin.demo');
+  await expect(page.getByTestId('nav-banking')).toBeVisible();
+  await page.getByTestId('nav-banking').click();
+  await expect(page.getByTestId('nav-payment-allocations')).toBeVisible();
+  await page.getByTestId('nav-payment-allocations').click();
+  await expect(page).toHaveURL(/\/banking\/allocations$/);
+  await expect(page.getByRole('heading', { name: 'Receipts & Payments', exact: true })).toBeVisible();
+  await expect(page.locator('.access-denied')).toHaveCount(0);
+});
+
 test('Users & Access is complete for Super Admin and denied in both UI and API for other roles', async ({ page, request }) => {
   await login(page);
   await page.goto('/settings/access/roles');
@@ -299,7 +371,15 @@ test('Users & Access is complete for Super Admin and denied in both UI and API f
   await expect(page.getByRole('button', { name: 'Scopes', exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Fields', exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Limits', exact: true })).toBeVisible();
-  await page.getByRole('button', { name: 'Close dialog' }).click();
+  const closeDialog = page.getByRole('button', { name: 'Close dialog' });
+  await expect(closeDialog).toBeVisible();
+  expect(await closeDialog.evaluate((button) => {
+    const bounds = button.getBoundingClientRect();
+    const hit = document.elementFromPoint(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2);
+    return hit?.closest('[aria-label="Close dialog"]') === button;
+  })).toBe(true);
+  await closeDialog.click();
+  await expect(page.locator('.dialog-backdrop')).toHaveCount(0);
 
   await login(page, 'sales.employee@odin.demo');
   await expect(page.getByTestId('nav-access-roles')).toHaveCount(0);
@@ -325,14 +405,22 @@ test('Users & Access remains usable in dark theme, Arabic RTL, tablet, and mobil
   await page.getByTestId('language-toggle').click();
   await expect(page.locator('html')).toHaveAttribute('lang', 'ar');
   await expect(page.locator('html')).toHaveAttribute('dir', 'rtl');
-  await expect(page.locator('.access-permission-groups code').first()).toHaveAttribute('dir', 'ltr');
+  await page.goto('/settings/access/governance');
+  await expect(page.locator('.governance-layout')).toBeVisible();
+  await expect(page.locator('.governance-layout')).toHaveCSS('grid-template-columns', /\S+\s+\S+/);
+  await page.getByRole('button', { name: 'تشغيل المعاينة الآمنة', exact: true }).click();
+  const preview = page.getByTestId('access-safe-preview');
+  await expect(preview).toBeVisible();
+  await expect(preview).toContainText('معاينة آمنة · بلا تعديل');
+  await expect(preview.locator('.status')).toHaveAttribute('data-tone', 'success');
   expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(1);
 
   await page.setViewportSize({ width: 390, height: 844 });
   await expect(page.getByRole('heading', { name: 'المستخدمون والصلاحيات', exact: true })).toBeVisible();
   await expect(page.locator('.access-tabs')).toBeVisible();
+  await expect(page.locator('.governance-layout')).toHaveCSS('grid-template-columns', /^(?!.*\s).*$/);
   expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(1);
-  await page.screenshot({ path: resolve(screenshots, 'access-permissions-mobile-ar-dark.png'), fullPage: true });
+  await page.screenshot({ path: resolve(screenshots, 'access-governance-mobile-ar-dark.png'), fullPage: true });
 });
 
 test('Purchase Request and supplier RFQ are distinct routes and document types', async ({ page, request }) => {
@@ -424,6 +512,55 @@ test('Sales creates and converts a quotation before the sales order approval ste
   await expect(page.locator('.sales-status.SUBMITTED')).toContainText('Pending Approval');
   await expect(page.getByTestId('approval-waiting')).toContainText('Awaiting approval from another authorized user');
   await expect(page.getByRole('button', { name: 'Approve', exact: true })).toHaveCount(0);
+});
+
+test('private sales attachments upload with scan disclosure and download through a ticket', async ({ page }) => {
+  await login(page);
+  await page.goto('/sales/invoices');
+  const documentTable = page.getByTestId('document-table');
+  await expect(documentTable).toBeVisible();
+  await documentTable.locator('.sales-link').first().click();
+  await expect(page.locator('.document-detail')).toBeVisible();
+  const initialListPromise = page.waitForResponse((response) => response.url().includes('/api/private-attachments?documentId=') && response.request().method() === 'GET');
+  await page.getByRole('button', { name: 'Attachments', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Private attachments', exact: true })).toBeVisible();
+  expect((await initialListPromise).status()).toBe(200);
+
+  const filename = `browser-evidence-${Date.now()}.pdf`;
+  const pdf = Buffer.from('%PDF-1.7\n1 0 obj\n<<>>\nendobj\ntrailer\n<<>>\n%%EOF\n');
+  await page.getByTestId('private-attachment-file').setInputFiles({ name: filename, mimeType: 'application/pdf', buffer: pdf });
+  const uploadResponsePromise = page.waitForResponse((response) => response.url().endsWith('/api/private-attachments/upload') && response.request().method() === 'POST');
+  const refreshedListPromise = page.waitForResponse((response) => response.url().includes('/api/private-attachments?documentId=') && response.request().method() === 'GET');
+  await page.getByTestId('private-attachment-upload').click();
+  const uploadResponse = await uploadResponsePromise;
+  expect(uploadResponse.status()).toBe(201);
+  // The browser-facing multipart rewrite can expose the upstream headers before
+  // its response stream is closed. The automatically refreshed list is the
+  // persisted, user-visible representation and is safe to consume here.
+  const refreshedList = await refreshedListPromise;
+  expect(refreshedList.status()).toBe(200);
+  const metadata = (await refreshedList.json()).find((row: { filename?: string }) => row.filename === filename);
+  expect(metadata).toMatchObject({ filename, contentType: 'application/pdf', sizeBytes: String(pdf.length), scanStatus: 'NOT_CONFIGURED' });
+  expect(metadata.sha256).toMatch(/^[a-f0-9]{64}$/);
+
+  const attachment = page.locator('.related-documents > div').filter({ hasText: filename }).first();
+  await expect(attachment.getByText(filename, { exact: true })).toBeVisible();
+  await expect(attachment).toContainText('1 KB');
+  await expect(attachment).toContainText('Malware scanning is not configured. The file passed type and signature validation only.');
+
+  const ticketResponsePromise = page.waitForResponse((response) => /\/api\/private-attachments\/[0-9a-f-]+\/ticket$/.test(response.url()) && response.request().method() === 'POST');
+  const downloadResponsePromise = page.waitForResponse((response) => /\/api\/private-attachments\/[0-9a-f-]+\/download\?ticket=/.test(response.url()));
+  const browserDownloadPromise = page.waitForEvent('download');
+  await attachment.getByRole('button', { name: 'Download', exact: true }).click();
+  const [ticketResponse, downloadResponse, browserDownload] = await Promise.all([ticketResponsePromise, downloadResponsePromise, browserDownloadPromise]);
+  expect(ticketResponse.status()).toBe(201);
+  expect(downloadResponse.status()).toBe(200);
+  expect(downloadResponse.headers()['content-type']).toContain('application/pdf');
+  expect(browserDownload.suggestedFilename()).toBe(filename);
+  const stream = await browserDownload.createReadStream();
+  const chunks: Buffer[] = [];
+  for await (const chunk of stream) chunks.push(Buffer.from(chunk));
+  expect(Buffer.concat(chunks)).toEqual(pdf);
 });
 
 test('approval decisions use an explicit required-reason dialog instead of browser prompts', async ({ page }) => {

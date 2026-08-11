@@ -49,7 +49,59 @@
 .ltr-value, code { direction: ltr; unicode-bidi: isolate; }
 html[dir='rtl'] .access-page table { text-align: right; }
 
+.governance-layout { display: grid; grid-template-columns: minmax(260px, .72fr) minmax(0, 1.28fr); gap: 16px; align-items: start; }
+.governance-layout > .panel { min-width: 0; }
+.governance-effective, .governance-reviews { grid-column: 2; }
+.governance-preview { grid-column: 1; grid-row: 2 / span 2; }
+.company-card-list { display: grid; gap: 8px; }
+.company-card-list > button { display: flex; justify-content: space-between; gap: 12px; align-items: center; inline-size: 100%; padding: 12px; border: 1px solid var(--stroke); border-radius: 11px; background: var(--panel-subtle); color: var(--text); text-align: start; cursor: pointer; }
+.company-card-list > button.active { border-color: var(--tone-brand-border); background: var(--tone-brand-soft); box-shadow: var(--focus); }
+.company-card-list span, .company-card-list strong, .company-card-list small { display: block; }
+.company-card-list small { margin-block-start: 3px; color: var(--muted); }
+.company-card-list > button > span:last-child { color: var(--muted); font-size: 10px; text-align: center; }
+.company-card-list > button b { color: var(--tone-brand-fg); font-size: 17px; }
+.governance-company-summary { display: grid; gap: 8px; margin: 14px 0 0; }
+.governance-company-summary div { display: flex; justify-content: space-between; gap: 12px; padding-block-start: 8px; border-block-start: 1px solid var(--stroke); }
+.governance-company-summary dt { color: var(--muted); }
+.governance-company-summary dd { margin: 0; color: var(--text); font-weight: 700; }
+.governance-user-select { display: grid; gap: 6px; margin-block-end: 14px; color: var(--text-soft); font-weight: 700; }
+.effective-permission-groups { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.effective-permission-groups section { min-width: 0; padding: 12px; border: 1px solid var(--tone-border); border-radius: 11px; background: var(--tone-soft); }
+.effective-permission-groups h3 { margin: 0 0 9px; color: var(--tone-fg); font-size: 12px; }
+.effective-permission-groups section > div { display: flex; flex-wrap: wrap; gap: 5px; max-height: 150px; overflow: auto; }
+.effective-permission-groups code { padding: 4px 6px; border-radius: 6px; background: var(--panel); color: var(--text-soft); font-size: 9px; }
+.sod-warning { display: flex; gap: 10px; margin-block-start: 12px; padding: 12px; border: 1px solid var(--tone-warning-border); border-radius: 11px; background: var(--tone-warning-soft); color: var(--tone-warning-fg); }
+.sod-warning div, .sod-warning span { display: grid; gap: 3px; }
+.governance-evidence-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-block-start: 12px; }
+.governance-evidence-grid section { min-width: 0; padding: 11px; border: 1px solid var(--stroke); border-radius: 10px; background: var(--panel-subtle); }
+.governance-evidence-grid h3 { margin: 0 0 7px; font-size: 11px; }
+.governance-evidence-grid pre { max-height: 150px; overflow: auto; margin: 0; color: var(--text-soft); font-size: 9px; white-space: pre-wrap; }
+.governance-source-summary { grid-column: 1 / -1; }
+.governance-source-summary > div { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 7px; }
+.governance-source-summary article { min-width: 0; padding: 8px; border: 1px solid var(--tone-border); border-radius: 8px; background: var(--tone-soft); }
+.governance-source-summary article > code { display: block; margin-block-end: 5px; color: var(--tone-fg); font-size: 9px; font-weight: 800; }
+.governance-source-summary article > pre { max-height: 90px; }
+.governance-preview textarea { inline-size: 100%; margin-block: 10px; font: 10px/1.55 ui-monospace, SFMono-Regular, Menlo, monospace; }
+.preview-result { display: grid; gap: 10px; margin-block-start: 14px; }
+.preview-result > div { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }
+.preview-result section { display: flex; flex-wrap: wrap; gap: 5px; padding: 10px; border: 1px solid var(--tone-border); border-radius: 9px; background: var(--tone-soft); }
+.preview-result h3 { inline-size: 100%; margin: 0; color: var(--tone-fg); font-size: 11px; }
+.preview-result code { font-size: 9px; }
+.governance-reviews form { display: grid; grid-template-columns: minmax(150px, .5fr) minmax(220px, 1.5fr) auto; gap: 9px; align-items: end; padding-block-end: 14px; border-block-end: 1px solid var(--stroke); }
+.governance-reviews form label { display: grid; gap: 5px; }
+.governance-reviews form small { grid-column: 1 / -1; color: var(--muted); }
+.review-history { display: grid; gap: 8px; margin-block-start: 12px; }
+.review-history article { display: grid; grid-template-columns: auto minmax(120px, 1fr) auto; gap: 8px; align-items: center; padding: 10px; border: 1px solid var(--stroke); border-radius: 10px; background: var(--panel-subtle); }
+.review-history article time { color: var(--muted); font-size: 10px; }
+.review-history article p { grid-column: 1 / -1; margin: 0; color: var(--text-soft); }
+
 @media (max-width: 720px) {
+  .governance-layout { grid-template-columns: 1fr; }
+  .governance-effective, .governance-reviews, .governance-preview { grid-column: 1; grid-row: auto; }
+  .effective-permission-groups, .governance-evidence-grid, .preview-result > div { grid-template-columns: 1fr; }
+  .governance-reviews form { grid-template-columns: 1fr; }
+  .review-history article { grid-template-columns: 1fr; }
+  .review-history article p { grid-column: 1; }
   .access-role-grid { grid-template-columns: 1fr; }
   .access-role-metrics { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .policy-list > label { grid-template-columns: 1fr; }

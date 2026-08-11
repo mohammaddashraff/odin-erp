@@ -1,7 +1,7 @@
 import type { ButtonHTMLAttributes, ComponentType } from 'react';
 import {
   BadgeCheck, BadgeX, BarChart3, BookCheck, BookOpenCheck, Boxes, Building2, CalendarRange, Check,
-  CheckCheck, ChevronRight, CircleCheck, CircleDollarSign, CircleHelp, CircleX, ClipboardList, Clock3,
+  CheckCheck, ChevronLeft, ChevronRight, CircleCheck, CircleDollarSign, CircleHelp, CircleX, ClipboardList, Clock3,
   Download, Ellipsis, Eye, FilePenLine, FileSpreadsheet, FileText, HandCoins, History, Inbox, Info,
   LayoutDashboard, ListFilter, Lock, LockOpen, LogOut, Menu, MessageSquare, Minus, Moon, Package, PackageSearch, Pencil,
   Plus, Printer, ReceiptText, RefreshCw, Ruler, Save, ScrollText, Search, SearchX, Send, Settings,
@@ -12,7 +12,7 @@ import {
 export const iconMap = {
   dashboard: LayoutDashboard, sales: ShoppingCart, purchases: ShoppingBag, inventory: Warehouse, pos: ReceiptText,
   payments: HandCoins, accounting: BookOpenCheck, banking: Building2, approvals: BadgeCheck, reports: BarChart3,
-  audit: ScrollText, add: Plus, close: X, menu: Menu, themeDark: Moon, themeLight: Sun, next: ChevronRight,
+  audit: ScrollText, add: Plus, close: X, menu: Menu, themeDark: Moon, themeLight: Sun, next: ChevronRight, previous: ChevronLeft,
   success: CircleCheck, pending: Clock3, draft: FilePenLine, item: Package, supplier: Truck, history: History, remove: Trash2, minus: Minus, help: CircleHelp,
   checklist: ClipboardList, money: CircleDollarSign, approve: Check, approveAll: CheckCheck, warehouse: Boxes,
   search: Search, customer: Users, category: Tags, unit: Ruler, period: CalendarRange, settings: Settings,
@@ -23,9 +23,9 @@ export const iconMap = {
 } as const;
 export type IconName = keyof typeof iconMap;
 
-export function AppIcon({ name, size = 18, className }: { name: IconName; size?: number; className?: string }) {
-  const Icon = iconMap[name] as ComponentType<{ size?: number; strokeWidth?: number; className?: string; 'aria-hidden'?: boolean }>;
-  return <Icon size={size} strokeWidth={1.9} className={className} aria-hidden />;
+export function AppIcon({ name, size = 18, className, directional = false }: { name: IconName; size?: number; className?: string; directional?: boolean }) {
+  const Icon = iconMap[name] as ComponentType<{ size?: number; strokeWidth?: number; className?: string; 'aria-hidden'?: boolean; 'data-directional'?: boolean }>;
+  return <Icon size={size} strokeWidth={1.9} className={className} data-directional={directional || undefined} aria-hidden />;
 }
 
 export function IconButton({ icon, label, className = '', ...props }: ButtonHTMLAttributes<HTMLButtonElement> & { icon: IconName; label: string }) {
