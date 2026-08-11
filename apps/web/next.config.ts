@@ -1,9 +1,14 @@
 import type { NextConfig } from 'next';
 
 const apiOrigin = (process.env.API_ORIGIN || 'http://127.0.0.1:8081').replace(/\/$/, '');
+const demoMode = process.env.NEXT_PUBLIC_ODIN_DEMO_MODE === 'true';
 
 const nextConfig: NextConfig = {
   poweredByHeader: false,
+  // A compile-time literal lets production builds remove demo credentials.
+  env: {
+    NEXT_PUBLIC_ODIN_DEMO_MODE: demoMode ? 'true' : 'false',
+  },
   async headers() {
     return [{
       source: '/:path*',
