@@ -1,5 +1,9 @@
 -- Company-aware access governance is additive. Existing tenants receive one
 -- deterministic default company and existing branches/users are mapped to it.
+-- This migration backfills company metadata onto existing audit records. The
+-- append-only trigger permits the established transaction-local reset mode for
+-- maintenance operations; it automatically clears when the migration commits.
+SELECT set_config('app.reset_mode', 'on', true);
 CREATE TYPE "CompanyMembershipRole" AS ENUM ('MEMBER', 'ADMINISTRATOR');
 CREATE TYPE "FinancialResourceType" AS ENUM ('TREASURY', 'WALLET', 'PAYMENT_CARD', 'CASH_SOURCE', 'CHEQUE_BOOK', 'COST_CENTER', 'PROJECT', 'BANK_ACCOUNT', 'GL_ACCOUNT');
 CREATE TYPE "SodEnforcement" AS ENUM ('WARN', 'BLOCK');
