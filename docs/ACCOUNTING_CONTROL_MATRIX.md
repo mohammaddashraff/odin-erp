@@ -7,13 +7,13 @@
 | Posted journal immutability | update/delete and line triggers | Complete for runtime role | retention/restore and break-glass owner monitoring |
 | Posted document immutability | document/line triggers | Substantial | immutable payment allocation/stock movement and exact correction orchestration |
 | Open-period enforcement | service checks before posting | Substantial | company ledger period, governed close/reopen and DB defense where practical |
-| Maker-checker | document and manual journal self-approval blocks | Partial | configurable SoD, source-specific approvers and no auto-approval in generic posting helper |
+| Maker-checker | document/manual-journal self-approval blocks plus mandatory separate checker for outgoing supplier payments | Substantial but incomplete | configurable same-record SoD, approval routing/escalation and governed exceptions |
 | Source-to-journal link | unique journal source and document link | Substantial | formal non-accounting classification and completeness report |
 | Reversal | linked journal reversal with exact swapped lines | Partial | approval, independent maker-checker, idempotency and source document/stock/payment reversal |
 | AR | invoice/receipt/return/credit signed model and reconciliation | Substantial | currency allocation facts, write-time constraints and stable as-of reports |
-| AP | bill/payment/return and reconciliation | Substantial but incomplete | matching, debit notes, currency controls and supplier subledger detail |
+| AP | bill/return plus submitted outgoing payment approved into atomic allocation/journal effects and reconciliation | Substantial but incomplete | matching, debit notes, currency controls, governed payment reversal and supplier subledger detail |
 | Inventory control | inventory account reconciled to stock value | Substantial | cost layers/method choice, locks and historical valuation |
-| Cash/bank | posted transactions and exact statement match | Partial | account scopes, charges, FX, cheque states and formal cash reconciliation |
+| Cash/bank | company-owned/assigned bank-account scope, posted transactions and exact statement match | Partial | charges, FX, cheque states, non-bank typed-resource adapters and formal cash reconciliation |
 | Tax | output/input VAT journal paths and report | Partial | tax engine, jurisdiction/effective dates, withholding, rounding policy and filing locks |
 | FX | document rate/date and base journal conversion for AR | Partial | all subledgers, realized/unrealized FX, revaluation and currency balances |
 | Fiscal close | OPEN/CLOSED/LOCKED toggle | Placeholder | checklist, trial balance/reconciliations, maker-checker, year-end and governed reopening |

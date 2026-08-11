@@ -14,7 +14,9 @@
 
 ## ADR-004: Default deny for action, record and field
 
-**Accepted target.** Missing permission denies, missing record scope becomes `NONE`, and unregistered sensitive fields are not exposed. The current BRANCH compatibility default must be removed through audited migration.
+**Accepted and implemented for the current registry.** Missing permission denies, missing record scope
+becomes `NONE`, and registered sensitive fields default to hidden. Compatibility intent is preserved
+only through explicit migrated policies; new resources must not inherit an implicit branch scope.
 
 ## ADR-005: Add Company as a first-class boundary
 
@@ -43,3 +45,25 @@
 ## ADR-011: Compatibility columns have a retirement plan
 
 **Accepted.** Legacy role permission JSON and user branch/warehouse JSON may remain during dual-read migration only. New assignments are relational; parity is measured before deprecation.
+
+## ADR-012: Arabic text is RTL; application numerals are always Latin
+
+**Accepted.** Central web and API/output locale resolution uses `ar-EG-u-nu-latn`. Screens may not
+select an Arabic numbering system or post-process glyphs. Identifiers and mixed-direction values use
+bidirectional isolation, while all dates, times, currencies, counts, charts, inputs and generated
+documents retain Western `0-9` digits.
+
+## ADR-013: Loading, motion and color are shared semantic primitives
+
+**Accepted.** Layout-shaped skeletons, action busy states, transitions, success feedback, status
+colors, KPI accents and module identity consume one reusable light/dark design system. CSS and
+lightweight primitives are preferred; `prefers-reduced-motion` is mandatory and large table datasets
+are not animated. Page-specific random colors or generic full-page spinners are not accepted.
+
+## ADR-014: Private attachment claims stop at evidenced boundaries
+
+**Accepted.** Repository attachment controls authorize the owning record, validate safe metadata and
+content, use short-lived user-bound delivery tickets and audit downloads. `NOT_CONFIGURED` is the
+scanner state until a real scanner/provider is integrated. Provider object storage, IAM, KMS,
+malware scanning and recovery are classified as external/provider evidence, never inferred from a
+database status field or architecture hook.

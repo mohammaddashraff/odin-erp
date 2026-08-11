@@ -9,16 +9,17 @@ types, document types, report context, and legacy redirects.
 
 | # | Module | Canonical landing route | Module permission | Category |
 |---:|---|---|---|---|
-| 1 | Command Center | `/dashboard` | `dashboard.read` | Management |
-| 2 | Sales & Customers | `/sales/overview` | `sales.write` | Operations |
-| 3 | Purchasing & Suppliers | `/purchasing/overview` | `purchases.write` | Operations |
-| 4 | Inventory & Products | `/inventory/overview` | `inventory.write` | Operations |
-| 5 | Point of Sale | `/pos/workspace` | `pos.use` | Operations |
-| 6 | Accounting & Finance | `/accounting/overview` | `accounting.read` | Finance |
-| 7 | Cash & Banking | `/banking/overview` | `banking.read` | Finance |
-| 8 | Approvals & Workflow | `/approvals/inbox` | `approvals.read` | Governance |
-| 9 | Reports & Analytics | `/reports/overview` | `reports.read` | Governance |
-| 10 | Administration & Control | `/admin/overview` | `audit.read` | Governance |
+| 1 | Command Center | `/dashboard` | `dashboard.overview.view` | Management |
+| 2 | Sales | `/sales/overview` | `sales.overview.view` | Operations |
+| 3 | Purchasing & Suppliers | `/purchasing/overview` | `purchasing.overview.view` | Operations |
+| 4 | Inventory & Products | `/inventory/overview` | `inventory.overview.view` | Operations |
+| 5 | Human Resources | `/hr/employees` | `hr.employee.view` | Operations |
+| 6 | Point of Sale | `/pos/workspace` | `pos.register.view` | Operations |
+| 7 | Accounting & Finance | `/accounting/overview` | `accounting.overview.view` | Finance |
+| 8 | Cash & Banking | `/banking/overview` | `banking.account.view` | Finance |
+| 9 | Approvals & Workflow | `/approvals/inbox` | `approvals.queue.view` | Governance |
+| 10 | Reports & Analytics | `/reports/overview` | `reports.standard.view` | Governance |
+| 11 | Administration & Control | `/admin/overview` | `audit.business.view` | Governance |
 
 A module is visible only when the signed-in user has its module-level
 permission. Children are then filtered by their own permissions. A generic
@@ -28,63 +29,68 @@ report permission therefore cannot reveal an unrelated operational module.
 
 | Module | Screen | Route | Permission | Namespace / binding |
 |---|---|---|---|---|
-| Command Center | Executive Dashboard | `/dashboard` | `dashboard.read` | `dashboard` |
-| Sales & Customers | Sales Overview | `/sales/overview` | `sales.write` | `sales` |
-| Sales & Customers | Customers | `/sales/customers` | `sales.write` | `masters:customer` |
-| Sales & Customers | Sales Quotations | `/sales/quotations` | `sales.write` | `documents:QUOTATION` |
-| Sales & Customers | Sales Orders | `/sales/orders` | `sales.write` | `documents:SALES_ORDER` |
-| Sales & Customers | Deliveries | `/sales/deliveries` | `sales.write` | `documents:DELIVERY_NOTE` |
-| Sales & Customers | Sales Invoices | `/sales/invoices` | `sales.write` | `documents:SALES_INVOICE` |
-| Sales & Customers | Customer Returns | `/sales/returns` | `sales.write` | `documents:SALES_RETURN` |
-| Sales & Customers | Credit Notes | `/sales/credit-notes` | `sales.write` | `documents:CREDIT_NOTE` |
-| Sales & Customers | Customer Balances | `/sales/customer-balances` | `reports.read` | `reports:customer-statement` |
-| Purchasing & Suppliers | Purchasing Overview | `/purchasing/overview` | `purchases.write` | `purchasing` |
-| Purchasing & Suppliers | Suppliers | `/purchasing/suppliers` | `purchases.write` | `masters:supplier` |
-| Purchasing & Suppliers | Purchase Requests | `/purchasing/requests` | `purchases.write` | `documents:PURCHASE_REQUEST` |
-| Purchasing & Suppliers | Requests for Quotation | `/purchasing/rfqs` | `purchases.write` | `documents:PURCHASE_RFQ` |
-| Purchasing & Suppliers | Purchase Orders | `/purchasing/orders` | `purchases.write` | `documents:PURCHASE_ORDER` |
-| Purchasing & Suppliers | Goods Receipts | `/purchasing/receipts` | `purchases.write` | `documents:GOODS_RECEIPT` |
-| Purchasing & Suppliers | Supplier Bills | `/purchasing/bills` | `purchases.write` | `documents:PURCHASE_BILL` |
-| Purchasing & Suppliers | Purchase Returns | `/purchasing/returns` | `purchases.write` | `documents:PURCHASE_RETURN` |
-| Purchasing & Suppliers | Supplier Balances | `/purchasing/supplier-balances` | `reports.read` | `reports:supplier-statement` |
-| Inventory & Products | Inventory Overview | `/inventory/overview` | `inventory.write` | `inventory` |
-| Inventory & Products | Items | `/inventory/items` | `inventory.write` | `masters:item` |
-| Inventory & Products | Categories | `/inventory/categories` | `inventory.write` | `masters:category` |
-| Inventory & Products | Units of Measurement | `/inventory/units` | `inventory.write` | `masters:unit` |
-| Inventory & Products | Warehouses | `/inventory/warehouses` | `inventory.write` | `masters:warehouse` |
-| Inventory & Products | Warehouse Transfers | `/inventory/transfers` | `inventory.write` | `documents:WAREHOUSE_TRANSFER` |
-| Inventory & Products | Stock Adjustments | `/inventory/adjustments` | `inventory.write` | `documents:INVENTORY_ADJUSTMENT` |
-| Inventory & Products | Stock Counts | `/inventory/counts` | `inventory.write` | `documents:STOCK_COUNT` |
-| Inventory & Products | Stock Card | `/inventory/stock-card` | `reports.read` | `reports:stock-movements` |
-| Inventory & Products | Inventory Valuation | `/inventory/valuation` | `reports.read` | `reports:inventory-valuation` |
-| Point of Sale | POS Workspace | `/pos/workspace` | `pos.use` | `pos` |
-| Accounting & Finance | Accounting Overview | `/accounting/overview` | `accounting.read` | `accounting` |
-| Accounting & Finance | Chart of Accounts | `/accounting/chart-of-accounts` | `accounting.read` | `accounting:account` |
-| Accounting & Finance | Journal Entries | `/accounting/journals` | `accounting.read` | `accounting` |
-| Accounting & Finance | Fiscal Periods | `/accounting/periods` | `accounting.read` | `accounting` |
-| Accounting & Finance | General Ledger | `/accounting/general-ledger` | `accounting.read` | `accounting` |
-| Accounting & Finance | Trial Balance | `/accounting/trial-balance` | `reports.read` | `reports:trial-balance` |
-| Accounting & Finance | Income Statement | `/accounting/income-statement` | `reports.profitability` | `reports:income-statement` |
-| Accounting & Finance | Balance Sheet | `/accounting/balance-sheet` | `reports.profitability` | `reports:balance-sheet` |
-| Cash & Banking | Cash & Bank Overview | `/banking/overview` | `banking.read` | `banking` |
-| Cash & Banking | Cash & Bank Accounts | `/banking/accounts` | `banking.read` | `masters:bank` |
-| Cash & Banking | Receipts & Payments | `/banking/allocations` | `payments.read` | `payments` |
-| Cash & Banking | Bank Transactions & Transfers | `/banking/transactions` | `banking.read` | `banking` |
-| Cash & Banking | Bank Statements | `/banking/statements` | `banking.read` | `banking` |
-| Cash & Banking | Bank Reconciliation | `/banking/reconciliation` | `banking.read` | `banking` |
-| Approvals & Workflow | Approval Inbox | `/approvals/inbox` | `approvals.read` | `approvals` |
-| Reports & Analytics | Report Library | `/reports/overview` | `reports.read` | `reports` |
-| Reports & Analytics | Sales Reports | `/reports/sales` | `reports.read` | `reports:sales` |
-| Reports & Analytics | Purchasing Reports | `/reports/purchasing` | `reports.read` | `reports:purchasing` |
-| Reports & Analytics | Inventory Reports | `/reports/inventory` | `reports.read` | `reports:inventory` |
-| Reports & Analytics | Accounting Reports | `/reports/accounting` | `reports.read` | `reports:accounting` |
-| Reports & Analytics | Cash & Bank Reports | `/reports/banking` | `reports.read` | `reports:banking` |
-| Reports & Analytics | POS Reports | `/reports/pos` | `reports.read` | `reports:pos` |
-| Administration & Control | Administration Overview | `/admin/overview` | `audit.read` | `admin` |
-| Administration & Control | Audit Log | `/admin/audit` | `audit.read` | `audit` |
-| Administration & Control | System Health | `/admin/system-health` | `system.reset` | `admin` |
+| Command Center | Executive Dashboard | `/dashboard` | `dashboard.overview.view` | `dashboard` |
+| Sales | Sales Overview | `/sales/overview` | `sales.overview.view` | `sales` |
+| Sales | Customers | `/sales/customers` | `sales.customer.view` | `masters:customer` |
+| Sales | Quotations | `/sales/quotations` | `sales.quotation.view` | `documents:QUOTATION` |
+| Sales | Sales Orders | `/sales/orders` | `sales.order.view` | `documents:SALES_ORDER` |
+| Sales | Deliveries | `/sales/deliveries` | `sales.delivery.view` | `documents:DELIVERY_NOTE` |
+| Sales | Invoices | `/sales/invoices` | `sales.invoice.view` | `documents:SALES_INVOICE` |
+| Sales | Returns | `/sales/returns` | `sales.return.view` | `documents:SALES_RETURN` |
+| Sales | Credit Notes | `/sales/credit-notes` | `sales.credit_note.view` | `documents:CREDIT_NOTE` |
+| Sales | Customer Balances | `/sales/customer-balances` | `reports.standard.view` | `reports:customer-balances` |
+| Purchasing & Suppliers | Purchasing Overview | `/purchasing/overview` | `purchasing.overview.view` | `purchasing` |
+| Purchasing & Suppliers | Suppliers | `/purchasing/suppliers` | `purchasing.supplier.view` | `masters:supplier` |
+| Purchasing & Suppliers | Purchase Requests | `/purchasing/requests` | `purchasing.request.view` | `documents:PURCHASE_REQUEST` |
+| Purchasing & Suppliers | Requests for Quotation | `/purchasing/rfqs` | `purchasing.rfq.view` | `documents:PURCHASE_RFQ` |
+| Purchasing & Suppliers | Purchase Orders | `/purchasing/orders` | `purchasing.order.view` | `documents:PURCHASE_ORDER` |
+| Purchasing & Suppliers | Goods Receipts | `/purchasing/receipts` | `purchasing.receipt.view` | `documents:GOODS_RECEIPT` |
+| Purchasing & Suppliers | Supplier Bills | `/purchasing/bills` | `purchasing.bill.view` | `documents:PURCHASE_BILL` |
+| Purchasing & Suppliers | Purchase Returns | `/purchasing/returns` | `purchasing.return.view` | `documents:PURCHASE_RETURN` |
+| Purchasing & Suppliers | Supplier Balances | `/purchasing/supplier-balances` | `reports.standard.view` | `reports:supplier-statement` |
+| Inventory & Products | Inventory Overview | `/inventory/overview` | `inventory.overview.view` | `inventory` |
+| Inventory & Products | Items | `/inventory/items` | `inventory.item.view` | `masters:item` |
+| Inventory & Products | Categories | `/inventory/categories` | `inventory.item.view` | `masters:category` |
+| Inventory & Products | Units of Measurement | `/inventory/units` | `inventory.item.view` | `masters:unit` |
+| Inventory & Products | Warehouses | `/inventory/warehouses` | `inventory.warehouse.view` | `masters:warehouse` |
+| Inventory & Products | Warehouse Transfers | `/inventory/transfers` | `inventory.transfer.view` | `documents:WAREHOUSE_TRANSFER` |
+| Inventory & Products | Stock Adjustments | `/inventory/adjustments` | `inventory.adjustment.view` | `documents:INVENTORY_ADJUSTMENT` |
+| Inventory & Products | Stock Counts | `/inventory/counts` | `inventory.stock_count.view` | `documents:STOCK_COUNT` |
+| Inventory & Products | Stock Card | `/inventory/stock-card` | `reports.standard.view` | `reports:stock-movements` |
+| Inventory & Products | Inventory Valuation | `/inventory/valuation` | `reports.standard.view` | `reports:inventory-valuation` |
+| Human Resources | Employees | `/hr/employees` | `hr.employee.view` | `masters:employee` |
+| Point of Sale | POS Workspace | `/pos/workspace` | `pos.register.view` | `pos` |
+| Accounting & Finance | Accounting Overview | `/accounting/overview` | `accounting.overview.view` | `accounting` |
+| Accounting & Finance | Chart of Accounts | `/accounting/chart-of-accounts` | `accounting.account.view` | `accounting:account` |
+| Accounting & Finance | Journal Entries | `/accounting/journals` | `accounting.journal.view` | `accounting` |
+| Accounting & Finance | Fiscal Periods | `/accounting/periods` | `accounting.period.view` | `accounting` |
+| Accounting & Finance | General Ledger | `/accounting/general-ledger` | `accounting.journal.view` | `accounting` |
+| Accounting & Finance | Trial Balance | `/accounting/trial-balance` | `reports.standard.view` | `reports:trial-balance` |
+| Accounting & Finance | Income Statement | `/accounting/income-statement` | `reports.profitability.view` | `reports:income-statement` |
+| Accounting & Finance | Balance Sheet | `/accounting/balance-sheet` | `reports.profitability.view` | `reports:balance-sheet` |
+| Cash & Banking | Cash & Bank Overview | `/banking/overview` | `banking.account.view` | `banking` |
+| Cash & Banking | Cash & Bank Accounts | `/banking/accounts` | `banking.account.view` | `masters:bank` |
+| Cash & Banking | Receipts & Payments | `/banking/allocations` | `payments.receipt.view` | `payments` |
+| Cash & Banking | Bank Transactions & Transfers | `/banking/transactions` | `banking.transaction.view` | `banking` |
+| Cash & Banking | Bank Statements | `/banking/statements` | `banking.statement.view` | `banking` |
+| Cash & Banking | Bank Reconciliation | `/banking/reconciliation` | `banking.statement.reconcile` | `banking` |
+| Approvals & Workflow | Approval Inbox | `/approvals/inbox` | `approvals.queue.view` | `approvals` |
+| Reports & Analytics | Report Library | `/reports/overview` | `reports.standard.view` | `reports` |
+| Reports & Analytics | Sales Reports | `/reports/sales` | `reports.standard.view` | `reports:sales` |
+| Reports & Analytics | Purchasing Reports | `/reports/purchasing` | `reports.standard.view` | `reports:purchasing` |
+| Reports & Analytics | Inventory Reports | `/reports/inventory` | `reports.standard.view` | `reports:inventory` |
+| Reports & Analytics | Accounting Reports | `/reports/accounting` | `reports.standard.view` | `reports:accounting` |
+| Reports & Analytics | Cash & Bank Reports | `/reports/banking` | `reports.standard.view` | `reports:banking` |
+| Reports & Analytics | POS Reports | `/reports/pos` | `reports.standard.view` | `reports:pos` |
+| Administration & Control | Administration Overview | `/admin/overview` | `audit.business.view` | `admin` |
+| Administration & Control | Audit Log | `/admin/audit` | `audit.business.view` | `audit` |
+| Administration & Control | Users | `/settings/access/users` | `system.super_admin` | `permissions` |
+| Administration & Control | Roles | `/settings/access/roles` | `system.super_admin` | `permissions` |
+| Administration & Control | Permissions | `/settings/access/permissions` | `system.super_admin` | `permissions` |
+| Administration & Control | Access Audit Log | `/settings/access/audit` | `system.super_admin` | `permissions` |
+| Administration & Control | System Health | `/admin/system-health` | `settings.system.view` | `admin` |
 
-Total: 10 modules and 55 directly addressable screens.
+Total: 11 modules and 60 directly addressable screens.
 
 ## Legacy bookmark migration
 

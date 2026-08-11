@@ -2,6 +2,51 @@
 
 Verification date: 2026-08-08.
 
+## Current tranche status — verification pending
+
+The successful record below is preserved as historical evidence for application commit
+`b534bc240ff8033f4982ff6da01482f476f25fe9`. It does **not** verify the current enterprise access,
+Western-digit localization, loading, semantic-color, dashboard or documentation tranche. Do not
+copy its PASS labels, totals, artifact IDs or duration into the next release record. Replace this
+section only after the current commit is built and exercised in the required environment.
+
+| Current-tranche scope | Classification | Evidence state |
+|---|---|---|
+| Named typecheck and migration-validation entry points | Implemented | Root `npm run typecheck` and `npm run db:validate` commands exist; full-tranche execution is pending |
+| Western-digit Arabic web/API/export policy | Implemented | Central locale resolution uses `ar-EG-u-nu-latn`; formatter/full-route/input/export evidence remains pending |
+| Loading/skeletons, semantic palette and module identity | Partially implemented | Architecture and accepted design concepts are recorded; route integration and regression evidence must be reconciled with the final application diff |
+| Company/security governance, field projection and private attachment repository controls | Implemented | Additive code is present, but no current-tranche PASS claim is permitted before database, API-tampering and browser reruns; broader limits remain partial |
+| Current clean migration replay and all automated suites | Not implemented | A new immutable commit/CI run, exact totals, failures/skips and durations have not yet been recorded |
+| Provider PITR, cross-region retention, IAM, KMS and production attachment recovery | Requires external/provider evidence | Repository tests and a logical restore drill cannot establish these provider controls |
+
+The current tranche must execute, at minimum, from the repository root:
+
+```bash
+npm ci
+npm run db:generate
+npm run db:validate
+npm run db:migrate
+# npm run db:seed  # disposable verification database only; never production
+npm run lint
+npm run typecheck
+npm run i18n:audit
+npm run test:unit
+npm run test:db
+npm run test:security
+npm test
+npm run integrity
+npm run build
+npm run security:audit
+npm run security:scan
+npx playwright test tests/e2e/odin-ui.spec.ts tests/e2e/localization.spec.ts tests/e2e/access-security.spec.ts --project=chromium
+git diff --check
+```
+
+Record the PostgreSQL version and migration count, Jest suites/tests, Playwright tests/skips,
+reconciliation values, command durations, failure reasons, screenshots and final Git SHA. Run the
+encrypted restore drill separately when its PostgreSQL 17 source/restore URLs and ephemeral key are
+available.
+
 This record maps the acceptance briefs to executable evidence. The authoritative release evidence is
 [Quality gate run 31256037111](https://github.com/mohammaddashraff/odin-erp/actions/runs/31256037111),
 which completed successfully for branch head `b534bc240ff8033f4982ff6da01482f476f25fe9`. The browser suites are
@@ -130,6 +175,17 @@ Screenshots are generated in `artifacts/screenshots/` by the Playwright suite:
 - `purchasing-rfq-ar.png`
 - `navigation-collapsed-en.png`
 - `navigation-mobile-en.png`
+- `access-permissions-mobile-ar-dark.png`
+- `inventory-overview-en.png`
+- `sales-overview-mobile-ar.png`
 
 Server-generated PDF samples are stored in `output/pdf/` during verification. Both directories are
 ignored because they are reproducible test artifacts.
+
+Current design references are review inputs, not execution evidence:
+
+- `docs/design/odin-enterprise-semantic-dashboard-concept-v2.png` — accepted desktop reference using
+  six KPIs available from the real dashboard API
+- `docs/design/odin-enterprise-loading-system-concept-v2.png` — accepted loading reference with six
+  KPI skeletons matching the real dashboard contract
+- `docs/design/odin-enterprise-mobile-rtl-concept.png`

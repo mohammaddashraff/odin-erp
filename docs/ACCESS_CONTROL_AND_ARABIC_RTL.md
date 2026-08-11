@@ -2,6 +2,15 @@
 
 This document is the implementation and operations handoff for Odin ERP's tenant-scoped access-control system and Arabic/RTL overhaul.
 
+## Current-tranche classification (2026-08-11)
+
+| Capability | Classification | Evidence boundary |
+|---|---|---|
+| Previously verified tenant/role/scope enforcement | Tested | Historical quality run `31256037111` applies only to commit `b534bc2` |
+| Company-aware and governed effective-access architecture | Partially implemented | Company/customer/supplier/branch and mapped bank/GL boundaries plus governed access APIs exist; remaining tenant-shared masters, full governance UI and current end-to-end evidence remain incomplete |
+| Western-digit Arabic policy | Implemented | Web and API/export locale resolution uses `ar-EG-u-nu-latn`; current full-route/input/export regression evidence is pending |
+| Current-tranche end-to-end verification | Partially implemented | Required sources exist, but do not reuse the 31 July or 8 August totals as evidence for the current working tree; final counts, failures/skips, duration and immutable SHA are pending |
+
 ## Audit summary
 
 The pre-change application had role-aware navigation, but authorization was based mainly on broad legacy permission arrays. Several routes and generic document actions were not mapped to a precise resource/action permission, record visibility defaulted to broad tenant or branch access, and sensitive fields were returned with the rest of the record. Roles could not be composed, individually overridden, scoped, limited, or audited through the UI. Arabic used one large lookup and had inconsistent terminology, incomplete dynamic-value localization, mixed-direction identifiers, and component-specific number/date/currency formatting.
@@ -16,7 +25,9 @@ The implementation preserves the legacy role column and permission arrays for co
 - Navigation, routes, buttons, forms, and sensitive fields consume the same effective policy returned by the authenticated session. The API remains authoritative.
 - PostgreSQL row-level security remains the tenant boundary. Query predicates add own/team/branch/warehouse/department visibility inside that boundary.
 - Access changes and denied attempts are written to a separate append-only audit table with actor, subject, old/new values, tenant, branch, IP, and request ID.
-- `system.super_admin` is the only permission that opens Settings → Users & Access.
+- Tenant-wide Users, Roles, Permissions and Access Audit remain gated by `system.super_admin`.
+  Company Administrators may open the separate Access Governance workspace only for companies in
+  their company-scoped `settings.users_access.view/manage` envelope.
 
 Permission keys use `module.resource.action`, for example `sales.quotation.create`, `sales.order.approve`, `inventory.transfer.post`, and `accounting.journal.view`.
 
@@ -37,6 +48,14 @@ Migration `20260731120000_enterprise_access_control` adds:
 - customer ownership for own/team scopes
 - tenant indexes, foreign keys, RLS policies, runtime grants, and append-only audit triggers
 
+Migration `20260809120000_company_access_governance` adds the Company, time-bounded membership and
+CompanyBranch boundary; customer/supplier Company ownership; typed financial resources and
+assignments; temporary grants; delegations; SoD rules; review records; authority policies; private
+attachments; compatibility backfills/triggers; and RLS/runtime grants. Migration
+`20260811120000_payment_approval_workflow` adds submitted/posted/rejected payment state and checker
+evidence for outgoing supplier payments. These additions do not remove the legacy role or
+branch/warehouse JSON compatibility columns.
+
 The migration is additive. It retains `users.role_id` as the primary role and retains `roles.permissions` for compatibility. The first wildcard administrator in each tenant is promoted to `super_admin`; existing users and documents are not deleted. Legacy permission strings are normalized at authentication time while tenants transition to the new editor.
 
 ## Effective policy rules
@@ -51,15 +70,34 @@ The migration is additive. It retains `users.role_id` as the primary role and re
 
 ### Data scopes
 
-Supported values are `OWN`, `ASSIGNED`, `TEAM`, `BRANCH`, `WAREHOUSE`, `DEPARTMENT`, and `ALL`. They are applied to customers, sales and purchasing documents, warehouse operations, employees, journals, dashboards, approval queues, reports, and evidence queries. Shared supplier and item masters remain tenant-wide unless a role's module permission hides them; transactional purchasing and inventory records still use branch/warehouse scopes.
+Supported values are `NONE`, `OWN`, `ASSIGNED`, `TEAM`, `BRANCH`, `WAREHOUSE`, `DEPARTMENT`, and
+`ALL`. They are applied through resource-specific predicates to customers, suppliers, documents,
+warehouse operations, employees, journals, payments, dashboards, approval queues, reports,
+attachments and evidence queries. Customers and suppliers have explicit Company ownership;
+suppliers can also use selected-resource assignment. Items, categories, units, departments,
+currencies and some accounting configuration remain tenant-level masters, while their operational
+documents and branch/warehouse facts are company bounded. A missing scope defaults to `NONE`.
 
 ### Protected fields
 
-The field registry covers purchase price, cost price, cost of goods, profit margin, credit limit, payment terms, customer balance, bank account details, salary, journal details, and tax information. `HIDDEN` values are removed from API responses, `VIEW` fields are read-only, and writes require `EDIT`.
+The field registry covers purchase/cost price, document cost/profit/internal notes, customer credit
+limit/payment terms/balance, bank account details, salary, journal lines, party tax identifiers,
+private-attachment metadata, approval evidence and audit values/metadata/references. The centralized
+projector removes `HIDDEN` values from the identified nested customer, supplier, document, journal,
+payment, approval and audit response trees. Exposed protected writes require `EDIT`, including
+customer credit/payment terms, party tax data, item purchase price, bank-account number, document
+notes, journal lines and attachment upload metadata. `VIEW` is read-only for those write paths.
+Every future endpoint, job, notification, export and nested serializer still requires explicit
+projection registration; automatic universal coverage is not claimed.
 
 ### Limits
 
-Configured role limits currently cover sales discount percentage, quotation amount, credit-sale approval threshold, and return approval threshold. Limits are checked by the backend before workflow state changes.
+Compatibility role limits cover sales discount percentage, quotation amount, credit-sale approval
+threshold and return approval threshold. Company/currency-aware authority policies add purchase-order
+and supplier-bill approval, receipt/payment, treasury movement, journal posting, expense approval and
+customer credit-exposure keys with optional company, branch, role, department, document type and
+validity bounds. Current service adapters enforce the applicable document, payment, treasury and
+journal paths; complete domain routing/escalation is not implemented.
 
 ## Seeded role matrix
 
@@ -82,9 +120,9 @@ Configured role limits currently cover sales discount percentage, quotation amou
 
 The permission registry is deliberately more granular than this summary. The Permissions page is the authoritative searchable matrix for every resource/action key.
 
-## Users & Access UI
+## Users & Access and governance UI
 
-Only Super Admin can open:
+Only Super Admin can open the tenant-wide administration pages:
 
 - `/settings/access/users`: primary role, additional roles, active status, grants, and denies
 - `/settings/access/roles`: create, edit, duplicate, archive, assign users, module/action matrix, scopes, fields, and limits
@@ -92,6 +130,13 @@ Only Super Admin can open:
 - `/settings/access/audit`: append-only security events with old/new values
 
 Direct navigation by other roles renders a professional 403 page; `/api/access` independently returns HTTP 403.
+
+The separate `/settings/access/governance` workspace is visible to authorized Company
+Administrators within their assigned-company envelope. It displays governed companies and members,
+effective permissions/scopes/fields/limits/resource sources, SoD risk, non-mutating safe preview and
+immutable access-review evidence; authorized reviewers can record review decisions. Membership,
+financial-resource, temporary-grant, delegation and authority-policy mutation endpoints are bounded
+server-side but do not yet all have dedicated browser forms.
 
 ## Arabic terminology
 
@@ -129,7 +174,14 @@ Direct navigation by other roles renders a professional 403 page; `/api/access` 
 
 Statuses use one shared dictionary: Draft `مسودة`, Pending Approval `في انتظار الموافقة`, Approved `معتمد`, Rejected `مرفوض`, Cancelled `ملغي`, Posted `مرحّل`, Partially Paid `مدفوع جزئياً`, Paid `مدفوع`, Overdue `متأخر السداد`, Delivered `تم التسليم`, Completed `مكتمل`, Active `نشط`, and Inactive `غير نشط`.
 
-The translation catalog is split into namespaces in `i18n.ts`. `formatters.ts` centralizes dates, date/time, month/year, numbers, quantities, percentages, currencies, and exchange rates with configurable numerals, date style, currency position, precision, and grouping. RTL uses logical CSS properties; directional icons flip, while functional icons do not. Codes, document numbers, email, IP, SKU, IBAN-like/account values, and permission keys remain LTR.
+The translation catalog is split into namespaces in `i18n.ts`. `formatters.ts` centralizes dates,
+date/time, month/year, numbers, quantities, percentages, currencies, and exchange rates. Arabic uses
+the Latin numbering system (`latn`) without exception: Arabic text remains RTL while numbers render
+as `0-9`, including currency, dates, times, counts, inputs, charts, reports, exports and print/PDF
+output. Codes, document numbers, email, IP, SKU, IBAN-like/account values, phone numbers and
+permission keys remain bidirectionally isolated LTR values. RTL uses logical CSS properties;
+directional icons flip, while functional icons do not. The full design and verification contract is
+in `DESIGN_SYSTEM_AND_LOCALIZATION.md`.
 
 Run `npm run i18n:review` for the development review report. It contains every translation key, English and Arabic values, missing/duplicate/suspicious flags, and a static text-overflow risk indicator. `npm run i18n:audit` is the CI gate.
 
@@ -140,7 +192,9 @@ Run `npm run i18n:review` for the development review report. It contains every t
 - Audit/logging: `request-logging.interceptor.ts` and access-audit database triggers
 - Web: `navigation.ts`, `odin-app.tsx`, `access-workspace.tsx`, `sales-workspace.tsx`, and access/RTL/responsive styles
 - Localization: `i18n.ts`, `formatters.ts`, and `scripts/check-translations.mjs`
-- Tests: permission unit tests, PostgreSQL/RLS tests, sales workflow integration tests, localization Playwright tests, and Odin UI Playwright tests
+- Tests: permission/governance/projection unit tests; PostgreSQL/RLS company, attachment, ERP
+  authorization, payment-approval and business integration tests; localization/access/UI Playwright
+  tests
 
 ## Migration and deployment
 
@@ -149,6 +203,7 @@ Back up the production database, then run:
 ```bash
 npm install
 npm run db:generate
+npm run db:validate
 npm run db:migrate
 npm run build
 npm run start
@@ -183,8 +238,10 @@ With PostgreSQL and the application running:
 
 ```bash
 npm run db:generate
+npm run db:validate
 npm run db:migrate
 npm run lint
+npm run typecheck
 npm run i18n:audit
 npm test
 npm run integrity
@@ -192,10 +249,26 @@ npm run build
 npm run test:e2e
 ```
 
-The automated coverage includes direct-route and API denial, allowed actions, maker/checker separation, explicit-deny precedence, record scopes, sensitive-field redaction/write denial, tenant RLS isolation, append-only access audit, approval thresholds, desktop/tablet/mobile layouts, English/Arabic, LTR/RTL, light/dark themes, LTR codes, localized dates/currency, and the existing sales/accounting workflows.
+The current test sources cover direct-route and API denial, explicit-deny precedence, Company and
+record scopes, protected-field projection/write denial, private attachment ownership/tickets/download
+audit, SoD `WARN`/`BLOCK` mutation behavior, outgoing-payment maker/checker, tenant RLS, append-only
+audit, authority limits, responsive layouts, English/Arabic, LTR/RTL, light/dark themes, LTR codes and
+Western-digit formatting. These sources are not a current PASS record until the exact final commands,
+counts and SHA are recorded in `VERIFICATION.md`.
 
-Final local verification on 31 July 2026 passed TypeScript lint, the zero-issue translation audit, all 49 API/database tests, all 21 local Chromium scenarios, the production NestJS/Next.js build, and the financial integrity checker. The two deployment-only Playwright scenarios remain intentionally skipped unless staging credentials and a staging base URL are supplied. A clean PostgreSQL database also applied all nine migrations in sequence.
+Historical local verification on 31 July 2026 passed TypeScript lint, the zero-issue translation
+audit, 49 API/database tests, 21 local Chromium scenarios, the production NestJS/Next.js build and
+the financial integrity checker; a clean database then applied nine migrations. Those totals do not
+verify the current tranche. The deployed workflow scenarios remain conditional on staging
+credentials and a staging base URL.
 
 ## Remaining production extensions
 
-Explicit team membership is represented by role scope configuration (`userIds`). For migrated policies that do not yet contain membership configuration, Odin uses active roles in the same business module as a conservative compatibility fallback instead of widening `TEAM` to the whole branch. A dedicated organization/team editor is a future extension. Supplier and item masters are shared tenant-wide reference data, while their transactions remain branch/warehouse scoped. Enterprise SSO/MFA, periodic access recertification, a four-eyes role-change approval workflow, and external SIEM export are also optional production extensions rather than blockers for the implemented tenant-level RBAC system.
+Explicit team membership is represented by role scope configuration (`userIds`). For migrated
+policies without membership configuration, Odin uses active roles in the same business module as a
+conservative compatibility fallback instead of widening `TEAM` to the whole branch. A normalized
+team model/editor is not implemented. Customers and suppliers are company-owned; items and several
+reference/configuration masters remain tenant-level and therefore keep multi-company depth partial.
+Enterprise SSO, mature recertification campaigns, a governed SoD-exception/four-eyes role-change
+workflow, external SIEM export, provider attachment storage/scanning/recovery and production
+IAM/KMS/PITR evidence remain future or deployment work.

@@ -1,5 +1,81 @@
 # Access control architecture
 
+## Current additive tranche (2026-08-11)
+
+The verified pre-tranche architecture below remains the compatibility base. The current tranche is
+additive: it must not widen a decision when company, selected-resource, temporary or delegated
+context is absent. Current implementation may be classified as **Implemented** or **Partially
+implemented**, but no new capability is **Tested** until the clean migration, unit, database,
+direct-API tampering and browser gates pass on the same immutable commit.
+
+```text
+Tenant
+  -> Company assignment and bounded Company Administrator envelope
+  -> branch / warehouse / department / team / selected financial resources
+  -> primary + additional roles + direct overrides
+  -> active temporary grants + bounded delegations
+  -> permission, record, field, amount/approval and SoD decisions
+  -> explainable effective-access result / safe administrator preview
+  -> server query predicate + object assertion + response projection
+  -> tenant/company database constraints and RLS-compatible transaction
+  -> append-only allow/deny/grant/delegation/review/download evidence
+```
+
+Company is a legal/security boundary inside the tenant, not a replacement for tenant RLS. A Company
+Administrator receives only the administrative envelope explicitly assigned for that company.
+That bounded role does not imply access to business data outside its assigned companies. The legacy
+tenant Super Admin remains an explicit all-company business-data bypass and is a documented
+separation gap. For other actors, missing company context, expired temporary access, an
+out-of-envelope delegation, unassigned financial object or hidden field denies server-side even when
+a client submits a valid object ID.
+
+The additive persistence model uses `Company`, active time-bounded `CompanyMembership` and
+`CompanyBranch`. A default-company backfill plus compatibility triggers preserve existing tenant,
+user and branch creation. The authenticated actor carries assigned company IDs, company-admin IDs
+and company-scoped branch IDs. Query/object predicates apply that context even when a role's legacy
+data scope is `ALL`. This closes branch-derived transactional paths; tenant-shared masters that do
+not yet derive Company ownership remain explicitly partially implemented.
+
+Selected financial objects use typed `FinancialResource` and `FinancialResourceAssignment` records.
+Bank-account and GL-account resources map to current operational entities; treasury, wallet,
+payment-card, cash-source, cheque-book, cost-centre and project types are governance records until
+their corresponding business domains/adapters exist.
+`TemporaryAccessGrant` and `Delegation` carry company, start/end, reason and revocation state; deny
+wins and delegation validation prevents authority escalation. Initial SoD rules are seeded in `WARN`
+mode. The persisted rule model also accepts `BLOCK`, and blocking conflicts are rejected on current
+permission-set mutation paths: role create/update/duplicate, user primary/additional-role and override
+changes, temporary grants and delegations. That is assignment-time coverage, not a configurable
+same-record SoD engine or a governed-exception workflow. Effective-access simulation/preview returns
+an explanation without session mutation, and access review decisions are retained as immutable
+evidence.
+Currency/company-aware authority policies extend the limit registry, but complete authority routing
+and approval workflows are not claimed.
+
+The effective-access simulator evaluates the selected actor and target context without replacing the
+administrator's session. Safe user preview consumes simulator decisions; it is not impersonation and
+does not bypass the normal API. Private attachment access uses the owning entity's company/record/
+field policy, opaque storage identity, bounded download authorization and append-only audit. A local
+download control is not evidence of provider object-storage IAM, KMS, malware scanning or recovery.
+
+Private attachments are DB-backed in this tranche with metadata/content separation, safe filename,
+content-type allowlist, size limit, hash, authenticated owner authorization, a short-lived signed
+user/session-bound ticket, audited download and a sales-document upload/list/download UI.
+`NOT_CONFIGURED` is the truthful scanner state until a real scanner/provider exists. The centralized
+field projector covers the identified customer, supplier, document, journal, payment and audit
+leaks; future endpoints/nested payloads still require registry coverage.
+
+| Current-tranche capability | Classification | Evidence boundary |
+|---|---|---|
+| Company ownership, assignments and bounded administration | Partially implemented | Company/membership/branch mapping, customer/supplier ownership, mapped bank/GL ownership, compatibility triggers and actor/query bounds are implemented; tenant-shared reference/configuration masters and complete governance UI remain partial |
+| Selected financial-resource assignments | Partially implemented | Typed resources and assignments are implemented; bank/GL have operational adapters while other requested classes await their business domains; current direct-ID/output-channel negative rerun is pending |
+| Temporary access and delegation | Implemented | Company/start/end/reason/revocation plus deny/non-escalation rules are implemented; current expiry/envelope rerun pending |
+| SoD warning and assignment evaluation | Partially implemented | Initial rules are seeded as `WARN`; configured `BLOCK` rules reject conflicts on current role, user, temporary-grant and delegation permission-set mutations. A generalized configurable same-record engine and governed exceptions remain incomplete; current rerun pending |
+| Access review and simulator/preview | Implemented | Immutable review snapshots and non-mutating effective/proposed access explanations are implemented; mature campaign/attestation depth remains incomplete and the current authorization rerun is pending |
+| General field projection | Implemented | Central projection covers the identified customer/supplier/document/journal/payment/audit leaks; current negative rerun and future endpoint coverage remain required |
+| Private attachments | Implemented | DB-backed authenticated size/type/hash/ticket/download-audit controls and sales-document UI are implemented; scanner remains `NOT_CONFIGURED` and current rerun pending |
+| Generalized amount/approval limits | Partially implemented | Typed, currency-aware authority policies can be bounded by company, branch, role, department, document type and validity window. Enforcement adapters cover document approvals, receipts/payments, journal posting and treasury movement; complete domain coverage, routing and escalation remain incomplete and the current rerun is pending |
+| Provider attachment storage/scanner and production IAM/KMS | Requires external/provider evidence | Do not classify provider operations as repository-tested without actual integration evidence |
+
 ## Current architecture
 
 ```text
@@ -21,53 +97,64 @@ Explicit permission DENY overrides exact, wildcard, legacy, and Super Admin gran
 1. Reject missing/invalid authentication except health/login/refresh/logout/optional docs.
 2. Reject inactive user or tenant reset-version mismatch.
 3. Combine normalized legacy and relational grants from active roles.
-4. Add user GRANT overrides; collect user DENY overrides.
-5. Deny a requested key if any deny matches; otherwise allow exact, wildcard, or Super Admin grant.
+4. Add active company-scoped temporary/delegated permissions and resource assignments inside their
+   company/time envelopes; add user GRANT overrides and collect user DENY overrides.
+5. Deny a requested key if any deny matches; otherwise allow an exact or wildcard grant. Temporary
+   and delegated grants remain inside their valid company envelope; the legacy Super Admin grant is
+   tenant-wide and is retained as an explicit separation gap.
 6. For dynamic documents, derive `module.resource.action` from `DocumentType`.
-7. Apply a resource data-scope query, branch/warehouse assertions, protected-field serializer and applicable limit.
-8. Execute within tenant RLS transaction.
+7. Intersect company, branch/warehouse, resource and record predicates; apply protected-field
+   projection/write policy and the applicable authority limit.
+8. Execute within a tenant RLS transaction and retain safe audit evidence.
 
 ## Remaining architecture bounds
 
-- Multiple role scopes still combine to the broadest explicit scope; there is no separate resource-scope DENY or delegated administrative boundary.
-- Field combination selects the broadest role access. User field overrides and a universal response-projection adapter remain absent.
-- Four sales limits exist; purchasing, bank, journal, inventory and other authority limits require normalized policy models.
-- Access administration remains class-gated by `system.super_admin`; bounded Security/Company Administrators are not implemented.
-- Company, normalized team, temporary/delegated access, access review, SoD decisioning and explainable custom-policy boundaries are not first-class.
+- Multiple role scopes still combine to the broadest explicit scope; there is no separate resource-scope DENY or general custom-predicate language.
+- Field combination selects the broadest role access. The centralized projector covers the identified current response trees, but user field overrides and automatic coverage of every future endpoint, nested payload, job and notification remain absent.
+- The typed authority registry and company-aware policy model cover the current document-approval, receipt/payment, journal-posting and treasury-movement adapters. They do not provide complete approval routing, escalation or enforcement across every business domain.
+- Company Administrator governance endpoints are bounded to assigned companies. Tenant-wide role/user administration remains protected by `system.super_admin`, and a distinct bounded Security/Functional Administrator model is not complete.
+- Company membership, selected financial resources, temporary access, delegation, access-review
+  evidence and non-mutating simulation are first-class. Normalized teams, mature review campaigns,
+  configurable same-record SoD and governed SoD exceptions remain incomplete.
 - Current report/document/POS/approval outputs use exact permission and scope adapters and literal controller keys are registry-tested; every future output channel must register equivalent enforcement.
 
-## Access Control Center completion review
+## Compatibility-base Access Control Center review
 
 | Capability | Classification | Evidence / remaining boundary |
 |---|---|---|
-| User management | Complete for current tenant model | activate/deactivate, primary/additional roles, branch/warehouse, MFA requirement and overrides; critical changes revoke sessions |
-| Role builder | Complete for current registries | permission, scope, field and four limit tabs with validated API writes |
-| Permission registry | Complete | normalized unique registry plus controller-literal coverage test |
-| Primary and additional roles | Complete | relational assignments included in effective actor |
-| User-specific overrides | Complete for action permissions | GRANT/DENY with append-only audit; expiry/ticket governance is missing |
-| Explicit DENY | Complete for action permissions | wins over role, wildcard, legacy and Super Admin; browser test proves financial export denial |
-| Data scopes | Substantial but incomplete | NONE/OWN/ASSIGNED/TEAM/BRANCH/WAREHOUSE/DEPARTMENT/ALL and default deny; resource-scope DENY/custom policy absent |
-| Field permissions | Partial | current sensitive serializers/reports are tested; no user field override or universal projector |
-| Financial limits | Partial | four sales limits only |
-| Approval limits | Partial | sales amount/discount and maker-checker controls; no general policy engine |
-| Company assignments | Missing | Company is not a normalized model in the current repository |
-| Branch assignments | Complete for current endpoints | user assignment, query predicates, object assertions and browser tampering denial |
-| Warehouse assignments | Complete for current endpoints | user assignment, query predicates, POS/document assertions and negative tests |
-| Department assignments | Partial | department data scope exists; user administrative assignment is not normalized |
-| Team assignments | Partial | team actor/config scope exists; no normalized team membership UI/model |
-| Financial-resource assignments | Complete for current bank-account/GL/supplier models | administrator-selected IDs protect transaction/report/export/print APIs; treasury/wallet/cheque/project/cost-centre models do not exist |
-| Temporary access | Missing | no grant/expiry/approval model |
-| Delegation | Missing | no delegation envelope or workflow |
-| Segregation-of-duties warnings | Missing | maker-checker exists, assignment-time conflict engine does not |
-| Access reviews | Missing | no campaign/attestation model |
-| Effective Access Simulator | Missing | no explainable decision endpoint/UI |
-| User-view preview | Missing | normal role-aware UI exists, but administrator impersonation/preview is intentionally absent |
-| Append-only permission audit | Complete | PostgreSQL trigger and database mutation-negative test |
-| Denied-request audit | Complete for HTTP 401/403 | centralized safe-context filter with classifier tests |
-| Permission cache invalidation | Complete | effective policy reloads per request; role/user writes increment auth version |
-| Active-session invalidation | Complete for critical changes | password, active state, role/user access, MFA reset and logout-all revoke persisted sessions |
+| User management | Implemented | activate/deactivate, primary/additional roles, branch/warehouse, MFA requirement and overrides; critical changes revoke sessions |
+| Role builder | Implemented | permission, scope, field and four limit tabs with validated API writes |
+| Permission registry | Implemented | normalized unique registry plus controller-literal coverage test |
+| Primary and additional roles | Implemented | relational assignments included in effective actor |
+| User-specific overrides | Partially implemented | GRANT/DENY with append-only audit exists; expiry/ticket governance is incomplete |
+| Explicit DENY | Implemented | wins over role, wildcard, legacy and Super Admin; historical browser evidence proves financial export denial |
+| Data scopes | Partially implemented | NONE/OWN/ASSIGNED/TEAM/BRANCH/WAREHOUSE/DEPARTMENT/ALL and default deny exist; resource-scope DENY/custom policy remains absent |
+| Field permissions | Partially implemented | centralized projection covers identified nested response trees and exposed protected writes such as document notes and journal lines require `EDIT`; automatic coverage of every future endpoint/job/output remains incomplete |
+| Financial limits | Partially implemented | four compatibility sales role limits remain, and typed authority policies add current purchase, payment, treasury, journal, expense and credit-exposure keys; complete domain coverage remains incomplete |
+| Approval limits | Partially implemented | sales amount/discount and maker-checker controls exist; company/currency-aware authority adapters cover current document approvals, payments, journal posting and treasury movement, while routing/escalation and full workflow coverage remain incomplete |
+| Company assignments | Partially implemented | Company membership/mapping, customer/supplier ownership and bounded governance APIs are implemented; tenant-shared reference/configuration ownership and complete browser mutation UI remain incomplete |
+| Branch assignments | Implemented | user assignment, query predicates, object assertions and historical browser tampering denial exist |
+| Warehouse assignments | Implemented | user assignment, query predicates, POS/document assertions and historical negative tests exist |
+| Department assignments | Partially implemented | department data scope exists; user administrative assignment is not fully normalized |
+| Team assignments | Partially implemented | team actor/config scope exists; no complete normalized team membership UI/model |
+| Financial-resource assignments | Partially implemented | typed requested resource classes and assignments exist; operational enforcement currently has bank/GL adapters, while other types await business domains |
+| Temporary access | Implemented | company/scope/start/expiry/reason/grantor/revocation and active-window evaluation exist; current rerun pending |
+| Delegation | Implemented | bounded company/scope/validity/reason/revocation with deny/non-escalation exists; current rerun pending |
+| Segregation of duties | Partially implemented | document/journal/outgoing-payment maker-checker and seeded effective-access `WARN` rules exist; configured `BLOCK` rules reject current role, user, temporary-grant and delegation permission-set conflicts. Configurable same-record rules and governed exceptions remain incomplete |
+| Access reviews | Implemented | review output and immutable evidence exist; mature campaign depth remains incomplete |
+| Effective Access Simulator | Implemented | explainable effective-decision calculation exists without altering the target user's session |
+| User-view preview | Implemented | safe simulation-based preview exists; real impersonation remains intentionally absent |
+| Append-only permission audit | Implemented | PostgreSQL trigger and historical database mutation-negative test exist |
+| Denied-request audit | Implemented | centralized safe-context HTTP 401/403 filter with classifier tests exists |
+| Permission cache invalidation | Implemented | effective policy reloads per request; role/user writes increment auth version |
+| Active-session invalidation | Implemented | password, active state, role/user access, MFA reset and logout-all revoke persisted sessions |
 
-Because temporary access, delegation, SoD warnings, reviews, simulator, preview and company administration are missing, the overall Phase 1 access program remains **partially complete** even when the critical verification gates pass.
+The overall Phase 1 access program remains **partially complete** because normalized teams,
+resource-scope deny/custom predicates, automatic field/output coverage, configurable same-record SoD,
+governed exceptions, complete governance browser forms, mature review campaigns and generalized
+approval routing remain incomplete. Company governance APIs, temporary access, delegation, reviews,
+simulator and safe preview are implemented capabilities, with current-tranche verification still
+pending.
 
 ## Target policy model
 
@@ -117,4 +204,8 @@ Precedence:
 
 ## Migration strategy
 
-Add company and normalized assignment tables without removing current JSON/legacy columns. Backfill, dual-read under a feature flag, compare decisions in audit-only mode, then switch enforcement tenant by tenant. Never widen a decision during compatibility fallback.
+The additive migration introduces company and normalized governance tables without removing current
+JSON/legacy columns. Compatibility backfills and provisioning triggers preserve existing tenants,
+users and branches while current enforcement reads the new company/governance records. Any future
+retirement of legacy columns requires decision comparison, tenant-by-tenant migration evidence and a
+non-widening fallback; that retirement is not claimed in this tranche.

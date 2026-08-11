@@ -1,5 +1,48 @@
 # Test strategy
 
+## Current tranche verification contract (2026-08-11)
+
+Historical totals below remain valid only for their recorded commit. The enterprise access and UI/
+localization tranche has no current PASS record yet. Its implementation may be classified as
+**Implemented** or **Partially implemented**, but it becomes **Tested** only after the relevant
+unit, PostgreSQL, direct-API and Chromium suites pass on the same immutable commit.
+
+The root verification surface is `npm run lint`, `npm run typecheck`, `npm run db:validate`,
+`npm run test:unit`, `npm run test:db`, `npm run test:security`, `npm test`, `npm run integrity`,
+`npm run build`, `npm run i18n:audit`, `npm run security:audit`, `npm run security:scan` and the
+selected local Playwright suites. `test:unit` excludes the legacy `database-controls.spec.ts` plus
+the stable `*.database.spec.ts` naming class, `test:db` selects those files, and `test:security` uses
+one anchored pattern for authorization, session/configuration, denial auditing, governance,
+attachments, ERP direct-ID/field authorization, payment approval and persisted database controls.
+The selector in `package.json` is authoritative; a security-relevant database suite must be in both
+the database naming class and that anchored security selector.
+`npm run lint` remains the existing workspace TypeScript gate; the explicit `typecheck`
+alias makes the release command contract unambiguous. Database tests require PostgreSQL 17 and the
+admin/runtime role URLs. Browser tests require the seeded database plus API on port 8081 and web
+application on port 8080; the Playwright config does not start services automatically.
+
+Required current-tranche regression evidence includes:
+
+- Arabic UI text, dates, times, currencies, percentages, counts and inputs contain Western digits
+  and no Arabic-Indic or Persian digit glyphs.
+- Reduced-motion-safe navigation/loading, layout-shaped dashboard/table/form/chart skeletons,
+  button busy states, modal/drawer transitions and responsive RTL layouts.
+- Company Administrator boundaries, cross-company object/ID tampering, customer/supplier ownership,
+  selected financial-resource assignments, temporary expiry, delegation envelopes, SoD warnings and
+  hard assignment blocks, access review and effective-access simulation.
+- Protected-field API projection/redaction and write denial, including document notes and journal
+  lines; customer-detail dependency gates; private attachment authorization, ticket/download audit,
+  UI exposure and direct unauthorized API attempts.
+- Outgoing supplier-payment submission, zero pre-approval financial effect, checker authorization,
+  maker/checker separation, reject reasons, amount authority, branch/company/bank/bill scope,
+  atomic posting/allocation and terminal-state immutability. Customer receipts retain their existing
+  immediate-post regression.
+- Centralized limits across the implemented document/payment/journal scopes and the existing tenant,
+  branch, warehouse, POS, output, MFA, session, accounting and reconciliation regressions.
+
+Provider PITR, cross-region retention, IAM/KMS, scanner-provider operation and production attachment
+recovery are **Requires external/provider evidence**, not repository test PASS conditions.
+
 ## Historical local baseline (2026-08-03)
 
 - Jest: 8 suites, 49 tests; that local run had 5 suites/32 tests pass and 3 suites/17 tests fail.
@@ -26,7 +69,7 @@ This baseline is retained only as history; it is superseded by the CI evidence b
 | Unit | permission decisions/explanations, scope predicates, field projection, limits, state transitions, money/tax/FX/UOM, journal/reversal | no database/network; deterministic clock |
 | Integration | PostgreSQL RLS, constraints, transactions, locks, idempotency, posting, allocations, migration sequence | disposable PostgreSQL 17; isolated tenant per test |
 | API | authentication, exact permission, object scope, hidden fields, limits, status and safe errors | Supertest against real Nest module and database |
-| E2E | administrator configuration and complete business workflows in English/Arabic | production build with disposable database and Chromium |
+| E2E | local navigation/loading/access/localization and selected sales UI paths; deployed quote-to-cash scenarios when staging is configured | production build with disposable database and Chromium; staging tests are explicitly conditional |
 | Security | unauthenticated/wrong tenant/company/branch/warehouse/record, IDOR, print/export/evidence/attachment, rate/session | required negative suite |
 | Concurrency | stock, allocations, numbering, returns, approval, POS close, period close | parallel clients with invariant checks |
 | Reconciliation | GL balance and AR/AP/inventory/cash/payroll/assets/tax/POS controls | zero unexplained difference |
@@ -34,11 +77,17 @@ This baseline is retained only as history; it is superseded by the CI evidence b
 
 ## Remaining test priorities
 
-1. Split pure unit tests from database suites so local prerequisite failures cannot obscure unit status.
-2. Add negative Company-scope tests when the normalized Company model is introduced.
-3. Add private-attachment authorization, malware-scan and signed-download tests before attachment storage is implemented.
-4. Expand parallel-client invariant tests for stock, allocation, numbering, approval, POS close and period close.
-5. Add provider-level PITR, cross-region retention, IAM/KMS and object-attachment restore evidence before production release.
+1. Keep the unit/database/security selectors disjoint where intended, include every new stable
+   security basename, and report overlap explicitly rather than summing overlapping suite totals.
+2. Extend Company tests from current membership, party, branch, finance-object, attachment and
+   direct-ID boundaries to the remaining tenant-level masters, dashboards, reports and outputs.
+3. Keep private-attachment service/HTTP/database authorization, signed-download, UI and DB-backed
+   restore coverage current; add real malware-scanner tests only when a provider is integrated.
+4. Keep outgoing-payment approval tests at service/database depth and add a real browser
+   maker/checker scenario; expand parallel-client invariants for payment approval, stock, allocation,
+   numbering, POS close and period close.
+5. Add provider-level PITR, cross-region retention, IAM/KMS and object-attachment restore evidence
+   before production release.
 
 ## Evidence format
 

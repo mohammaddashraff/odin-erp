@@ -1,6 +1,15 @@
 # Permission registry and route map
 
-Authoritative source: `apps/api/src/permissions.ts`. The current generated registry contains 364 unique stable keys across system, dashboard, sales, purchasing, inventory, accounting, payments, banking, POS, HR, reports, approvals, audit and settings.
+Authoritative source: `apps/api/src/permissions.ts`. The registry contains normalized stable keys
+across system, dashboard, sales, purchasing, inventory, accounting, payments, banking, POS, HR,
+reports, approvals, audit and settings. Exact current key totals belong in the final verification
+record, not in this architecture description.
+
+| Registry capability | Classification | Boundary |
+|---|---|---|
+| Pre-tranche unique normalized registry and literal decorator coverage | Implemented | Historical tests exist; current rerun pending |
+| Company governance and private attachment authorization | Partially implemented | current governance endpoints reuse company-scoped `settings.users_access.view/manage`; attachment routes resolve the owning document permission plus attachment scope/field policy. Finer dedicated lifecycle/action keys remain a registry gap |
+| Registry version/deprecation compatibility contract | Not implemented | A stable key set exists, but lifecycle versioning and consumer compatibility remain absent |
 
 ## Naming contract
 
@@ -25,7 +34,7 @@ Additional actions are resource-specific: `convert`, `process`, `post`, `use`, `
 | sales document list/reference employees/exchange rate | controller any-of plus service resource checks |
 | `GET/POST/PATCH /api/documents...` | dynamic `${module}.${resource}.${view|create|edit}` |
 | document convert/workflow/post | dynamic source/target `convert/create`, resource `edit/approve/reject/post`, or `approvals.queue.edit/history` |
-| payments | `payments.receipt|payment.view/create`, resolved by kind in service where applicable |
+| payments | `payments.receipt|payment.view/create`, resolved by kind in service; outgoing decisions require `payments.payment.approve` or `payments.payment.reject` plus branch/company/bank/bill scope and maker/checker |
 | journals | `accounting.journal.view/create/edit`; workflow dynamically checks `submit/edit`, `approve`, `reject`, `post`; reversal currently uses `create` |
 | periods | `accounting.period.manage` |
 | POS | exact `pos.register.view`, `pos.shift.create/edit`, `pos.sale.create/edit/view/print`, `pos.return.create` |
@@ -34,7 +43,9 @@ Additional actions are resource-specific: `convert`, `process`, `post`, `use`, `
 | report view | `reports.standard.view` or `reports.profitability.view`, then domain prerequisites in service |
 | report CSV/PDF | broad controller metadata plus a dynamic resolver requiring the exact standard/profitability export or print key, followed by report view/domain checks |
 | document PDF | dynamic resolver loads the target type, requires its exact `*.print` key, then applies target view and object scope |
-| access overview and mutations | class-level `system.super_admin`; mutations also require `settings.users_access.manage` |
+| tenant-wide access overview, roles and users | `system.super_admin`; privileged mutations require step-up authentication |
+| company governance | company-scoped `settings.users_access.view/manage`, then a service-side Company Administrator envelope; Company creation remains `system.super_admin` |
+| private attachments | owning document's exact `*.view`/`*.edit` permission plus document scope, attachment scope and `attachment.metadata` field policy; download rechecks authorization after ticket issuance |
 | tenant reset | `settings.system.reset` plus password confirmation |
 
 ## Registry gaps

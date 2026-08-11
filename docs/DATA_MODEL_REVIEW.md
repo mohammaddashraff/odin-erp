@@ -2,7 +2,19 @@
 
 ## Inventory
 
-The Prisma schema has 41 models and 11 enums. Tenant ownership is present on all business/access tables, with broad tenant/date/status indexes and foreign keys. Money uses BigInt minor units; quantity uses integer thousandths; exchange rates use millionths.
+The verified pre-tranche Prisma schema at `2ad6968` has 48 models, 14 enums and 14 migrations.
+Tenant ownership is present on all pre-tranche business/access tables, with broad tenant/date/status
+indexes and foreign keys. Money uses BigInt minor units; quantity uses integer thousandths; exchange
+rates use millionths. Recount models/enums/migrations after the current additive migration is final;
+do not copy these baseline totals into current verification evidence.
+
+| Current-tranche model area | Classification | Boundary |
+|---|---|---|
+| Company and normalized selected-resource ownership | Partially implemented | Company, time-bounded membership/branch mapping, customer/supplier ownership and typed financial resources/assignments are additive; remaining tenant-shared master depth and current full cross-company evidence remain pending |
+| Temporary grants, delegation, SoD and access review/simulation | Partially implemented | validity/revocation, `WARN`/`BLOCK` rules on current permission-set mutations, immutable review evidence and non-mutating explanation records are additive; configurable same-record rules, governed exceptions and final evidence remain pending |
+| Centralized field policy and private attachments | Implemented | projector plus DB-backed safe metadata/content/ticket/audit controls are additive; future response coverage and provider storage/scanner remain incomplete |
+| Generalized authority limits | Partially implemented | Existing sales limits plus company/currency/time-bounded authority policies and current document/payment/journal/treasury adapters are additive; complete domain routing and escalation remain incomplete |
+| Provider object storage, scanner and attachment recovery | Requires external/provider evidence | Metadata and authorization hooks cannot establish provider IAM/KMS/scanning/recovery evidence |
 
 ## Strong foundations
 
@@ -18,22 +30,22 @@ The Prisma schema has 41 models and 11 enums. Tenant ownership is present on all
 
 | Area | Current state | Target change |
 |---|---|---|
-| Legal organization | Tenant → Branch → Warehouse | Add Company/LegalEntity; every accounting/transaction/configuration row receives company ownership |
-| User assignments | branch/warehouse IDs stored as JSON | relational user-company/branch/warehouse/department/team/resource assignments with validity dates |
+| Legal organization | Tenant → Company membership/mapping → Branch → Warehouse for branch-derived transactions | propagate explicit Company ownership to remaining tenant-shared masters/configuration and prove every cross-company join |
+| User assignments | relational time-bounded Company and typed financial-resource assignments coexist with legacy branch/warehouse JSON | complete branch/warehouse/department/team normalization through a measured dual-read migration |
 | Roles | tenant role plus JSON legacy permissions | versioned templates and scoped role assignments; retain compatibility during migration only |
 | Data scopes | one scope per role/resource, JSON config | normalized policies with explicit NONE/selected-resource/custom predicate references |
-| Temporary access | absent | grant header/items, approval, start/expiry, automatic expiry and evidence |
-| Approval delegation | absent | delegate, document type, amount, organization scope and validity |
-| Access review/SoD | absent | campaigns, decisions, conflicts, exceptions and compensating controls |
-| Documents | six-state workflow | reusable transition/event model supporting partial, settled, reversed and correction states |
+| Temporary access | company/scope/start/expiry/reason/grantor/revocation with active-window evaluation | add mature approval/recertification workflow and operational expiry monitoring |
+| Approval delegation | bounded company/scope/start/expiry/reason/revocation with non-escalation | extend to document type/amount routing as approval graphs mature |
+| Access review/SoD | immutable review evidence, effective-access explanation, seeded `WARN` rules and persisted `BLOCK` enforcement on current permission-set mutations | add campaign depth, configurable same-record rules, governed exceptions and compensating controls |
+| Documents | six-state workflow; outgoing payments have a separate submitted/posted/rejected state | reusable transition/event model supporting partial, settled, reversed and correction states across domains |
 | Optimistic concurrency | absent | version columns and conditional updates on mutable aggregates |
 | Idempotency | table exists but is unused | request identity, operation, actor, status, response hash, expiry and atomic claim |
 | Inventory | item/warehouse only | variants, UOM conversions, bin, reservation, lot/batch/serial/expiry and cost-layer models |
-| Payments | allocation has three business fields | party/currency/rate, before/after balance, journal, source, reversal and immutable status |
+| Payments | branch and submitted/posted/rejected status, pending allocation plan, maker/checker actors/timestamps/comment, journal and final allocation rows | add transaction/functional currency and rate facts, before/after balance evidence, governed reversal and reusable transition history |
 | Currency | documents have currency/rate; other domains mixed | transaction and functional currency on all monetary facts; exact conversion evidence |
 | Accounting dimensions | branch and free-text cost center | normalized cost center, department, project, profit center and dimension values |
 | Period close | string status | governed close/reopen request, checklist, approvals, close journal and retained-earnings evidence |
-| Attachments | JSON on documents | private attachment metadata, storage key, hash, scan status, owner/scope and audit |
+| Attachments | DB-backed private metadata/content with owner scope, hash, allowlisted type/size, safe filename, signed user-bound ticket, audit and `NOT_CONFIGURED` scanner status | integrate provider object storage, real malware scanner and attachment recovery evidence |
 | Integration/events | absent | outbox, inbox/idempotency, delivery attempts and dead letters |
 
 ## Constraint gaps

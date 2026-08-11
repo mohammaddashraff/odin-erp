@@ -36,7 +36,9 @@ The conversion dialog exposes remaining quantities and rejects over-conversion i
 5. Convert received quantities into a supplier bill. An amount greater than the remaining received
    quantity is rejected.
 6. Post the bill and show GRNI, input VAT, AP, inventory movement, and document chain.
-7. Allocate a partial supplier payment. Show the supplier statement and AP aging.
+7. Create a partial supplier payment. Show that it remains **Submitted** with no journal or
+   allocation effect, then switch to a different authorized checker and approve it. Show the posted
+   allocation, supplier statement, AP aging, and retained maker/checker evidence.
 8. Create a purchase return and show stock reduction and reversal of payable, VAT, and inventory.
 
 ## 4. Inventory
