@@ -25,7 +25,7 @@
   font-weight: 700;
 }
 .ar-filter-bar {
-  background: var(--odin-white);
+  background: var(--odin-panel);
   border: 1px solid var(--odin-border);
   border-radius: 5px;
   padding: 16px;
@@ -57,7 +57,7 @@
   padding: 6px 10px;
   border-radius: 4px;
   min-width: 0;
-  background: white;
+  background: var(--odin-panel);
 }
 .ar-filter-fields input[type="date"] {
   direction: ltr;
@@ -106,7 +106,7 @@
 }
 .ar-report-sheet,
 .ar-ledger-sheet {
-  background: white;
+  background: var(--odin-panel);
   border: 1px solid var(--odin-border);
   border-radius: 5px;
   overflow: hidden;
@@ -190,7 +190,7 @@
   white-space: nowrap;
 }
 .ar-report-table tbody tr:hover {
-  background: #f8faff;
+  background: var(--odin-panel);
 }
 .ar-report-table tfoot th,
 .ar-report-table tfoot td {
@@ -294,7 +294,7 @@ html[dir="rtl"] .ar-account-link svg {
 }
 .ar-statement-section:not(:first-of-type) .ar-statement-heading th,
 .ar-statement-section:not(:first-of-type) .ar-statement-heading td {
-  border-top: 15px solid white;
+  border-top: 15px solid var(--odin-border);
 }
 .ar-statement-subtotal th,
 .ar-statement-subtotal td {
@@ -305,7 +305,7 @@ html[dir="rtl"] .ar-account-link svg {
 .ar-statement-result th,
 .ar-statement-result td {
   border-top: 2px solid var(--odin-navy);
-  background: #e9eef8;
+  background: var(--odin-panel);
   padding-top: 15px;
   padding-bottom: 15px;
   font-size: 14px;
@@ -338,7 +338,7 @@ html[dir="rtl"] .ar-account-link svg {
   border: 1px solid var(--odin-border);
   border-radius: 5px;
   padding: 15px 0;
-  background: #edf3fd;
+  background: var(--odin-panel);
   margin-bottom: 10px;
 }
 .ar-ledger-summary > div {
@@ -378,7 +378,7 @@ html[dir="rtl"] .ar-account-link svg {
 .ar-account-prompt {
   border-inline-start: 3px solid var(--odin-brand);
   padding: 8px 11px;
-  background: white;
+  background: var(--odin-panel);
 }
 .ar-ledger-table {
   min-width: 960px;
@@ -398,7 +398,7 @@ html[dir="rtl"] .ar-account-link svg {
 }
 .ar-ledger-table .ar-opening-row td,
 .ar-ledger-table .ar-opening-row th {
-  background: #fafbfd;
+  background: var(--odin-panel);
   font-weight: 400;
 }
 .ar-ledger-reference {
@@ -459,7 +459,7 @@ html[dir="rtl"] .ar-account-link svg {
   padding: 5px;
   border: 1px solid var(--odin-border);
   border-radius: 4px;
-  background: white;
+  background: var(--odin-panel);
 }
 .ar-ledger-pagination .pagination {
   border: 0;

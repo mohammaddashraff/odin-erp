@@ -18,16 +18,17 @@ import {
   ChevronDown,
   LogOut,
   Globe,
-  Pin,
   X,
+  Search,
+  ArrowRight,
 } from "lucide-react";
-import { modules, routeEntry } from "../core/navigation";
+import { modules, allRoutes, routeEntry } from "../core/navigation";
 import { useERP } from "../core/erp-context";
-import { Brand, Button, ErrorNotice, Loading } from "./ui";
+import { Brand, Button, Dialog, SearchField, ErrorNotice, Loading } from "./ui";
 import Login from "./login";
 import Screens from "../screens";
 import { PasswordChange } from "../screens/administration";
-const icons: any = {
+const icons = {
   av8: Users,
   command: LayoutDashboard,
   sales: ReceiptText,
@@ -56,85 +57,68 @@ export default function Workspace({ route }: { route: string }) {
     notices,
   } = useERP();
   const current = routeEntry(route);
-  const [expanded, setExpanded] = useState<string>(current.module.id);
+  const [expanded, setExpanded] = useState("");
   const [mobile, setMobile] = useState(false);
-  const [narrow, setNarrow] = useState(false);
-  const [sidebarHovered, setSidebarHovered] = useState(false);
-  const [sidebarKeyboardFocused, setSidebarKeyboardFocused] = useState(false);
-  const sidebarCloseTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [pinned,setPinned]=useState(false);
-  useEffect(()=>{setPinned(localStorage.getItem('av8_sidebar_pinned')==='true');},[]);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [query, setQuery] = useState("");
   const navigation = useRef<HTMLElement>(null);
-  const cancelSidebarClose = () => {
-    if (sidebarCloseTimer.current) clearTimeout(sidebarCloseTimer.current);
-    sidebarCloseTimer.current = null;
-  };
-  useEffect(() => () => {
-    if (sidebarCloseTimer.current) clearTimeout(sidebarCloseTimer.current);
-  }, []);
+  const menuButton = useRef<HTMLButtonElement>(null);
   useEffect(() => {
-    const viewport = window.matchMedia("(max-width: 900px)");
-    const update = () => {
-      setNarrow(viewport.matches);
-      setSidebarHovered(false);
-      setSidebarKeyboardFocused(false);
-      if (!viewport.matches) setMobile(false);
+    setExpanded("");
+    setMobile(false);
+    setSearchOpen(false);
+  }, [route]);
+  useEffect(() => {
+    const desktop = window.matchMedia("(min-width: 801px)");
+    const closeDrawer = () => {
+      if (desktop.matches) setMobile(false);
     };
-    update();
-    viewport.addEventListener("change", update);
-    return () => viewport.removeEventListener("change", update);
+    desktop.addEventListener("change", closeDrawer);
+    return () => desktop.removeEventListener("change", closeDrawer);
   }, []);
   useEffect(() => {
-    if (!mobile || !narrow) return;
-    const panel = navigation.current;
-    if (!panel) return;
-    const opener = document.activeElement as HTMLElement | null;
+    const close = (event: PointerEvent) => {
+      if (!navigation.current?.contains(event.target as Node)) setExpanded("");
+    };
+    document.addEventListener("pointerdown", close);
+    return () => document.removeEventListener("pointerdown", close);
+  }, []);
+  useEffect(() => {
+    if (!mobile) return;
+    const previous = document.activeElement as HTMLElement;
     const overflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
-    const controls = () =>
-      [
-        ...panel.querySelectorAll<HTMLElement>(
-          "a[href], button:not([disabled])",
-        ),
-      ].filter((element) => element.getClientRects().length > 0);
-    (
-      panel.querySelector<HTMLElement>(".nav-module.selected") || controls()[0]
-    )?.focus();
-    const keydown = (event: KeyboardEvent) => {
+    navigation.current?.querySelector<HTMLElement>("button, a")?.focus();
+    const trap = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
-        event.preventDefault();
         setMobile(false);
-      } else if (event.key === "Tab") {
-        const elements = controls();
-        const first = elements[0];
-        const last = elements[elements.length - 1];
-        if (
-          event.shiftKey &&
-          (document.activeElement === first ||
-            !panel.contains(document.activeElement))
-        ) {
-          event.preventDefault();
-          last?.focus();
-        } else if (
-          !event.shiftKey &&
-          (document.activeElement === last ||
-            !panel.contains(document.activeElement))
-        ) {
-          event.preventDefault();
-          first?.focus();
-        }
+        return;
+      }
+      if (event.key !== "Tab") return;
+      const controls = [
+        ...(navigation.current?.querySelectorAll<HTMLElement>(
+          "a[href],button",
+        ) || []),
+      ].filter((e) => e.getClientRects().length);
+      const first = controls[0],
+        last = controls.at(-1);
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last?.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first?.focus();
       }
     };
-    document.addEventListener("keydown", keydown);
+    document.addEventListener("keydown", trap);
     return () => {
       document.body.style.overflow = overflow;
-      document.removeEventListener("keydown", keydown);
-      if (opener?.isConnected) opener.focus();
+      document.removeEventListener("keydown", trap);
+      if (menuButton.current?.getClientRects().length)
+        menuButton.current.focus();
+      else if (previous.isConnected) previous.focus();
     };
-  }, [mobile, narrow]);
-  // Desktop navigation stays compact until it is hovered or focused. This keeps
-  // the workspace wide without making people remember a persistent toggle.
-  const compact = !narrow && !sidebarHovered && !sidebarKeyboardFocused && !pinned;
+  }, [mobile]);
   if (status === "restoring")
     return (
       <div className="session-loading">
@@ -143,155 +127,264 @@ export default function Workspace({ route }: { route: string }) {
       </div>
     );
   if (!user) return <Login />;
-  if (user.passwordChangeRequired) return <div className="temporary-password-page"><Brand/><PasswordChange required/><Button onClick={endSession}>{tr('Sign out')}</Button></div>;
-  const visible = modules.filter((m) =>
-    !["sales","purchasing","inventory","pos","hr","reports"].includes(m.id) && m.children.some((c) => allowed(c.permission)),
+  if (user.passwordChangeRequired)
+    return (
+      <div className="temporary-password-page">
+        <Brand />
+        <PasswordChange required />
+        <Button onClick={endSession}>{tr("Sign out")}</Button>
+      </div>
+    );
+  const order = [
+    "command",
+    "av8",
+    "sales",
+    "inventory",
+    "purchasing",
+    "accounting",
+    "banking",
+    "approvals",
+    "reports",
+    "hr",
+    "pos",
+    "admin",
+  ];
+  const visible = [...modules]
+    .sort((a, b) => order.indexOf(a.id) - order.indexOf(b.id))
+    .filter((m) => m.children.some((c) => allowed(c.permission)));
+  const activeModule = visible.find((m) => m.id === expanded);
+  const destinations = allRoutes.filter(
+    ({ child }) =>
+      allowed(child.permission) &&
+      tr(child.label).toLocaleLowerCase().includes(query.toLocaleLowerCase()),
   );
   return (
-    <div className={`erp-shell ${compact ? "compact" : ""}`}>
+    <div className="glass-shell">
       <a className="skip" href="#main">
         {tr("Skip to content")}
       </a>
-      {mobile ? (
-        <button
-          className="nav-scrim"
-          tabIndex={-1}
-          aria-label={tr("Close")}
-          onClick={() => setMobile(false)}
-        />
-      ) : null}
-      <aside
-        ref={navigation}
-        className={`navigation ${mobile ? "mobile-open" : ""}`}
-        inert={narrow && !mobile}
-        role={narrow && mobile ? "dialog" : undefined}
-        aria-modal={narrow && mobile ? true : undefined}
-        aria-label={tr("ERP modules")}
-        onMouseEnter={() => {
-          cancelSidebarClose();
-          if (!narrow) setSidebarHovered(true);
-        }}
-        onMouseLeave={() => {
-          cancelSidebarClose();
-          if (!narrow) {
-            sidebarCloseTimer.current = setTimeout(() => setSidebarHovered(false), 140);
-          }
-        }}
-        onPointerDownCapture={() => setSidebarKeyboardFocused(false)}
-        onFocusCapture={(event) => {
-          if (!narrow && event.target.matches(":focus-visible")) {
-            setSidebarKeyboardFocused(true);
-          }
-        }}
-        onBlurCapture={(event) => {
-          if (!event.currentTarget.contains(event.relatedTarget)) {
-            setSidebarKeyboardFocused(false);
-          }
-        }}
-      >
-        <div className="navigation-header">
-          <Link href="/dashboard" className="nav-brand" aria-label="AV8 ERP · ODIN Software Solutions" onClick={() => setMobile(false)}>
-            <Brand />
-          </Link>
-          <button
-            type="button"
-            className="navigation-control navigation-pin"
-            aria-label={tr("Keep navigation open")}
-            title={tr(pinned ? "Unpin navigation" : "Keep navigation open")}
-            aria-pressed={pinned}
-            onClick={() => {
-              const next = !pinned;
-              localStorage.setItem("av8_sidebar_pinned", String(next));
-              setPinned(next);
-            }}
-          >
-            <Pin size={16} aria-hidden="true" />
-          </button>
-          <button type="button" className="navigation-control navigation-close" aria-label={tr("Close navigation")} onClick={() => setMobile(false)}>
-            <X size={18} aria-hidden="true" />
-          </button>
+      <header className="glass-header context-bar" inert={mobile}>
+        <Link
+          href="/dashboard"
+          className="glass-brand-link"
+          aria-label="ODIN ERP"
+        >
+          <Brand />
+        </Link>
+        <div className="company-context">
+          <span>{tr("Current company")}</span>
+          <strong>
+            {tr(
+              (refs?.tenant?.name || "—").replace(
+                /\s*·?\s*isolated workspace/i,
+                "",
+              ),
+            )}
+          </strong>
         </div>
-        <nav id="workspace-navigation" aria-label={tr("ERP modules")}>
-          {visible.map((m, index) => {
-            const Icon = icons[m.id];
-            const children = m.children.filter((c) => allowed(c.permission));
-            return (
-              <div className="nav-group" key={m.id}>
-                {index === 0 || visible[index - 1].category !== m.category ? (
-                  <h2>{tr(m.category.toUpperCase())}</h2>
-                ) : null}
-                <button
-                  data-testid={`nav-${m.id}`}
-                  className={`nav-module ${m.id === current.module.id ? "selected" : ""}`}
-                  aria-expanded={children.length > 1 ? expanded === m.id : undefined}
-                  aria-controls={children.length > 1 && expanded === m.id ? `nav-pages-${m.id}` : undefined}
-                  title={tr(m.label)}
-                  onClick={() => {
-                    setExpanded(expanded !== m.id ? m.id : "");
-                    if (children.length === 1) {
-                      setMobile(false);
-                      window.location.assign(children[0].route);
-                    }
-                  }}
-                >
-                  <Icon size={18} aria-hidden="true" />
-                  <span>{tr(m.label)}</span>
-                  {children.length > 1 ? <ChevronDown size={14} aria-hidden="true" /> : null}
-                </button>
-                {expanded === m.id && children.length > 1 ? (
-                  <div className="nav-pages" id={`nav-pages-${m.id}`} inert={compact}>
-                    <div className="nav-page-list">
-                      {children.map((c) => (
-                        <Link
-                          data-testid={`nav-${c.id}`}
-                          href={c.route}
-                          key={c.id}
-                          aria-current={route === c.route ? "page" : undefined}
-                          onClick={() => setMobile(false)}
-                        >
-                          {tr(c.label)}
-                        </Link>
-                      ))}
-                    </div>
-                  </div>
-                ) : null}
-              </div>
-            );
-          })}
-        </nav>
-      </aside>
-      <div className="workspace" inert={narrow && mobile}>
-        <header className="context-bar">
+        <div className="context-actions">
           <Button
-            className="mobile-menu"
+            className="round-control"
+            aria-label={tr("Search pages")}
+            onClick={() => setSearchOpen(true)}
+          >
+            <Search size={19} />
+          </Button>
+          <Button data-testid="language-toggle" onClick={changeLanguage}>
+            <Globe size={18} />
+            <span>{language === "en" ? "العربية" : "English"}</span>
+          </Button>
+          <details className="account-menu">
+            <summary aria-label={tr("Account menu")}>
+              <span className="initials">{user.name.slice(0, 2)}</span>
+              <span className="account-name">{user.name}</span>
+              <ChevronDown size={14} />
+            </summary>
+            <div className="account-menu-panel">
+              <Link href="/my-profile">{tr("My Profile")}</Link>
+              <Button onClick={endSession}>
+                <LogOut size={16} />
+                {tr("Sign out")}
+              </Button>
+            </div>
+          </details>
+          <button
+            ref={menuButton}
+            className="btn glass-menu-toggle"
             aria-label={tr("Menu")}
             aria-expanded={mobile}
             aria-controls="workspace-navigation"
             onClick={() => setMobile(!mobile)}
           >
             <Menu size={20} />
+          </button>
+        </div>
+      </header>
+      {mobile ? (
+        <button
+          className="glass-nav-scrim"
+          aria-label={tr("Close")}
+          tabIndex={-1}
+          onClick={() => setMobile(false)}
+        />
+      ) : null}
+      <nav
+        ref={navigation}
+        id="workspace-navigation"
+        className={`glass-navigation ${mobile ? "is-open" : ""}`}
+        role={mobile ? "dialog" : undefined}
+        aria-modal={mobile ? true : undefined}
+        aria-label={tr("ERP modules")}
+        onKeyDown={(event) => {
+          if (event.key === "Escape") {
+            const trigger = navigation.current?.querySelector<HTMLElement>(
+              '[aria-expanded="true"]',
+            );
+            setExpanded("");
+            trigger?.focus();
+          }
+        }}
+      >
+        <div className="glass-mobile-title">
+          <Brand />
+          <Button
+            aria-label={tr("Close navigation")}
+            onClick={() => setMobile(false)}
+          >
+            <X size={20} />
           </Button>
-          <div className="company-context">
-            <span>{tr("Current company")}</span>
-            <strong>{tr((refs?.tenant?.name || '—').replace(/\s*·?\s*isolated workspace/i,''))}</strong>
+        </div>
+        <div className="glass-nav-items">
+          {visible.map((m, index) => {
+            const Icon = icons[m.id],
+              children = m.children.filter((c) => allowed(c.permission)),
+              selected = m.id === current.module.id;
+            const label =
+              m.id === "command" ? tr("Dashboard Overview") : tr(m.label);
+            return children.length === 1 ? (
+              <Link
+                key={m.id}
+                className={`glass-nav-item ${selected ? "selected" : ""} ${index >= 6 ? "glass-nav-overflow" : ""}`}
+                data-testid={`nav-${m.id}`}
+                href={children[0].route}
+                aria-current={selected ? "page" : undefined}
+                onClick={() => setMobile(false)}
+              >
+                <Icon size={19} />
+                <span>{label}</span>
+              </Link>
+            ) : (
+              <button
+                key={m.id}
+                type="button"
+                className={`glass-nav-item ${selected ? "selected" : ""} ${index >= 6 ? "glass-nav-overflow" : ""}`}
+                data-testid={`nav-${m.id}`}
+                aria-expanded={expanded === m.id}
+                aria-controls={
+                  expanded === m.id ? "glass-module-pages" : undefined
+                }
+                onClick={() => setExpanded(expanded === m.id ? "" : m.id)}
+              >
+                <Icon size={19} />
+                <span>{label}</span>
+                <ChevronDown size={14} />
+              </button>
+            );
+          })}
+          {visible.length > 6 ? (
+            <button
+              className={`glass-nav-item glass-more ${visible.slice(6).some((m) => m.id === current.module.id) ? "selected" : ""}`}
+              aria-expanded={expanded === "more"}
+              aria-controls={
+                expanded === "more" ? "glass-more-pages" : undefined
+              }
+              onClick={() => setExpanded(expanded === "more" ? "" : "more")}
+            >
+              <Menu size={19} />
+              {tr("More")}
+              <ChevronDown size={14} />
+            </button>
+          ) : null}
+        </div>
+        {expanded === "more" ? (
+          <div id="glass-more-pages" className="glass-module-pages">
+            <div>
+              {visible.slice(6).map((m) => (
+                <section key={m.id}>
+                  <h2>{tr(m.label)}</h2>
+                  {m.children
+                    .filter((c) => allowed(c.permission))
+                    .map((c) => (
+                      <Link
+                        href={c.route}
+                        key={c.id}
+                        data-testid={`nav-${c.id}`}
+                        onClick={() => setExpanded("")}
+                      >
+                        {tr(c.label)}
+                        <ArrowRight size={14} />
+                      </Link>
+                    ))}
+                </section>
+              ))}
+            </div>
           </div>
-          <div className="context-actions">
-            <Button data-testid="language-toggle" onClick={changeLanguage}>
-              <Globe size={15} />
-              {language === "en" ? "العربية" : "English"}
-            </Button>
-            <details className="account-menu">
-              <summary aria-label={tr('Account menu')}><span className="initials" aria-hidden="true">{user.name.slice(0,2)}</span><span>{user.name}</span><ChevronDown size={15}/></summary>
-              <div className="account-menu-panel"><Link href="/my-profile">{tr('My Profile')}</Link><Button onClick={endSession}><LogOut size={16}/>{tr('Sign out')}</Button></div>
-            </details>
+        ) : null}
+        {activeModule ? (
+          <div id="glass-module-pages" className="glass-module-pages">
+            <strong>{tr(activeModule.label)}</strong>
+            <div>
+              {activeModule.id === "av8" && allowed("av8.workspace.view") ? (
+                <Link
+                  href="/dashboard?view=daily"
+                  onClick={() => {
+                    setExpanded("");
+                    setMobile(false);
+                  }}
+                >
+                  {tr("Daily workspace")}
+                  <ArrowRight size={15} />
+                </Link>
+              ) : null}
+              {activeModule.children
+                .filter((c) => allowed(c.permission))
+                .map((c) => (
+                  <Link
+                    key={c.id}
+                    href={c.route}
+                    data-testid={`nav-${c.id}`}
+                    aria-current={route === c.route ? "page" : undefined}
+                    onClick={() => {
+                      setExpanded("");
+                      setMobile(false);
+                    }}
+                  >
+                    {tr(c.label)}
+                    <ArrowRight size={15} />
+                  </Link>
+                ))}
+            </div>
           </div>
-        </header>
+        ) : null}
+      </nav>
+      <div className="glass-workspace" inert={mobile}>
         <main id="main">
-          <nav className="breadcrumbs" aria-label={tr("Breadcrumbs")}>
-            <span>{tr(current.module.label)}</span>
-            <span>/</span>
-            <strong>{tr(current.child.label)}</strong>
-          </nav>
+          {route !== "/dashboard" ? (
+            <nav className="breadcrumbs" aria-label={tr("Breadcrumbs")}>
+              <Link href="/dashboard">{tr("Dashboard Overview")}</Link>
+              <span>/</span>
+              <Link
+                href={
+                  current.module.children.find((c) => allowed(c.permission))
+                    ?.route || "/dashboard"
+                }
+              >
+                {tr(current.module.label)}
+              </Link>
+              <span>/</span>
+              <strong>{tr(current.child.label)}</strong>
+            </nav>
+          ) : null}
           {!allowed(current.child.permission) ? (
             <div className="denied">
               <ShieldCheck size={32} />
@@ -314,6 +407,26 @@ export default function Workspace({ route }: { route: string }) {
           )}
         </main>
       </div>
+      {searchOpen ? (
+        <Dialog title="Search pages" close={() => setSearchOpen(false)}>
+          <SearchField label="Search pages" value={query} onChange={setQuery} />
+          <div className="glass-search-results">
+            {destinations.map(({ module, child }) => (
+              <Link
+                href={child.route}
+                key={child.route}
+                onClick={() => setSearchOpen(false)}
+              >
+                <span>
+                  {tr(child.label)}
+                  <small>{tr(module.label)}</small>
+                </span>
+                <ArrowRight size={16} />
+              </Link>
+            ))}
+          </div>
+        </Dialog>
+      ) : null}
       <div className="notices" aria-live="polite">
         {notices.map((n: any) => (
           <div

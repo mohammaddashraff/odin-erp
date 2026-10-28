@@ -135,36 +135,21 @@ test("keyboard dialog focus, error/retry/loading states and reduced motion", asy
   await page.screenshot({ path: dir + "empty-en.png" });
 });
 
-test("hover navigation, mobile navigation and browser print", async ({
+test("horizontal navigation, mobile navigation and browser print", async ({
   page,
 }) => {
   await login(page);
-  await expect(page.locator(".nav-module")).toHaveCount(11);
-  await expect(page.locator(".erp-shell")).toHaveClass(/compact/);
-  const navigationWidth = () =>
-    page.locator(".navigation").evaluate((element) =>
-      Math.round(element.getBoundingClientRect().width),
-    );
-  expect(await navigationWidth()).toBe(76);
-  await page.locator(".navigation").hover();
-  await page.waitForTimeout(120);
-  expect(await navigationWidth()).toBeGreaterThan(76);
-  expect(await navigationWidth()).toBeLessThan(220);
-  await expect(page.locator(".erp-shell")).not.toHaveClass(/compact/);
-  await page.mouse.move(1400, 450);
-  await page.waitForTimeout(120);
-  expect(await navigationWidth()).toBeGreaterThan(76);
-  expect(await navigationWidth()).toBeLessThan(220);
-  await expect(page.locator(".erp-shell")).toHaveClass(/compact/);
-  await page.locator(".navigation").hover();
+  await expect(page.locator(".glass-navigation")).toBeVisible();
+  const before = await page.locator("main").boundingBox();
   await page.getByTestId("nav-purchasing").click();
   await expect(page.getByTestId("nav-purchase-orders")).toBeVisible();
+  expect((await page.locator("main").boundingBox())!.y).toBe(before!.y);
   await page.setViewportSize({ width: 390, height: 844 });
   await page.getByRole("button", { name: "Menu", exact: true }).click();
   await page.getByTestId("nav-purchase-orders").click();
   await ready(page);
   await expect(page).toHaveURL(/purchasing\/orders$/);
-  await expect(page.locator(".navigation")).not.toHaveClass(/mobile-open/);
+  await expect(page.locator(".glass-navigation")).not.toHaveClass(/is-open/);
   await noOverflow(page);
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/reports/overview");
@@ -180,6 +165,6 @@ test("hover navigation, mobile navigation and browser print", async ({
     .click();
   expect(await page.evaluate(() => (window as any).__printed)).toBe(true);
   await page.emulateMedia({ media: "print" });
-  await expect(page.locator(".navigation")).toBeHidden();
+  await expect(page.locator(".glass-navigation")).toBeHidden();
   await page.screenshot({ path: dir + "report-print.png", fullPage: true });
 });

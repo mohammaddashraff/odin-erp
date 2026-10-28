@@ -34,7 +34,7 @@
     box-shadow: var(--surface-shadow);
   }
   .surface { margin-bottom: 20px; }
-  .surface-heading { padding: 18px 22px; background: #fcfdff; }
+  .surface-heading { padding: 18px 22px; background: var(--odin-panel); }
   .surface-body, .form-section { padding: 22px; }
   .stats { padding-block: 22px; }
   .stats span { font-size: 13px; }
@@ -46,11 +46,11 @@
   a.btn:hover { text-decoration: none; }
   .btn.primary { box-shadow: 0 2px 5px #245de81a; }
   .btn.primary:hover:not(:disabled) { border-color: var(--odin-brand-hover); }
-  .btn.danger:hover:not(:disabled) { background: #fff2f4; border-color: #d797a3; }
+  .btn.danger:hover:not(:disabled) { background: var(--odin-panel); border-color: var(--odin-border); }
   .btn.small { min-height: 34px; padding: 5px 10px; }
   input, select, textarea { min-height: 42px; padding: 9px 12px; border-radius: 8px; }
-  input::placeholder, textarea::placeholder { color: #6b7b91; opacity: 1; }
-  :is(input, select, textarea):hover:not(:disabled):not(:read-only) { border-color: #a7b9d2; }
+  input::placeholder, textarea::placeholder { color: var(--odin-muted); opacity: 1; }
+  :is(input, select, textarea):hover:not(:disabled):not(:read-only) { border-color: var(--odin-border); }
   :is(input, select, textarea):focus-visible { border-color: var(--odin-brand); outline-width: 2px; }
   input[type="checkbox"] { width: 18px; min-height: 18px; margin: 0; flex: none; }
   textarea { min-height: 108px; }
@@ -58,43 +58,43 @@
   .field small { font-size: 12px; line-height: 1.8; }
   .fields { gap: 20px 18px; margin-top: 18px; align-items: start; }
   .fields .checkbox { min-height: 42px; gap: 10px; }
-  .dialog-body .field.checkbox { justify-content: space-between; padding: 10px 12px; border: 1px solid var(--odin-border); border-radius: 8px; background: #f8faff; }
-  .dialog-body .field.checkbox:has(input:checked) { border-color: #c2d3f5; background: var(--brand-tint); }
+  .dialog-body .field.checkbox { justify-content: space-between; padding: 10px 12px; border: 1px solid var(--odin-border); border-radius: 8px; background: var(--odin-panel); }
+  .dialog-body .field.checkbox:has(input:checked) { border-color: var(--odin-border); background: var(--brand-tint); }
   .form-actions { gap: 12px; padding-top: 20px; margin-top: 18px; border-top: 1px solid var(--odin-border); }
   .editor-footer { border-radius: 12px; box-shadow: 0 -4px 16px #10274706; }
   dialog { border-radius: 16px; max-height: 90dvh; }
-  .dialog-heading { position: sticky; top: 0; z-index: 2; background: white; padding: 18px 24px; }
+  .dialog-heading { position: sticky; top: 0; z-index: 2; background: var(--odin-panel); padding: 18px 24px; }
   .dialog-body { padding: 24px; }
 
-  .toolbar, .table-toolbar { display: flex; align-items: end; flex-wrap: wrap; gap: 14px; padding: 18px 22px; border-bottom: 1px solid var(--odin-border); background: #fcfdff; }
+  .toolbar, .table-toolbar { display: flex; align-items: end; flex-wrap: wrap; gap: 14px; padding: 18px 22px; border-bottom: 1px solid var(--odin-border); background: var(--odin-panel); }
   .table-toolbar > .field { min-width: 170px; }
-  .search-field { min-height: 42px; border-radius: 8px; background: white; padding-inline: 12px; }
+  .search-field { min-height: 42px; border-radius: 8px; background: var(--odin-panel); padding-inline: 12px; }
   .search-field:focus-within { border-color: var(--odin-brand); box-shadow: 0 0 0 2px #245de81a; }
   .search-field input { outline: none; padding-inline: 0; }
   .toolbar-count { font-size: 12px; }
   table { font-size: 13px; }
   html[dir="rtl"] table { font-size: 14px; }
-  th { font-size: 12px; padding: 13px 18px; color: #455974; background: #f5f8fd; }
+  th { font-size: 12px; padding: 13px 18px; color: var(--odin-muted); background: var(--odin-panel); }
   td { height: 52px; padding: 13px 18px; line-height: 1.75; }
   td .btn { font-size: 12px; min-height: 36px; padding: 7px 11px; }
   td small { font-size: 11px; }
-  tbody tr:hover td { background: #f3f7ff; }
+  tbody tr:hover td { background: var(--odin-panel); }
   .status { font-size: 11px; padding: 4px 9px; border-radius: 6px; line-height: 1.7; }
   .status i { width: 6px; height: 6px; }
-  .pagination { font-size: 12px; padding: 15px 22px; background: #fcfdff; }
+  .pagination { font-size: 12px; padding: 15px 22px; background: var(--odin-panel); }
   .pagination .btn { min-height: 36px; min-width: 36px; }
   .details { padding: 22px; gap: 22px 20px; }
   .details dt { font-size: 12px; margin-bottom: 6px; }
   .details dd { font-size: 14px; font-weight: 500; line-height: 1.8; }
 
-  .tabs, .ac-navigation, .ar-report-nav { gap: 4px; padding: 5px; border: 1px solid var(--odin-border); border-radius: 10px; background: white; scrollbar-width: thin; margin-block: 0 22px; }
+  .tabs, .ac-navigation, .ar-report-nav { gap: 4px; padding: 5px; border: 1px solid var(--odin-border); border-radius: 10px; background: var(--odin-panel); scrollbar-width: thin; margin-block: 0 22px; }
   .tabs :is(a, button), .ac-navigation a, .ar-report-nav a { flex: none; font-size: 13px; padding: 9px 14px; border-radius: 7px; border-bottom: 2px solid transparent; color: var(--odin-muted); text-decoration: none; line-height: 1.7; }
-  .tabs :is(a, button):hover, .ac-navigation a:hover, .ar-report-nav a:hover { background: #f4f7fc; color: var(--odin-navy); text-decoration: none; }
+  .tabs :is(a, button):hover, .ac-navigation a:hover, .ar-report-nav a:hover { background: var(--odin-panel); color: var(--odin-navy); text-decoration: none; }
   .tabs [aria-current], .ac-navigation a[aria-current="page"], .ar-report-nav a[aria-current] { background: var(--brand-tint); color: var(--odin-brand); border-bottom-color: var(--odin-brand); font-weight: 700; }
-  .page-guide { margin: 0 0 22px; padding: 12px 16px; border-radius: 10px; background: #edf3ff; border-color: #d2e0f8; color: #234875; font-size: 13px; }
+  .page-guide { margin: 0 0 22px; padding: 12px 16px; border-radius: 10px; background: var(--odin-panel); border-color: var(--odin-border); color: var(--odin-brand); font-size: 13px; }
   .page-guide summary { cursor: pointer; padding-block: 2px; }
   .page-guide summary::marker { color: var(--odin-brand); }
-  .page-guide p { color: #455e7d; margin-top: 10px; }
+  .page-guide p { color: var(--odin-brand); margin-top: 10px; }
 
   .empty { padding: 50px 22px; }
   .empty strong { font-size: 17px; }
@@ -115,7 +115,7 @@
   .profile-stats > div > span { font-size: 13px; color: var(--odin-muted); }
   .profile-stats strong { font-size: 30px; line-height: 1.4; font-variant-numeric: tabular-nums; }
   .profile-stats small { font-size: 12px; }
-  .profile-stats > div:last-child { background: var(--brand-tint); border-color: #c2d3f5; }
+  .profile-stats > div:last-child { background: var(--brand-tint); border-color: var(--odin-border); }
   .profile-stats > div:last-child strong { color: var(--odin-brand); }
   .profile-actions { margin-bottom: 22px; }
   .profile-columns { gap: 20px; align-items: start; }
@@ -123,14 +123,14 @@
   .profile-columns .surface:last-child .details { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
   .profile-columns .surface:last-child .details dd { font-size: 23px; font-weight: 700; }
   .hr-summary { gap: 16px; margin: 22px; }
-  .hr-summary > div { flex: 1; background: #f4f7fc; border: 1px solid var(--odin-border); padding: 18px 22px; }
+  .hr-summary > div { flex: 1; background: var(--odin-panel); border: 1px solid var(--odin-border); padding: 18px 22px; }
   .hr-summary strong { line-height: 1.4; }
   .hr-summary span { font-size: 14px; color: var(--odin-muted); }
   .hr-start { margin: 0 22px 22px; gap: 16px; }
-  .hr-start a { position: relative; padding: 20px; gap: 8px; background: white; }
+  .hr-start a { position: relative; padding: 20px; gap: 8px; background: var(--odin-panel); }
   .hr-start a strong { font-size: 16px; color: var(--odin-navy); }
   .hr-start a span { font-size: 13px; }
-  .hr-start a:hover { text-decoration: none; border-color: #a6bff3; background: #f7faff; }
+  .hr-start a:hover { text-decoration: none; border-color: var(--odin-border); background: var(--odin-panel); }
   .hr-start a:hover strong { color: var(--odin-brand); }
 
   .ac-toolbar { padding: 18px 22px; border-radius: 12px 12px 0 0; }

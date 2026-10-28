@@ -10,6 +10,20 @@ export type Language = "en" | "ar";
 type Namespace = Record<string, string>;
 
 const common: Namespace = {
+  'Dashboard Overview': 'نظرة عامة',
+  'Search pages': 'البحث في الصفحات',
+  'Revenue Analytics': 'تحليلات الإيرادات',
+  'Recent Transactions': 'أحدث المعاملات',
+  'Next steps': 'الخطوات التالية',
+  'Follow-up queue': 'قائمة المتابعة',
+  'Departures': 'المغادرات',
+  'Arrears': 'المتأخرات',
+  'More': 'المزيد',
+  'Page not found': 'الصفحة غير موجودة',
+  'Financial Overview': 'نظرة مالية عامة',
+  'This address is not part of your workspace.': 'هذا العنوان غير موجود في مساحة العمل.',
+  'Unable to display this page': 'تعذّر عرض الصفحة',
+  'Please retry or return to your workspace.': 'حاول مرة أخرى أو ارجع إلى مساحة العمل.',
   "Loading…": "جارٍ التحميل…",
   "Loading secured company data…": "جارٍ تحميل بيانات الشركة الآمنة…",
   "Loading page…": "جارٍ تحميل الصفحة…",
