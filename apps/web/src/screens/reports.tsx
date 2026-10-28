@@ -1,4 +1,5 @@
 "use client";
+import {reportSchemas} from "../core/report-schema";
 import AccountingReports, { GeneralLedger } from "./accounting-reports";
 import { useState } from "react";
 import { Download, Printer } from "lucide-react";
@@ -71,7 +72,7 @@ export default function Reports({
   category?: string;
   initialReport?: string;
 }) {
-  const { tr, allowed, money, quantity, download, notify } = useERP();
+  const { tr, allowed, money, quantity, download, notify, dateTime } = useERP();
   const catalog = reportCatalog.filter(
     ([key]) =>
       (!category || categories[category]?.includes(key)) &&
@@ -95,9 +96,7 @@ export default function Reports({
   const state = useResource(financial ? null : `/reports/${selected}`);
   const [evidence, setEvidence] = useState("");
   const report = state.data;
-  const columns = Object.keys(report?.rows?.[0] || {}).filter(
-    (key) => typeof report.rows[0][key] !== "object",
-  );
+  const columns = reportSchemas[selected] || [];
   return (
     <>
       <PageHeader
@@ -163,37 +162,18 @@ export default function Reports({
               <Table
                 caption={report?.name}
                 rows={report?.rows || []}
-                columns={columns.map((key) => ({
-                  key,
-                  label: human(key),
-                  numeric:
-                    key.toLowerCase().includes("minor") ||
-                    key.toLowerCase().includes("quantity"),
-                  render: (r: any) => {
-                    const value = r[key];
-                    const reference =
-                      [
-                        "journal",
-                        "number",
-                        "reference",
-                        "source",
-                        "sourceNumber",
-                      ].includes(key) && typeof value === "string";
-                    return reference ? (
-                      <button
-                        className="link"
-                        onClick={() => setEvidence(value)}
-                      >
-                        <bdi>{value}</bdi>
-                      </button>
-                    ) : key.toLowerCase().includes("minor") ? (
-                      <bdi>{money(value, r.baseCurrency || r.currency)}</bdi>
-                    ) : key.toLowerCase().includes("quantity") ? (
-                      <bdi>{quantity(value)}</bdi>
-                    ) : (
-                      <bdi>{tr(String(value ?? "—"))}</bdi>
-                    );
-                  },
+                columns={columns.map(({key,label,type,currency})=>({
+                  key,label,numeric:['money','quantity','number'].includes(type||''),
+                  render:(row:any)=>{
+                    const value=row[key];
+                    if(value==null)return '—';
+                    if(type==='reference')return <button className="link" onClick={()=>setEvidence(String(value))}><bdi>{String(value)}</bdi></button>;
+                    if(type==='money')return <bdi>{money(value,currency==='transaction'?row.currency:row.baseCurrency)}</bdi>;
+                    if(type==='quantity')return <bdi>{quantity(value)}</bdi>;
+                    if(type==='date')return dateTime(value);
+                    if(type==='status')return tr(String(value));
+                    return <bdi>{typeof value==='object'?value.name||'—':String(value)}</bdi>;
+                  }
                 }))}
               />
               {report?.totals ? (

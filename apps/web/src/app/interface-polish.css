@@ -5,13 +5,13 @@
     --border: var(--odin-border);
     --muted: var(--odin-muted);
     --surface: var(--odin-white);
-    --brand-tint: #edf3ff;
+    --brand-tint: var(--odin-highlight);
     --surface-shadow: 0 2px 8px #10274705, 0 8px 24px #10274704;
   }
 
   body { font-size: 14px; line-height: 1.65; }
   html[dir="rtl"] body { font-size: 15px; line-height: 1.85; }
-  h1 { font-size: 28px; line-height: 1.45; letter-spacing: -0.6px; }
+  h1 { font-size: var(--page-title-size); line-height: 1.45; letter-spacing: -0.6px; }
   h2 { font-size: 17px; }
   h3 { font-size: 15px; }
   html[dir="rtl"] :is(h1, h2, h3, .nav-group h2) { letter-spacing: 0; }
@@ -42,13 +42,13 @@
   .quick-list a, .quick-list button { padding-block: 15px; font-size: 14px; }
   .quick-list :is(a, button):hover { color: var(--odin-brand); text-decoration: none; }
 
-  .btn { min-height: 42px; font-size: 13px; padding: 9px 15px; border-radius: 8px; }
+  .btn { min-height: var(--control-height); font-size: 13px; padding: 9px 15px; border-radius: 8px; }
   a.btn:hover { text-decoration: none; }
   .btn.primary { box-shadow: 0 2px 5px #245de81a; }
   .btn.primary:hover:not(:disabled) { border-color: var(--odin-brand-hover); }
   .btn.danger:hover:not(:disabled) { background: var(--odin-panel); border-color: var(--odin-border); }
-  .btn.small { min-height: 34px; padding: 5px 10px; }
-  input, select, textarea { min-height: 42px; padding: 9px 12px; border-radius: 8px; }
+  .btn.small { min-height: var(--control-compact); padding: 5px 10px; }
+  input, select, textarea { min-height: var(--control-height); padding: 9px 12px; border-radius: 8px; }
   input::placeholder, textarea::placeholder { color: var(--odin-muted); opacity: 1; }
   :is(input, select, textarea):hover:not(:disabled):not(:read-only) { border-color: var(--odin-border); }
   :is(input, select, textarea):focus-visible { border-color: var(--odin-brand); outline-width: 2px; }
@@ -56,8 +56,8 @@
   textarea { min-height: 108px; }
   .field { font-size: 13px; gap: 7px; line-height: 1.6; }
   .field small { font-size: 12px; line-height: 1.8; }
-  .fields { gap: 20px 18px; margin-top: 18px; align-items: start; }
-  .fields .checkbox { min-height: 42px; gap: 10px; }
+  .fields { gap: var(--space-field); margin-top: 18px; align-items: start; }
+  .fields .checkbox { min-height: var(--control-height); gap: 10px; }
   .dialog-body .field.checkbox { justify-content: space-between; padding: 10px 12px; border: 1px solid var(--odin-border); border-radius: 8px; background: var(--odin-panel); }
   .dialog-body .field.checkbox:has(input:checked) { border-color: var(--odin-border); background: var(--brand-tint); }
   .form-actions { gap: 12px; padding-top: 20px; margin-top: 18px; border-top: 1px solid var(--odin-border); }
@@ -68,7 +68,7 @@
 
   .toolbar, .table-toolbar { display: flex; align-items: end; flex-wrap: wrap; gap: 14px; padding: 18px 22px; border-bottom: 1px solid var(--odin-border); background: var(--odin-panel); }
   .table-toolbar > .field { min-width: 170px; }
-  .search-field { min-height: 42px; border-radius: 8px; background: var(--odin-panel); padding-inline: 12px; }
+  .search-field { min-height: var(--control-height); border-radius: 8px; background: var(--odin-panel); padding-inline: 12px; }
   .search-field:focus-within { border-color: var(--odin-brand); box-shadow: 0 0 0 2px #245de81a; }
   .search-field input { outline: none; padding-inline: 0; }
   .toolbar-count { font-size: 12px; }
@@ -76,13 +76,13 @@
   html[dir="rtl"] table { font-size: 14px; }
   th { font-size: 12px; padding: 13px 18px; color: var(--odin-muted); background: var(--odin-panel); }
   td { height: 52px; padding: 13px 18px; line-height: 1.75; }
-  td .btn { font-size: 12px; min-height: 36px; padding: 7px 11px; }
+  td .btn { font-size: 12px; min-height: var(--control-compact); padding: 7px 11px; }
   td small { font-size: 11px; }
   tbody tr:hover td { background: var(--odin-panel); }
   .status { font-size: 11px; padding: 4px 9px; border-radius: 6px; line-height: 1.7; }
   .status i { width: 6px; height: 6px; }
   .pagination { font-size: 12px; padding: 15px 22px; background: var(--odin-panel); }
-  .pagination .btn { min-height: 36px; min-width: 36px; }
+  .pagination .btn { min-height: var(--control-compact); min-width: var(--control-compact); }
   .details { padding: 22px; gap: 22px 20px; }
   .details dt { font-size: 12px; margin-bottom: 6px; }
   .details dd { font-size: 14px; font-weight: 500; line-height: 1.8; }
@@ -136,7 +136,7 @@
   .ac-toolbar { padding: 18px 22px; border-radius: 12px 12px 0 0; }
   .ac-chart-layout { border-radius: 0 0 12px 12px; box-shadow: var(--surface-shadow); }
   .ac-filter { font-size: 12px; }
-  .ac-filter input, .ac-filter select, .ar-filter-fields input, .ar-filter-fields select { height: 42px; min-height: 42px; border-radius: 8px; font-size: 13px; }
+  .ac-filter input, .ac-filter select, .ar-filter-fields input, .ar-filter-fields select { height: 42px; min-height: var(--control-height); border-radius: 8px; font-size: 13px; }
   .ar-filter-fields .field > span { font-size: 12px; font-weight: 700; }
   .ar-filter-actions .btn { min-height: 40px; }
   .ar-filter-bar, .ar-report-sheet, .ar-ledger-sheet { border-radius: 12px; }
@@ -164,7 +164,7 @@
   .company-context { max-width: 140px; }
   .company-context strong { font-size: 12px; }
   .context-actions { gap: 2px; }
-  .context-actions .btn { min-height: 42px; padding: 7px; font-size: 12px; }
+  .context-actions .btn { min-height: var(--control-height); padding: 7px; font-size: 12px; }
   .breadcrumbs { font-size: 11px; margin-bottom: 16px; }
   .btn { min-height: 44px; padding-inline: 13px; }
   .btn.small, td .btn { min-height: 40px; }
@@ -179,7 +179,7 @@
   .toolbar-count { margin-inline-start: 0; }
   .pagination { padding: 14px 16px; gap: 12px; flex-wrap: wrap; }
   .pagination > div { gap: 10px; }
-  .pagination .btn { min-height: 42px; min-width: 42px; }
+  .pagination .btn { min-height: var(--control-height); min-width: 42px; }
   input, select, textarea { min-height: 44px; font-size: 16px; }
   .ac-filter input, .ac-filter select, .ar-filter-fields input, .ar-filter-fields select { min-height: 44px; height: 44px; font-size: 16px; }
   .fields { gap: 18px; }

@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useERP, useResource } from '../core/erp-context';
 import { PageHeader, Panel, Table, Resource, Button, AddButton, SearchField, Status, Tabs, Details, Fields, ErrorNotice, Confirm, useUnsaved } from '../components/ui';
 import Groups from './access';
@@ -13,8 +13,10 @@ const userPath = (id: string) => `/settings/access/users/${id}`;
 export const useLabels = () => { const { language, tr } = useERP(); return (value: any) => typeof value === 'object' && value ? value[language] || value.en : tr(String(value || 'Not available')); };
 function AdminLinks() {
     const { tr, allowed } = useERP();
+    const pathname=usePathname();
+    const selected=(href:string)=>pathname===href||href==='/settings/access/users'&&pathname.startsWith(href+'/')||href==='/settings/access/roles'&&['/settings/access/permissions','/settings/access/limits'].includes(pathname)||href==='/admin/audit'&&pathname==='/settings/access/audit'||href==='/admin/advanced'&&['/admin/system-health','/settings/access/reviews'].includes(pathname);
     return <nav className="admin-links" aria-label={tr('Settings & Administration')}>
- {[["/admin/overview", "Overview", "settings.users_access.view"], ["/settings/access/users", "Users", "settings.users_access.view"], ["/settings/access/roles", "Access Groups", "system.super_admin"], ["/admin/audit", "Activity Log", ["audit.business.view", "settings.users_access.view"]], ["/admin/advanced", "Advanced Settings", ["settings.users_access.view", "settings.system.view"]]].filter(([, , permission]) => allowed(permission)).map(([href, name]) => <Link className="btn small" key={String(href)} href={String(href)}>{tr(name)}</Link>)}
+ {[["/admin/overview", "Overview", "settings.users_access.view"], ["/settings/access/users", "Users", "settings.users_access.view"], ["/settings/access/roles", "Access Groups", "system.super_admin"], ["/admin/audit", "Activity Log", ["audit.business.view", "settings.users_access.view"]], ["/admin/advanced", "Advanced Settings", ["settings.users_access.view", "settings.system.view"]]].filter(([, , permission]) => allowed(permission)).map(([href, name]) => <Link className="btn small" aria-current={selected(String(href))?'page':undefined} key={String(href)} href={String(href)}>{tr(name)}</Link>)}
  </nav>;
 }
 export default function Administration({ route }: {
@@ -44,21 +46,22 @@ function Directory({ overview = false, selector = false }: {
 }) {
     const { tr, dateTime } = useERP(), text = useLabels(), state = useResource('/administration');
     const params = useSearchParams();
-    const [search, setSearch] = useState(''), [status, setStatus] = useState(params.get('status') || ''), [role, setRole] = useState(''), [branch, setBranch] = useState('');
+    const [search, setSearch] = useState(''), [status, setStatus] = useState(params.get('status') || ''), [role, setRole] = useState(params.get('role')||''), [branch, setBranch] = useState('');
+    useEffect(()=>setRole(params.get('role')||''),[params]);
     const data = state.data;
     const rows = (data?.users || []).filter((u: any) => (`${u.name} ${u.email}`.toLowerCase().includes(search.toLowerCase())) && (!status || String(u.active) === status) && (!role || u.primaryRole.id === role || u.additionalRoles.some((r: any) => r.id === role)) && (!branch || u.branchIds.includes(branch)));
     return <><PageHeader title={overview ? 'Administration Overview' : selector ? 'User access summary' : 'Users'} subtitle={overview ? 'Manage accounts, access groups and recent account changes.' : 'Open a person’s profile to edit details, inspect access or manage sign-in.'}>
  {data?.canManage ? <Link className="btn primary" href="/settings/access/users/new">{tr('Add user')}</Link> : null}</PageHeader>
  <Resource state={state}>{data ? <>{overview ? <><div className="admin-metrics">{[['Active users', data.counts.active, '/settings/access/users?status=true'], ['Inactive users', data.counts.inactive, '/settings/access/users?status=false'], ['Access Groups', data.counts.groups, '/settings/access/roles']].map(([title, value, url]) => <Link key={title} className="surface admin-metric" href={url}><span>{tr(title)}</span><strong>{value}</strong></Link>)}</div><Panel title="Recent account and access changes"><ActivityTable rows={data.activity.slice(0, 10)}/></Panel></> : null}
- {!overview ? <Panel><div className="toolbar admin-filters"><SearchField value={search} onChange={setSearch} label="Search name or email"/>
+ {!overview ? <Panel className="admin-directory">{params.get('assign')&&role?<div className="surface-body"><strong>{tr('Group assignment')}: {text(data.roles.find((r:any)=>String(r.id)===role)?.displayName)}</strong><p>{tr('Showing members of this group. Clear the group filter to find another user, then open their profile and Access tab to change assignments.')}</p><Button onClick={()=>setRole('')}>{tr('Show all users')}</Button></div>:null}<div className="toolbar admin-filters"><SearchField value={search} onChange={setSearch} label="Search name or email"/>
  <Fields values={{ status, role, branch }} set={(k, v) => k === 'status' ? setStatus(v) : k === 'role' ? setRole(v) : setBranch(v)} specs={[
                     { key: 'status', label: 'Account status', options: [{ value: '', label: 'All statuses' }, { value: 'true', label: 'Active' }, { value: 'false', label: 'Inactive' }] },
                     { key: 'role', label: 'Access group', options: [{ value: '', label: 'All groups' }, ...data.roles.map((r: any) => ({ value: r.id, label: text(r.displayName) }))] },
                     { key: 'branch', label: 'Branch', options: [{ value: '', label: 'All branches' }, ...data.branches.map((b: any) => ({ value: b.id, label: b.name + (b.operational ? '' : ` · ${tr('Non-operational')}`) }))] },
                 ]}/></div>
- <Table rows={rows} empty="No users match these filters." columns={[
+ <Table rows={rows} filtered={!!search||!!role||!!status||!!branch} onReset={()=>{setSearch('');setRole('');setStatus('');setBranch('');}} empty="No user accounts are available." columns={[
                     { key: 'name', label: 'Name', render: u => <Link className="admin-person" href={userPath(u.id)}><span className="initials" aria-hidden="true">{u.name.slice(0, 2)}</span><strong>{u.name}</strong></Link> },
-                    { key: 'email', label: 'Sign-in email', render: u => <bdi>{u.email}</bdi> },
+                    { key: 'email', label: 'Sign-in email', render: u => <bdi className="admin-email" title={u.email}>{u.email}</bdi> },
                     { key: 'primaryRole', label: 'Access group', render: u => text(u.primaryRole.displayName) },
                     { key: 'branch', label: 'Branches', render: u => u.branches.map((b: any) => `${b.name}${b.operational ? '' : ` · ${tr('Non-operational')}`}`).join('، ') || tr('Not available') },
                     { key: 'active', label: 'Account status', render: u => <Status value={u.active ? 'ACTIVE' : 'INACTIVE'}/> },
@@ -91,7 +94,7 @@ function CreateUser() {
                 { key: 'roleId', label: 'Access group', required: true, options: [{ value: '', label: 'Select an access group' }, ...state.data.roles.filter((r: any) => r.active).map((r: any) => ({ value: r.id, label: text(r.displayName) }))] },
                 { key: 'branchId', label: 'Home and permitted branch', required: true, options: [{ value: '', label: 'Select a branch' }, ...state.data.branches.filter((b: any) => b.operational).map((b: any) => ({ value: b.id, label: b.name }))], hint: 'Additional permitted branches can be assigned in the profile after creation.' },
                 { key: 'phone', label: 'Phone', type: 'tel', autoComplete: 'tel' }, { key: 'jobTitle', label: 'Job title' },
-                { key: 'password', label: 'Temporary password', type: 'password', required: true, autoComplete: 'new-password', hint: 'Use at least 12 characters, up to 72 UTF-8 bytes. Share it securely; no email is sent.' },
+                { key: 'password', label: 'Temporary password', type: 'password', required: true, autoComplete: 'new-password', hint: 'Use at least 12 characters. Maximum: 72 English characters; Arabic and symbols may use more space (72 UTF-8 bytes). Share it securely; no email is sent.' },
                 { key: 'mfaRequired', label: 'Require an additional verification code at sign-in', type: 'checkbox', wide: true },
             ]}/></div></Panel><Panel title="Access summary"><div className="surface-body"><strong>{selected ? text(selected.displayName) : tr('Select an access group')}</strong><p>{selected ? text(selected.descriptionLabel) : tr('Choose a group to see its configured access.')}</p><p>{tr('The temporary password expires in 7 days. The user must choose a new password at first sign-in.')}</p></div></Panel>
  {error ? <ErrorNotice message={error}/> : null}<div className="admin-actions"><Button onClick={() => guard(() => router.push('/settings/access/users'))}>{tr('Cancel')}</Button><Button primary type="submit" busy={busy}>{tr('Create user')}</Button></div></form> : null}</Resource></>;
@@ -117,7 +120,7 @@ export function PasswordChange({ required = false }: {
         setBusy(false);
     } }}>
  {done ? <div role="status"><p>{tr('Password changed. Sign in again with your new password.')}</p><Button primary onClick={endSession}>{tr('Return to sign-in')}</Button></div> : <><p>{tr(required ? 'Your temporary password only allows this password change. Choose a new password to open your workspace.' : 'Changing your password signs out all sessions, including this one.')}</p><Fields values={draft} set={(k, v) => setDraft(d => ({ ...d, [k]: v }))} specs={[
-                { key: 'currentPassword', label: required ? 'Temporary password' : 'Current password', type: 'password', required: true, autoComplete: 'current-password' }, { key: 'newPassword', label: 'New password', type: 'password', required: true, autoComplete: 'new-password', hint: 'Use at least 12 characters, up to 72 UTF-8 bytes.' }, { key: 'confirm', label: 'Confirm new password', type: 'password', required: true, autoComplete: 'new-password' }
+                { key: 'currentPassword', label: required ? 'Temporary password' : 'Current password', type: 'password', required: true, autoComplete: 'current-password' }, { key: 'newPassword', label: 'New password', type: 'password', required: true, autoComplete: 'new-password', hint: 'Use at least 12 characters. Maximum: 72 English characters; Arabic and symbols may use more space (72 UTF-8 bytes).' }, { key: 'confirm', label: 'Confirm new password', type: 'password', required: true, autoComplete: 'new-password' }
             ]}/>{error ? <ErrorNotice message={error}/> : null}<div className="admin-actions"><Button primary type="submit" busy={busy}>{tr('Change password')}</Button></div></>}
  </form></Panel>;
 }
@@ -146,9 +149,9 @@ function UserProfile({ userId, self = false }: {
         } }}>{tr('Language')}: {language === 'en' ? 'العربية' : 'English'}</Button></div> : null}</Panel> : null}
  {tab === 'Access' ? <>{u.canManage ? <div className="admin-actions"><Button primary onClick={() => { if (!edit || window.dispatchEvent(new Event('odin:before-context-change', { cancelable: true })))
             setEdit(!edit); }}>{tr(edit ? 'Close access editor' : 'Edit access')}</Button></div> : null}{edit && u.canManage ? <AccessForm user={u} saved={() => { setEdit(false); state.reload(); notify('Access saved. The user must sign in again.'); }}/> : <EffectiveSummary access={u.access}/>}</> : null}
- {tab === 'Account & Security' ? <><Panel title="Account & Security"><Details values={[["Account status", tr(u.active ? 'Active' : 'Inactive')], ["Require an additional verification code at sign-in", tr(u.mfaRequired ? 'Required' : 'Optional')], ["Verification enrollment", tr(u.mfaEnabled ? 'Enrolled' : 'Not enrolled')], ["Enrollment date", u.mfaEnrolledAt ? dateTime(u.mfaEnrolledAt) : tr('Not recorded')]]}/><div className="surface-body"><p>{tr('The requirement is set by an administrator. Enrollment is completed by the user during sign-in.')}</p>{u.canManage ? <div className="actions"><Button onClick={() => setRecover(!recover)}>{tr('Issue temporary password')}</Button><Button danger={u.active} onClick={() => setStatus(true)}>{tr(u.active ? 'Deactivate account' : 'Activate account')}</Button><Button onClick={() => setMfaReset(!mfaReset)}>{tr('Reset verification enrollment')}</Button></div> : null}</div></Panel>{self ? <PasswordChange /> : null}{recover ? <Recovery user={u} saved={() => { setRecover(false); state.reload(); }}/> : null}{mfaReset ? <MfaReset user={u} saved={() => { setMfaReset(false); state.reload(); }}/> : null}</> : null}
+ {tab === 'Account & Security' ? <><Panel title="Account & Security"><Details values={[["Account status", tr(u.active ? 'Active' : 'Inactive')], ["Require an additional verification code at sign-in", tr(u.mfaRequired ? 'Required' : 'Optional')], ["Sign-in verification setup", tr(u.mfaEnabled ? 'Enrolled' : 'Not enrolled')], ["Enrollment date", u.mfaEnrolledAt ? dateTime(u.mfaEnrolledAt) : tr('Not recorded')]]}/><div className="surface-body"><p>{tr('The requirement is set by an administrator. Enrollment is completed by the user during sign-in.')}</p>{u.canManage ? <div className="actions"><Button onClick={() => setRecover(!recover)}>{tr('Issue temporary password')}</Button><Button onClick={() => setMfaReset(!mfaReset)}>{tr('Reset sign-in verification')}</Button></div> : null}</div></Panel>{u.canManage?<Panel title="Account availability" className="admin-sensitive"><div className="surface-body"><p>{tr('Deactivation blocks sign-in and ends active sessions. Account history and group assignments are retained.')}</p><Button danger={u.active} onClick={()=>setStatus(true)}>{tr(u.active?'Deactivate account':'Activate account')}</Button></div></Panel>:null}{self ? <PasswordChange /> : null}{recover ? <Recovery user={u} saved={() => { setRecover(false); state.reload(); }}/> : null}{mfaReset ? <MfaReset user={u} saved={() => { setMfaReset(false); state.reload(); }}/> : null}</> : null}
  {tab === 'Activity' ? <Panel title="Account and access activity"><ActivityTable rows={u.activity}/></Panel> : null}
- {status ? <Confirm reason={false} title={u.active ? 'Deactivate account' : 'Activate account'} message={u.active ? 'This blocks sign-in and revokes all active sessions. Access group assignments are preserved.' : 'This permits sign-in using the account’s current credentials.'} close={() => setStatus(false)} action={async () => { await request(`/access/users/${u.id}`, { method: 'PATCH', body: JSON.stringify({ active: !u.active, expectedAuthVersion: u.authVersion, revision: u.revision }) }); setStatus(false); state.reload(); notify('Account status updated.'); }}/> : null}
+ {status ? <Confirm reason={false} dangerous={u.active} actionLabel={u.active?'Deactivate account':'Activate account'} title={u.active ? 'Deactivate account' : 'Activate account'} message={u.active ? 'This blocks sign-in and revokes all active sessions. Access group assignments are preserved.' : 'This permits sign-in using the account’s current credentials.'} close={() => setStatus(false)} action={async () => { await request(`/access/users/${u.id}`, { method: 'PATCH', body: JSON.stringify({ active: !u.active, expectedAuthVersion: u.authVersion, revision: u.revision }) }); setStatus(false); state.reload(); notify('Account status updated.'); }}/> : null}
  </> : null}</Resource></>;
 }
 function ProfileForm({ user, self, close, saved }: {
@@ -189,11 +192,11 @@ catch (e: any) {
 }
 finally {
     setBusy(false);
-} }}><p>{tr('This replaces the password, signs out existing sessions and requires a new password at next sign-in. MFA requirements stay in effect.')}</p><Fields specs={[{ key: 'password', label: 'Temporary password', type: 'password', required: true, autoComplete: 'new-password', hint: 'Use at least 12 characters, up to 72 UTF-8 bytes.' }]} values={{ password }} set={(_, v) => setPassword(v)}/>{error ? <ErrorNotice message={error}/> : null}<div className="admin-actions"><Button primary busy={busy} type="submit">{tr('Issue temporary password')}</Button></div></form></Panel>; }
+} }}><p>{tr('This replaces the password, signs out existing sessions and requires a new password at next sign-in. MFA requirements stay in effect.')}</p><Fields specs={[{ key: 'password', label: 'Temporary password', type: 'password', required: true, autoComplete: 'new-password', hint: 'Use at least 12 characters. Maximum: 72 English characters; Arabic and symbols may use more space (72 UTF-8 bytes).' }]} values={{ password }} set={(_, v) => setPassword(v)}/>{error ? <ErrorNotice message={error}/> : null}<div className="admin-actions"><Button primary busy={busy} type="submit">{tr('Issue temporary password')}</Button></div></form></Panel>; }
 function MfaReset({ user, saved }: {
     user: any;
     saved: () => void;
-}) { const { tr, request } = useERP(); const [reason, setReason] = useState(''), [error, setError] = useState(''), [busy, setBusy] = useState(false); return <Panel title="Reset verification enrollment"><form className="surface-body" onSubmit={async (e) => { e.preventDefault(); setBusy(true); try {
+}) { const { tr, request } = useERP(); const [reason, setReason] = useState(''), [error, setError] = useState(''), [busy, setBusy] = useState(false); return <Panel title="Reset sign-in verification"><form className="surface-body" onSubmit={async (e) => { e.preventDefault(); setBusy(true); try {
     await request(`/access/users/${user.id}/mfa-reset`, { method: 'POST', body: JSON.stringify({ reason }) });
     saved();
 }
@@ -202,7 +205,7 @@ catch (e: any) {
 }
 finally {
     setBusy(false);
-} }}><p>{tr('Existing security policy requires a reason of at least 10 characters for an MFA reset. The sign-in requirement stays enabled.')}</p><Fields values={{ reason }} set={(_, v) => setReason(v)} specs={[{ key: 'reason', label: 'Reason', required: true }]}/>{error ? <ErrorNotice message={error}/> : null}<Button type="submit" busy={busy}>{tr('Reset verification enrollment')}</Button></form></Panel>; }
+} }}><p>{tr('Existing security policy requires a reason of at least 10 characters for an MFA reset. The sign-in requirement stays enabled.')}</p><Fields values={{ reason }} set={(_, v) => setReason(v)} specs={[{ key: 'reason', label: 'Reason', required: true }]}/>{error ? <ErrorNotice message={error}/> : null}<Button type="submit" busy={busy}>{tr('Reset sign-in verification')}</Button></form></Panel>; }
 export function EffectiveSummary({ access }: {
     access: any;
 }) {
@@ -217,7 +220,7 @@ export function EffectiveSummary({ access }: {
  {access.assignments?.length ? <Panel title="Assigned financial resources"><Table rows={access.assignments} columns={[{ key: 'name', label: 'Name' }, { key: 'status', label: 'Status', render: r => tr(r.revoked ? 'Revoked' : r.until && new Date(r.until) < new Date() ? 'Expired' : r.from && new Date(r.from) > new Date() ? 'Scheduled' : 'Active') }, { key: 'until', label: 'Expires', render: r => r.until ? dateTime(r.until) : tr('No expiry') }]}/></Panel> : null}
  {access.grants?.length ? <Panel title="Temporary access and delegations"><Table rows={access.grants} columns={[{ key: 'kind', label: 'Access source', render: r => tr(r.kind === 'TEMPORARY' ? 'Temporary grant' : 'Delegation') }, { key: 'permissions', label: 'Permissions', render: r => r.permissions.map((p: any) => text(p.label)).join('، ') }, { key: 'until', label: 'Expires', render: r => dateTime(r.until) }, { key: 'status', label: 'Status', render: r => tr(r.revoked ? 'Revoked' : new Date(r.until) < new Date() ? 'Expired' : new Date(r.from) > new Date() ? 'Scheduled' : 'Active') }]}/></Panel> : null}
  {advanced ? <><Panel title="Sensitive information"><Table rows={access.fields || []} empty="No additional field rules configured." columns={[{ key: 'label', label: 'Sensitive information', render: r => tr(r.label) }, { key: 'access', label: 'Access', render: r => tr(r.access === 'EDIT' ? 'View and edit' : r.access === 'VIEW' ? 'View only' : 'Hidden') }]}/></Panel><Panel title="Financial limits"><div className="surface-body"><p>{tr('Legacy group amounts use the transaction currency and the existing two-decimal accounting unit. No currency conversion is performed here.')}</p></div><Table rows={access.limits || []} empty="No group limits configured. Company authority policies may still apply." columns={[{ key: 'label', label: 'Limit', render: r => tr(r.label) }, { key: 'value', label: 'Configured amount', render: r => { if (r.value === null)
-                return tr('Explicit null (zero)'); if (typeof r.value === 'object')
+                return tr('Positive amounts blocked (zero limit)'); if (typeof r.value === 'object')
                 return tr('Existing custom limit'); try {
                 return r.unit === 'minor_currency' ? <bdi>{minorToDecimal(r.value, 2)}</bdi> : String(r.value);
             }

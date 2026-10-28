@@ -1,6 +1,7 @@
 import { test, expect } from "@playwright/test";
 import { allRoutes, legacyRedirects } from "../../apps/web/src/core/navigation";
 import { fixture } from "./fixtures";
+const evidenceDir=process.env.ODIN_UI_EVIDENCE_DIR||"/tmp/odin-glass-evidence";
 test("populated dashboard, navigation, filters, dialogs, RTL and responsive layout", async ({
   page,
 }) => {
@@ -11,7 +12,7 @@ test("populated dashboard, navigation, filters, dialogs, RTL and responsive layo
   await expect(page.locator(".glass-metric")).toHaveCount(4);
   await expect(page.locator(".glass-revenue-svg")).toBeVisible();
   await page.screenshot({
-    path: "docs/ui-dark/screenshots/dashboard-desktop.png",
+    path: `${evidenceDir}/dashboard-desktop.png`,
   });
   await page.getByLabel("Currency", { exact: true }).selectOption("EGP");
   await page.getByTestId("nav-accounting").click();
@@ -30,7 +31,7 @@ test("populated dashboard, navigation, filters, dialogs, RTL and responsive layo
     .getByRole("link", { name: "Daily workspace", exact: true })
     .click();
   await expect(page.locator(".glass-chart")).toBeVisible();
-  await page.screenshot({ path: "docs/ui-dark/screenshots/av8-dashboard.png" });
+  await page.screenshot({ path: `${evidenceDir}/av8-dashboard.png` });
   await page.goto("/av8/leads");
   await expect(
     page.getByRole("button", { name: "Review account A", exact: true }),
@@ -44,7 +45,7 @@ test("populated dashboard, navigation, filters, dialogs, RTL and responsive layo
     .getByLabel("Name", { exact: false })
     .first()
     .fill("Review lead");
-  await page.screenshot({ path: "docs/ui-dark/screenshots/lead-dialog.png" });
+  await page.screenshot({ path: `${evidenceDir}/lead-dialog.png` });
   await page
     .getByRole("dialog")
     .getByLabel("Phone", { exact: false })
@@ -74,7 +75,7 @@ test("populated dashboard, navigation, filters, dialogs, RTL and responsive layo
   await expect(
     page.getByRole("heading", { name: "Users", exact: true }),
   ).toBeVisible();
-  await page.screenshot({ path: "docs/ui-dark/screenshots/users-desktop.png" });
+  await page.screenshot({ path: `${evidenceDir}/users-desktop.png` });
   await page.goto("/av8/students?student=1");
   await expect(
     page.getByRole("heading", { name: "Review account A" }),
@@ -86,7 +87,7 @@ test("populated dashboard, navigation, filters, dialogs, RTL and responsive layo
     page.getByRole("button", { name: "Documents", exact: true }),
   ).toBeVisible();
   await page.screenshot({
-    path: "docs/ui-dark/screenshots/student-detail.png",
+    path: `${evidenceDir}/student-detail.png`,
   });
   await page.goto("/accounting/overview");
   await expect(
@@ -94,13 +95,13 @@ test("populated dashboard, navigation, filters, dialogs, RTL and responsive layo
   ).toBeVisible();
   await expect(page.locator(".loading")).toHaveCount(0);
   await page.screenshot({
-    path: "docs/ui-dark/screenshots/accounting-desktop.png",
+    path: `${evidenceDir}/accounting-desktop.png`,
   });
   await page.getByTestId("language-toggle").click();
   await expect(page.locator("html")).toHaveAttribute("dir", "rtl");
   await expect(page.locator(".loading")).toHaveCount(0);
   await page.screenshot({
-    path: "docs/ui-dark/screenshots/accounting-arabic.png",
+    path: `${evidenceDir}/accounting-arabic.png`,
   });
   await page.setViewportSize({ width: 390, height: 844 });
   await page.getByRole("button", { name: /Menu|القائمة/ }).click();
@@ -121,7 +122,7 @@ test("populated dashboard, navigation, filters, dialogs, RTL and responsive layo
       () => document.documentElement.scrollWidth <= innerWidth,
     ),
   ).toBe(true);
-  await page.screenshot({ path: "docs/ui-dark/screenshots/mobile-arabic.png" });
+  await page.screenshot({ path: `${evidenceDir}/mobile-arabic.png` });
   expect(errors).toEqual([]);
 });
 test("all registered routes and nested entry points render a safe service-error state", async ({
@@ -183,7 +184,7 @@ test("login validation and unknown route", async ({ page }) => {
       .getByTestId("login-email")
       .evaluate((e: HTMLInputElement) => e.validity.valid),
   ).toBe(false);
-  await page.screenshot({ path: "docs/ui-dark/screenshots/login.png" });
+  await page.screenshot({ path: `${evidenceDir}/login.png` });
   await page.goto("/no-such-odin-page");
   await expect(
     page.getByRole("heading", { name: /Page not found/ }),
@@ -234,7 +235,7 @@ test("student nested tabs, compact desktop, tablet and mobile remain usable", as
     ).toBe(true);
   }
   await page.screenshot({
-    path: "docs/ui-dark/screenshots/dashboard-mobile.png",
+    path: `${evidenceDir}/dashboard-mobile.png`,
     fullPage: true,
   });
   expect(errors).toEqual([]);
@@ -271,7 +272,7 @@ test("transactional modules share readable empty states and table styling", asyn
     await expect(page.locator("main h1")).toBeVisible();
     await expect(page.locator(".glass-header")).toBeVisible();
     await expect(page.locator(".glass-fallback")).toHaveCount(0);
-    await page.screenshot({ path: `docs/ui-dark/screenshots/${name}.png` });
+    await page.screenshot({ path: `${evidenceDir}/${name}.png` });
     await expect(page.locator(".glass-header")).toBeVisible();
   }
   expect(errors).toEqual([]);

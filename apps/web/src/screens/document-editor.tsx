@@ -2,6 +2,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { Plus, Trash2 } from "lucide-react";
 import { useERP, decimal, fixed, today } from "../core/erp-context";
+import {defaultBranch} from '../core/ui-presentation';
 import {
   PageHeader,
   Panel,
@@ -25,7 +26,7 @@ export default function DocumentEditor({
   close: () => void;
   saved: (d: any) => void;
 }) {
-  const { refs, request, notify, allowed, field, tr, money, name } = useERP();
+  const { refs, request, notify, allowed, field, tr, money, name, user } = useERP();
   const sales = [
     "QUOTATION",
     "SALES_ORDER",
@@ -37,20 +38,18 @@ export default function DocumentEditor({
   const purchase = type.startsWith("PURCHASE") || type === "GOODS_RECEIPT";
   const inventory = !sales && !purchase;
   const customer =
-    refs.customers.find((c: any) => c.id === customerId) || refs.customers[0];
+    refs.customers.find((c: any) => String(c.id) === String(customerId));
   const branch =
-    refs.branches.find((b: any) => b.id === customer?.defaultBranchId) ||
-    refs.branches.find((b: any) => b.code === "CAI") ||
-    refs.branches[0];
-  const warehouse = refs.warehouses.find((w: any) => w.branchId === branch?.id);
+    refs.branches.find((b: any) => String(b.id) === String(defaultBranch(refs.branches,user,customer?.defaultBranchId)));
+  const warehouses = refs.warehouses.filter((w:any)=>String(w.branchId)===String(branch?.id));
+  const warehouse = warehouses.length===1?warehouses[0]:undefined;
   const [form, setForm] = useState<any>({
     customerId: customer?.id || "",
-    supplierId: refs.suppliers[0]?.id || "",
+    supplierId: "",
     branchId: branch?.id || "",
     warehouseId: warehouse?.id || "",
-    destinationWarehouseId:
-      refs.warehouses.find((w: any) => w.id !== warehouse?.id)?.id || "",
-    salespersonId: refs.salesEmployees[0]?.id || "",
+    destinationWarehouseId: "",
+    salespersonId: refs.salesEmployees.find((s:any)=>s.userId && String(s.userId)===String(user?.userId||user?.id))?.id || "",
     documentDate: today(),
     dueDate: sales
       ? new Date(Date.now() + 14 * 86400000).toISOString().slice(0, 10)
@@ -78,13 +77,13 @@ export default function DocumentEditor({
       : {}),
   });
   const newLine = () => ({
-    itemId: refs.items[0]?.id || "",
+    itemId: "",
     description:
       type === "INVENTORY_ADJUSTMENT"
         ? "Increase"
         : type === "STOCK_COUNT"
           ? ""
-          : refs.items[0]?.name || "",
+          : "",
     quantity: "1.000",
     unitPrice: "",
     discount: "0.00",
@@ -124,7 +123,7 @@ export default function DocumentEditor({
           ...f,
           salespersonId: rows.some((r) => r.id === f.salespersonId)
             ? f.salespersonId
-            : rows[0]?.id || "",
+            : rows.find((r:any)=>r.userId && String(r.userId)===String(user?.userId||user?.id))?.id || "",
         }));
       })
       .catch((e: any) => {
@@ -511,6 +510,7 @@ export default function DocumentEditor({
                         value={l.itemId}
                         onChange={(e) => update(i, "itemId", e.target.value)}
                       >
+                        <option value="">{tr('Select product')}</option>
                         {refs.items.map((item: any) => (
                           <option key={item.id} value={item.id}>
                             {item.sku} · {name(item)}

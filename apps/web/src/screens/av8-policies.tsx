@@ -46,7 +46,7 @@ export default function Policies({refs}:{refs?:any}) {
    select('firstMilestone','First payment milestone',['CONTRACT','VISA','BEFORE_DEPARTURE']),
    select('anchor','Deferred schedule starts from',['CONTRACT','DEPARTURE','CUSTOM']),
    f('offsetMonths','First installment after (months)','number',true),f('frequencyMonths','Repeat every (months)','number',true),reason,
-  ],initial:{...data,installmentCount:data.installmentCount??(policy.key==='A'?5:6),installmentAmount:decimal(data.installmentAmountMinor??(policy.key==='A'?'960000':'800000')),contractAmount:decimal(data.contractAmountMinor??'600000'),visaAmount:decimal(data.visaAmountMinor??'800000'),firstAmount:decimal(data.firstAmountMinor??'1400000'),reason:''}});
+  ],initial:{...data,installmentCount:data.installmentCount??'',installmentAmount:decimal(data.installmentAmountMinor),contractAmount:decimal(data.contractAmountMinor),visaAmount:decimal(data.visaAmountMinor),firstAmount:decimal(data.firstAmountMinor),reason:''}});
  };
  const openTerms=(policy:any)=>setEdit(policy.key==='CASH'?{
   policy,title:'Edit academy terms',fields:[f('academyAmount','Academy amount (USD)','decimal',true),f('commissionAmount','Commission (USD)','decimal',true),select('additionalMilestone','Academy transfer milestone',['BEFORE_DEPARTURE','AFTER_DEPARTURE']),reason],
@@ -88,7 +88,7 @@ export default function Policies({refs}:{refs?:any}) {
     <div className="av8-settings-content"><p>{tr('These accounts determine the currency and destination of each receipt.')}</p><Table rows={refs?.banks||[]} columns={[{key:'name',label:'Account'},{key:'type',label:'Type',render:(row:any)=>tr(row.type)},{key:'currency',label:'Currency'}]}/>{allowed('system.super_admin')?<Link className="btn" href="/banking/accounts">{tr('Manage bank and cash accounts')}</Link>:null}</div>
    </Panel>
    <Panel title="Payment plans" className="av8-settings-card av8-settings-wide">
-    <div className="av8-settings-list">{plans.map((policy:any)=><article key={policy.id}><div><strong>{displayName(policy.data.name)||`${tr('Payment plan')} ${policy.key}`}</strong><small>{policy.key==='CASH'?`${tr('Total')} · ${cash(policy.previews?.[0]?.totalMinor||5400000)}`:policy.usable?`${policy.data.installmentCount??(policy.key==='A'?5:6)} ${tr('deferred installments')} · ${tr(policy.data.anchor)}`:tr('Complete the amount and schedule before using this plan')}</small></div><div className="actions">{editButton(policy,openPlan)}</div></article>)}</div>
+    <div className="av8-settings-list">{plans.map((policy:any)=><article key={policy.id}><div><strong>{displayName(policy.data.name)||`${tr('Payment plan')} ${policy.key}`}</strong><small>{policy.key==='CASH'?`${tr('Total')} · ${policy.previews?.[0]?.totalMinor!=null?cash(policy.previews[0].totalMinor):tr('Not configured')}`:policy.usable?`${policy.data.installmentCount??tr('Not configured')} ${tr('deferred installments')} · ${tr(policy.data.anchor)}`:tr('Complete the amount and schedule before using this plan')}</small></div><div className="actions">{editButton(policy,openPlan)}</div></article>)}</div>
    </Panel>
    <Panel title="Academies and agreed terms" className="av8-settings-card av8-settings-wide">
     <div className="av8-callout"><strong>{tr('Signed agreements keep an immutable snapshot')}</strong><p>{tr('Changing these settings affects new agreements only; existing signed student terms do not change.')}</p></div>

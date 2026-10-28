@@ -24,8 +24,10 @@ import {
 } from "lucide-react";
 import { modules, allRoutes, routeEntry } from "../core/navigation";
 import { useERP } from "../core/erp-context";
-import { Brand, Button, Dialog, SearchField, ErrorNotice, Loading } from "./ui";
+import { Brand, Button, Dialog, SearchField, ErrorNotice, Loading, Empty } from "./ui";
+import { t } from '../core/i18n';
 import Login from "./login";
+import ThemeToggle from './theme-toggle';
 import Screens from "../screens";
 import { PasswordChange } from "../screens/administration";
 const icons = {
@@ -62,7 +64,28 @@ export default function Workspace({ route }: { route: string }) {
   const [searchOpen, setSearchOpen] = useState(false);
   const [query, setQuery] = useState("");
   const navigation = useRef<HTMLElement>(null);
+  const measurements = useRef<HTMLDivElement>(null);
+  const [fitCount, setFitCount] = useState(2);
   const menuButton = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    const nav = navigation.current, measure = measurements.current;
+    if (!nav || !measure) return;
+    const fit = () => {
+      const widths = Array.from(measure.children, e => e.getBoundingClientRect().width);
+      const more = widths.pop() || 110;
+      const available = nav.clientWidth;
+      let used = 0, count = 0;
+      for (const width of widths) {
+        const reserve = count === widths.length - 1 ? 0 : more + 6;
+        if (used + width + reserve > available) break;
+        used += width + 6; count++;
+      }
+      setFitCount(Math.max(1, count));
+    };
+    const observer = new ResizeObserver(fit);
+    observer.observe(nav); observer.observe(measure); fit();
+    return () => observer.disconnect();
+  }, [status, user, language]);
   useEffect(() => {
     setExpanded("");
     setMobile(false);
@@ -156,7 +179,7 @@ export default function Workspace({ route }: { route: string }) {
   const destinations = allRoutes.filter(
     ({ child }) =>
       allowed(child.permission) &&
-      tr(child.label).toLocaleLowerCase().includes(query.toLocaleLowerCase()),
+      [t(child.label,'en'), t(child.label,'ar'), child.route.replaceAll('/',' ')].some(label => label.normalize('NFKC').toLocaleLowerCase().includes(query.trim().normalize('NFKC').toLocaleLowerCase())),
   );
   return (
     <div className="glass-shell">
@@ -190,7 +213,7 @@ export default function Workspace({ route }: { route: string }) {
           >
             <Search size={19} />
           </Button>
-          <Button data-testid="language-toggle" onClick={changeLanguage}>
+          <Button data-testid="language-toggle" aria-label={tr(language === 'en' ? 'Switch to Arabic' : 'Switch to English')} title={tr(language === 'en' ? 'Switch to Arabic' : 'Switch to English')} onClick={changeLanguage}>
             <Globe size={18} />
             <span>{language === "en" ? "العربية" : "English"}</span>
           </Button>
@@ -202,6 +225,7 @@ export default function Workspace({ route }: { route: string }) {
             </summary>
             <div className="account-menu-panel">
               <Link href="/my-profile">{tr("My Profile")}</Link>
+              <ThemeToggle/>
               <Button onClick={endSession}>
                 <LogOut size={16} />
                 {tr("Sign out")}
@@ -245,6 +269,10 @@ export default function Workspace({ route }: { route: string }) {
           }
         }}
       >
+        <div ref={measurements} className="glass-nav-measure" aria-hidden="true" inert>
+          {visible.map(m => {const Icon=icons[m.id];return <span key={m.id} className="glass-nav-item"><Icon size={19}/><span>{tr(m.id==='command'?'Dashboard Overview':m.label)}</span>{m.children.filter(c=>allowed(c.permission)).length>1?<ChevronDown size={14}/>:null}</span>;})}
+          <span className="glass-nav-item"><Menu size={19}/>{tr('More')}<ChevronDown size={14}/></span>
+        </div>
         <div className="glass-mobile-title">
           <Brand />
           <Button
@@ -264,7 +292,7 @@ export default function Workspace({ route }: { route: string }) {
             return children.length === 1 ? (
               <Link
                 key={m.id}
-                className={`glass-nav-item ${selected ? "selected" : ""} ${index >= 6 ? "glass-nav-overflow" : ""}`}
+                className={`glass-nav-item ${selected ? "selected" : ""} ${index >= fitCount ? "glass-nav-overflow" : ""}`}
                 data-testid={`nav-${m.id}`}
                 href={children[0].route}
                 aria-current={selected ? "page" : undefined}
@@ -277,7 +305,7 @@ export default function Workspace({ route }: { route: string }) {
               <button
                 key={m.id}
                 type="button"
-                className={`glass-nav-item ${selected ? "selected" : ""} ${index >= 6 ? "glass-nav-overflow" : ""}`}
+                className={`glass-nav-item ${selected ? "selected" : ""} ${index >= fitCount ? "glass-nav-overflow" : ""}`}
                 data-testid={`nav-${m.id}`}
                 aria-expanded={expanded === m.id}
                 aria-controls={
@@ -291,9 +319,9 @@ export default function Workspace({ route }: { route: string }) {
               </button>
             );
           })}
-          {visible.length > 6 ? (
+          {visible.length > fitCount ? (
             <button
-              className={`glass-nav-item glass-more ${visible.slice(6).some((m) => m.id === current.module.id) ? "selected" : ""}`}
+              className={`glass-nav-item glass-more ${visible.slice(fitCount).some((m) => m.id === current.module.id) ? "selected" : ""}`}
               aria-expanded={expanded === "more"}
               aria-controls={
                 expanded === "more" ? "glass-more-pages" : undefined
@@ -309,7 +337,7 @@ export default function Workspace({ route }: { route: string }) {
         {expanded === "more" ? (
           <div id="glass-more-pages" className="glass-module-pages">
             <div>
-              {visible.slice(6).map((m) => (
+              {visible.slice(fitCount).map((m) => (
                 <section key={m.id}>
                   <h2>{tr(m.label)}</h2>
                   {m.children
@@ -319,6 +347,7 @@ export default function Workspace({ route }: { route: string }) {
                         href={c.route}
                         key={c.id}
                         data-testid={`nav-${c.id}`}
+                        aria-current={route === c.route ? 'page' : undefined}
                         onClick={() => setExpanded("")}
                       >
                         {tr(c.label)}
@@ -409,8 +438,9 @@ export default function Workspace({ route }: { route: string }) {
       </div>
       {searchOpen ? (
         <Dialog title="Search pages" close={() => setSearchOpen(false)}>
-          <SearchField label="Search pages" value={query} onChange={setQuery} />
+          <div onKeyDown={event=>{if(event.key==='ArrowDown'||event.key==='Enter'){event.preventDefault();const first=event.currentTarget.nextElementSibling?.querySelector<HTMLAnchorElement>('a');if(event.key==='Enter')first?.click();else first?.focus();}}}><SearchField label="Search pages" value={query} onChange={setQuery} /></div>
           <div className="glass-search-results">
+            {!destinations.length?<><Empty filtered description="Try an English or Arabic page name."/><Button onClick={()=>setQuery('')}>{tr('Clear search')}</Button></>:null}
             {destinations.map(({ module, child }) => (
               <Link
                 href={child.route}

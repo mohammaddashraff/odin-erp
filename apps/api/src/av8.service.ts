@@ -1,3 +1,4 @@
+import { av8DatabaseOrder, orderAv8Rows } from './av8-list-order';
 import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { randomUUID, createHash } from 'node:crypto';
 import { Actor, can } from './auth';
@@ -42,7 +43,7 @@ export class Av8Service {
       if(q.queue==='uncontacted')where.firstContactAt=null;
       if(q.queue==='overdue')where.nextFollowUp={lt:new Date()};
       if(q.ownerId)where.ownerId=positiveId(q.ownerId);
-      const [rows,total]=await Promise.all([tx.av8Lead.findMany({where,include:{customer:true},orderBy:{inquiryAt:'desc'},skip:(page-1)*size,take:size}),tx.av8Lead.count({where})]);
+      const [rows,total]=await Promise.all([tx.av8Lead.findMany({where,include:{customer:true},orderBy:av8DatabaseOrder('leads',q),skip:(page-1)*size,take:size}),tx.av8Lead.count({where})]);
       return {rows:rows.map(r=>({...r,responseOverdue:!r.firstContactAt&&Date.now()-r.inquiryAt.valueOf()>(planning.responseMinutes||60)*60000})),total,page,size};
     });
   }
@@ -136,7 +137,7 @@ export class Av8Service {
       const page=Math.max(1,Math.min(100000,Number(q.page)||1)),size=25;
       const where:any={AND:[av8Scope(a),...(q.search?[{OR:[{reference:{contains:String(q.search).slice(0,100),mode:'insensitive'}},{customer:{name:{contains:String(q.search).slice(0,100),mode:'insensitive'}}}]}]:[])]};
       for(const k of ['admissions','visa','travel'])if(q[k])where[k]=String(q[k]);
-      const [rows,total]=await Promise.all([tx.av8Application.findMany({where,include:{customer:{select:{name:true,phone:true}},academy:{select:{name:true}}},skip:(page-1)*size,take:size,orderBy:{id:'desc'}}),tx.av8Application.count({where})]);
+      const [rows,total]=await Promise.all([tx.av8Application.findMany({where,include:{customer:{select:{name:true,phone:true}},academy:{select:{name:true}}},skip:(page-1)*size,take:size,orderBy:av8DatabaseOrder('applications',q)}),tx.av8Application.count({where})]);
       return {rows:rows.map(r=>({...r,guardian:undefined,medical:permits(av8ActorAtBranch(a,r.branchId),'av8.medical.view')?r.medical:undefined})),total,page,size};
     });
   }
@@ -406,7 +407,7 @@ export class Av8Service {
     return this.read(a,async tx=>{const leads=await tx.av8Lead.findMany({where:av8Scope(a,'lead','av8.leads.view'),select:{id:true,customer:{select:{name:true}}}});const map=new Map(leads.map(l=>[String(l.id),l.customer.name]));
       const records=await tx.av8Record.findMany({where:{tenantId:a.tenantId,kind:'appointment',leadId:{in:leads.map(l=>l.id)}}});
       const rows=records.map(r=>({...r,name:map.get(String(r.leadId)),plannedAt:(r.data as any).plannedAt,location:(r.data as any).location})).filter(r=>(!q.date||cairoCalendarDate(new Date(r.plannedAt))===q.date)&&(!q.search||[r.name,r.location].join(' ').toLowerCase().includes(String(q.search).toLowerCase()))).sort((a,b)=>String(a.plannedAt).localeCompare(String(b.plannedAt)));
-      return {rows:rows.slice((page-1)*size,page*size),total:rows.length,page,size};});
+      return {rows:orderAv8Rows(rows,q).slice((page-1)*size,page*size),total:rows.length,page,size};});
   }
   planReports(a:Actor,id:bigint,b:any,key:string) {return once(this.db,a,`progress.plan.${id}`,key,b,async tx=>{const app=await application(tx,a,id,'av8.affairs.edit');if(!app.departedAt)fail('Actual departure is required');await this.progressPeriods(tx,a,id,cairoCalendarDate(app.departedAt));return {ok:true};});}
   async queues(a:Actor,q:any={}) {
@@ -428,7 +429,7 @@ export class Av8Service {
       }
       const filtered=results.filter(r=>(!q.kind||r.kind===q.kind)&&(!q.search||[r.name,r.reference,r.issue].join(' ').toLowerCase().includes(String(q.search).toLowerCase())));const counts=Object.fromEntries(['visa','documents','progress','departures','arrears','academy'].map(k=>[k,results.filter(r=>r.kind===k).length]));
       const leads=permits(a,'av8.leads.view')?await tx.av8Lead.count({where:{...av8Scope(a,'lead','av8.leads.view'),firstContactAt:null}}):null;
-      return {rows:filtered.slice((page-1)*size,page*size),total:filtered.length,page,size,counts:{...counts,uncontacted:leads,applications:rows.length},outbound:'disabled'};
+      return {rows:orderAv8Rows(filtered,q).slice((page-1)*size,page*size),total:filtered.length,page,size,counts:{...counts,uncontacted:leads,applications:rows.length},outbound:'disabled'};
     });
   }
   async report(a:Actor,kind:string,q:any={}) {
@@ -462,7 +463,7 @@ export class Av8Service {
         }
       }
       if(q.search)rows=rows.filter(r=>Object.values(r).some(v=>String(v??'').toLowerCase().includes(String(q.search).toLowerCase())));
-      return {kind,rows:rows.slice((page-1)*size,page*size),total:rows.length,page,size,currency:'USD'};
+      return {kind,rows:orderAv8Rows(rows,q).slice((page-1)*size,page*size),total:rows.length,page,size,currency:'USD'};
     });
   }
   async statement(a:Actor,id:bigint,kind:string) {

@@ -15,6 +15,7 @@ import {
 import type { ReactNode } from "react";
 import { useERP } from "../core/erp-context";
 import { Panel, Empty, Status } from "./ui";
+import {countTicks} from '../core/ui-presentation';
 
 export function GlassMetric({
   label,
@@ -40,15 +41,8 @@ export function GlassMetric({
         ) : null}
       </span>
       <strong className="glass-metric-value">{value}</strong>
-      <span className="glass-metric-note">{tr("Current company")}</span>
       <span className="glass-metric-footer">
         {tr(detail)}
-        <span className="glass-spark" aria-hidden="true">
-          <i />
-          <i />
-          <i />
-          <i />
-        </span>
       </span>
     </>
   );
@@ -128,9 +122,10 @@ export function QueueDashboard({
       : []),
   ];
   const maximum = Math.max(
-    1,
+    0,
     ...categories.map(([key]) => Number(counts[key] || 0)),
   );
+  const ticks=countTicks(maximum),ceiling=ticks[0]||1;
   return (
     <section className="glass-dashboard" aria-label={tr("Dashboard Overview")}>
       <h1 className="sr-only">{tr("Dashboard Overview")}</h1>
@@ -154,15 +149,15 @@ export function QueueDashboard({
             <ChartNoAxesCombined className="glass-section-icon" size={23} />
           }
         >
-          <div
+          {maximum===0?<Empty description="No follow-up requirements in your current scope."/>:<div
             className="glass-chart"
             role="group"
             aria-label={tr("Outstanding requirements")}
           >
             <div className="glass-chart-grid" aria-hidden="true">
-              {[4, 3, 2, 1, 0].map((n) => (
+              {ticks.map((n) => (
                 <div key={n}>
-                  <span>{Math.ceil((maximum * n) / 4)}</span>
+                  <span>{n}</span>
                 </div>
               ))}
             </div>
@@ -178,7 +173,7 @@ export function QueueDashboard({
                     <span
                       className="glass-bar"
                       style={{
-                        height: `${(Number(counts[key] || 0) / maximum) * 100}%`,
+                        height: `${(Number(counts[key] || 0) / ceiling) * 100}%`,
                       }}
                     />
                     <b>{counts[key] || 0}</b>
@@ -187,7 +182,7 @@ export function QueueDashboard({
                 </button>
               ))}
             </div>
-          </div>
+          </div>}
           <p className="glass-chart-caption">
             {tr("Follow-up queue")} · {tr("Current company")}
           </p>

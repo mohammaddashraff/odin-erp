@@ -1,4 +1,5 @@
 "use client";
+import {defaultBranch} from "../core/ui-presentation";
 import { useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
@@ -313,7 +314,7 @@ export function MasterEditor({
   close: () => void;
   saved: (r: any) => void;
 }) {
-  const { tr, refs, field, request, refreshRefs, notify } = useERP();
+  const { tr, refs, field, request, refreshRefs, notify, user } = useERP();
   const defaults =
     kind === "customer"
       ? {
@@ -324,7 +325,7 @@ export function MasterEditor({
           email: "",
           taxNumber: "",
           registrationNumber: "",
-          defaultBranchId: refs.branches[0]?.id || "",
+          defaultBranchId: defaultBranch(refs.branches,user),
           billingAddress: "",
           shippingAddress: "",
           paymentTermsDays: "",
@@ -343,14 +344,14 @@ export function MasterEditor({
           address: "",
           paymentTermsDays: "30",
           precision: "3",
-          branchId: refs.branches[0]?.id || "",
-          categoryId: refs.categories[0]?.id || "",
-          uomId: refs.units[0]?.id || "",
+          branchId: defaultBranch(refs.branches,user),
+          categoryId: "",
+          uomId: "",
           sku: "",
           barcode: "",
           nameAr: "",
-          purchasePrice: "100.00",
-          salePrice: "150.00",
+          purchasePrice: "",
+          salePrice: "",
           taxRatePercent: "14",
           reorderLevel: "5.000",
           type: "BANK",

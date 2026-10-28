@@ -1,4 +1,5 @@
 "use client";
+import {defaultBranch} from "../core/ui-presentation";
 import { useEffect, useState, type FormEvent } from "react";
 import Link from "next/link";
 import { Plus, Trash2 } from "lucide-react";
@@ -253,7 +254,7 @@ function PaymentEditor({
     (d: any) => d.remainingMinor != null && BigInt(d.remainingMinor) > 0n,
   );
   const [form, setForm] = useState({
-    bankAccountId: refs.bankAccounts[0]?.id || "",
+    bankAccountId: refs.bankAccounts.length===1?refs.bankAccounts[0].id:"",
     documentId: "",
     amount: "",
   });
@@ -262,11 +263,10 @@ function PaymentEditor({
   const [dirty, setDirty] = useState(false);
   const guard = useUnsaved(dirty);
   useEffect(() => {
-    const d = open[0];
     setForm((f) => ({
       ...f,
-      documentId: d?.id || "",
-      amount: d ? decimal(d.remainingMinor) : "",
+      documentId: "",
+      amount: "",
     }));
   }, [documents.data]);
   const set = (k: string, v: any) => {
@@ -423,7 +423,7 @@ export function Banking({
   title: string;
   screenId: string;
 }) {
-  const { tr, refs, money, name, date, allowed, request, notify } = useERP();
+  const { tr, refs, money, name, date, allowed, request, notify, user } = useERP();
   const state = useResource("/banking");
   const [mode, setMode] = useState("");
   const [match, setMatch] = useState<any>(null);
@@ -442,6 +442,7 @@ export function Banking({
         title="Post bank transaction"
         close={() => setMode("")}
         defaults={{
+          branchId: defaultBranch(refs.branches,user),
           kind: "RECEIPT",
           bankAccountId: '',
           counterpartyAccountId: '',
@@ -451,6 +452,7 @@ export function Banking({
           postingDate: today(),
         }}
         specs={[
+          {key:"branchId",label:"Branch",options:refs.branches,required:true},
           {
             key: "kind",
             label: "Kind",
@@ -479,7 +481,7 @@ export function Banking({
             method: "POST",
             body: JSON.stringify({
               ...d,
-              branchId: refs.branches[0].id,
+              branchId: d.branchId,
               postingDate: d.postingDate,
             }),
           });

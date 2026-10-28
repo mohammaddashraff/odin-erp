@@ -9,13 +9,14 @@ import "./accounting-reports.css";
 import "./interface-polish.css";
 import "./administration.css";
 import "./glass.css";
+import "./themes.css";
 export const metadata: Metadata = {
   title: "AV8 ERP · ODIN Software Solutions",
   description: "Student operations for AV8, by ODIN Software Solutions",
   icons: { icon: "/brand/oss-geometric-eye-transparent.png" },
 };
 export const viewport: Viewport = {
-  colorScheme: "dark",
+  colorScheme: "dark light",
   themeColor: "#030c1d",
 };
 export default async function Layout({
@@ -25,7 +26,8 @@ export default async function Layout({
 }) {
   const language = await getRequestLanguage();
   return (
-    <html lang={language} dir={language === "ar" ? "rtl" : "ltr"}>
+    <html lang={language} dir={language === "ar" ? "rtl" : "ltr"} data-theme="dark" suppressHydrationWarning>
+      <head><script dangerouslySetInnerHTML={{__html:"try{document.documentElement.dataset.theme=localStorage.getItem('odin-theme')==='light'?'light':'dark'}catch{}"}}/></head>
       <body>
         <SessionProvider>
           <ERPProvider initialLanguage={language}>{children}</ERPProvider>

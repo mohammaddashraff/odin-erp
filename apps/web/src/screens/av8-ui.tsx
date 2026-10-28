@@ -1,24 +1,40 @@
 "use client";
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useERP } from '../core/erp-context';
-import { Button, Dialog, ErrorNotice, Fields, type FieldSpec } from '../components/ui';
+import { Button, Dialog, ErrorNotice, Fields, useUnsaved, type FieldSpec } from '../components/ui';
 import { cairoToday } from '../core/cairo-time';
+import {formSnapshot} from '../core/ui-presentation';
 export const cash=(v:any,currency='USD')=>{const x=BigInt(v||0),n=x<0n?-x:x;return `${currency} ${x<0n?'-':''}${(n/100n).toLocaleString('en-US')}.${String(n%100n).padStart(2,'0')}`;};
 export const today=cairoToday;
 export const time=(v:any,language='en')=>v?new Intl.DateTimeFormat(language==='ar'?'ar-EG':'en-GB',{timeZone:'Africa/Cairo',numberingSystem:'latn',dateStyle:'medium',timeStyle:'short'}).format(new Date(v)):'—';
 export const option=(items:any[])=>[{value:'',label:'Select'},...items];
 export const f=(key:string,label:string,type='text',required=false):FieldSpec=>({key,label,type,required});
 export const reason=f('reason','Reason / notes','textarea',true);
-export function Form({title,fields,initial={},change,render,save,close,children}:{title:string;fields:FieldSpec[]|((value:any)=>FieldSpec[]);initial?:any;change?:(key:string,value:any,current:any)=>any;render?:(value:any)=>React.ReactNode;save:(v:any)=>Promise<any>;close:()=>void;children?:React.ReactNode}) {
- const {tr}=useERP();const [value,setValue]=useState(()=>{
-   const value={...initial};for(const field of typeof fields==='function'?fields(value):fields){if(field.options&&value[field.key]===undefined){const first=field.options[0];value[field.key]=typeof first==='string'?first:first?.value??first?.id??'';}}return value;
- }),[busy,setBusy]=useState(false),[error,setError]=useState(''),[fieldErrors,setFieldErrors]=useState<Record<string,string>>({});
- return <Dialog title={title} close={()=>!busy&&close()}><form onChange={()=>setError('')} onSubmit={async e=>{e.preventDefault();setBusy(true);setError('');setFieldErrors({});try{await save(value);close();}catch(e:any){setError(e.message);if(e.field)setFieldErrors({[e.field]:e.message});}finally{setBusy(false);}}}><Fields specs={typeof fields==='function'?fields(value):fields} values={value} errors={fieldErrors} set={(k,v)=>{setFieldErrors(old=>{const next={...old};delete next[k];return next;});setValue((old:any)=>change?change(k,v,old):({...old,[k]:v}));}}/>{render?.(value)}{children}{error?<ErrorNotice title="Could not save" message={error}/>:null}<div className="actions av8-form-actions"><Button onClick={close} disabled={busy}>{tr('Cancel')}</Button><Button primary type="submit" busy={busy}>{tr('Save')}</Button></div></form></Dialog>;
+export function Form({title,fields,initial={},change,render,save,close,children,dirty:extraDirty=false,submitLabel='Save',submitDisabled=false,submitHint}:{
+ title:string;fields:FieldSpec[]|((value:any)=>FieldSpec[]);initial?:any;change?:(key:string,value:any,current:any)=>any;render?:(value:any)=>React.ReactNode;save:(v:any)=>Promise<any>;close:()=>void;children?:React.ReactNode;dirty?:boolean;submitLabel?:string;submitDisabled?:boolean;submitHint?:string;
+}) {
+ const {tr}=useERP();
+ const [value,setValue]=useState(()=>({...initial})),baseline=useRef(formSnapshot(initial));
+ const [busy,setBusy]=useState(false),[error,setError]=useState(''),[fieldErrors,setFieldErrors]=useState<Record<string,string>>({});
+ const form=useRef<HTMLFormElement>(null),inFlight=useRef(false);
+ const dirty=extraDirty||formSnapshot(value)!==baseline.current;
+ const guard=useUnsaved(dirty);
+ useEffect(()=>{if(error&&!Object.keys(fieldErrors).length)form.current?.querySelector<HTMLElement>('.form-error-summary')?.focus();},[error,fieldErrors]);
+ const dismiss=()=>{if(!inFlight.current)guard(close);};
+ return <Dialog title={title} close={dismiss} className="av8-form-dialog"><form ref={form} onChange={()=>setError('')} onInvalidCapture={e=>{
+   const control=e.target as HTMLInputElement,key=control.dataset.fieldKey;
+   if(key)setFieldErrors(old=>({...old,[key]:control.validity.valueMissing?'Complete this required field.':'Check this value.'}));
+ }} onSubmit={async e=>{
+   e.preventDefault();if(inFlight.current||submitDisabled)return;inFlight.current=true;setBusy(true);setError('');setFieldErrors({});
+   try{await save(value);close();}catch(e:any){setError(e.message);if(e.field)setFieldErrors({[e.field]:e.message});else form.current?.querySelector<HTMLElement>('[role="alert"]')?.focus();}finally{inFlight.current=false;setBusy(false);}
+ }}>
+ <div className="av8-form-content"><Fields specs={typeof fields==='function'?fields(value):fields} values={value} errors={fieldErrors} set={(k,v)=>{setFieldErrors(old=>{const next={...old};delete next[k];return next;});setValue((old:any)=>change?change(k,v,old):({...old,[k]:v}));}}/>{render?.(value)}{children}{error?<div tabIndex={-1} role="alert" className="form-error-summary"><ErrorNotice title="Could not save" message={error}/></div>:null}</div>
+ <div className="actions av8-form-actions">{submitHint?<p>{tr(submitHint)}</p>:null}<Button onClick={dismiss} disabled={busy}>{tr('Cancel')}</Button><Button primary type="submit" busy={busy} disabled={submitDisabled}>{tr(submitLabel)}</Button></div></form></Dialog>;
 }
 export function FxPreview({value,baseCurrency='EGP'}:{value:any;baseCurrency?:string}) {
  const {tr}=useERP();
  const currency=String(value.currency||'USD'),manual=value.usdToBaseRate||value.baseRate;
- return <div className="av8-callout av8-fx-help" aria-live="polite"><strong>{tr('Currency handling')}</strong><p>{tr('The receiving account sets the payment currency')}: <bdi>{currency}</bdi>.</p><p><bdi>1 USD = {manual||tr('saved dated rate')} {baseCurrency}</bdi></p><small>{tr('The student-payment conversion and ledger conversion are calculated separately and saved with the receipt.')}</small></div>;
+ return <div className="av8-callout av8-fx-help" aria-live="polite"><strong>{tr('Currency handling')}</strong><p>{tr('The receiving account sets the payment currency')}: <bdi>{currency}</bdi>.</p><p><bdi>{tr('1 USD =')} {manual||tr('saved dated rate')} {baseCurrency}</bdi></p><small>{tr('The student-payment conversion and ledger conversion are calculated separately and saved with the receipt.')}</small></div>;
 }
 export function useAv8Actions(reload:()=>void) {const {request,notify}=useERP();return async(path:string,value:any)=>{const result=await request('/av8'+path,{method:'POST',headers:{'Idempotency-Key':crypto.randomUUID()},body:JSON.stringify(value)});notify('Saved successfully');reload();return result;};}
 import { useSession } from '../core/session-provider';

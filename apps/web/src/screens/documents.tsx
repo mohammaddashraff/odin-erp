@@ -1,4 +1,5 @@
 "use client";
+import {newDocumentLabels} from "../core/report-schema";
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
@@ -145,7 +146,7 @@ export default function Documents({
       >
         {direct && allowed(`${resources[type]}.create`) ? (
           <AddButton testId="new-document" onClick={() => setMode("create")}>
-            {tr("New")} {tr(type)}
+            {tr(newDocumentLabels[type]||"New document")}
           </AddButton>
         ) : (
           <span className="muted">
@@ -805,8 +806,8 @@ function Conversion({
     Object.fromEntries(rows.map((l: any) => [l.id, decimal(l.remaining, 3)])),
   );
   const [context, setContext] = useState({
-    warehouseId: d.warehouseId || refs.warehouses[0]?.id || "",
-    supplierId: d.supplierId || refs.suppliers[0]?.id || "",
+    warehouseId: d.warehouseId || "",
+    supplierId: d.supplierId || "",
   });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");

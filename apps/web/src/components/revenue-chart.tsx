@@ -96,6 +96,7 @@ export function RevenueChart({ documents }: { documents: any[] }) {
           role="region"
           aria-label={tr("Revenue Analytics")}
         >
+          <p className="chart-scroll-hint">{tr('Scroll horizontally to see all months. Use arrow keys when the chart is focused.')}</p>
           <svg
             className="glass-revenue-svg"
             viewBox="0 0 700 285"
@@ -115,14 +116,14 @@ export function RevenueChart({ documents }: { documents: any[] }) {
                   x2="669"
                   y1={46 + i * 47.5}
                   y2={46 + i * 47.5}
-                  stroke="#8eb8ea26"
+                  stroke="var(--chart-grid)"
                   strokeDasharray="3 3"
                 />
                 <text
                   x="56"
                   y={50 + i * 47.5}
                   textAnchor="end"
-                  fill="#a9bbd5"
+                  fill="var(--odin-muted)"
                   fontSize="9"
                 >
                   {money(max - (range * BigInt(i)) / 4n, currency)}
@@ -143,7 +144,7 @@ export function RevenueChart({ documents }: { documents: any[] }) {
                   x={p.x}
                   y="263"
                   textAnchor="middle"
-                  fill="#b7cbe4"
+                  fill="var(--odin-muted)"
                   fontSize="10"
                 >
                   {new Intl.DateTimeFormat(
@@ -154,6 +155,7 @@ export function RevenueChart({ documents }: { documents: any[] }) {
               </g>
             ))}
           </svg>
+          <details className="chart-data"><summary>{tr('View monthly values')}</summary><dl>{totals.map((value,index)=><div key={index}><dt>{new Intl.DateTimeFormat(language==='ar'?'ar-EG':'en-GB',{month:'long',timeZone:'UTC'}).format(new Date(Date.UTC(Number(year),index,1)))}</dt><dd><bdi>{money(value,currency)}</bdi></dd></div>)}</dl></details>
         </div>
       ) : (
         <Empty />

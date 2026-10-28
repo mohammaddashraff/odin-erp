@@ -1,4 +1,5 @@
 "use client";
+import {defaultBranch} from "../core/ui-presentation";
 import { useRef, useState } from "react";
 import { Plus, Minus, Trash2 } from "lucide-react";
 import { useERP, useResource, decimal, fixed } from "../core/erp-context";
@@ -20,6 +21,7 @@ export default function Pos() {
   const {
     tr,
     refs,
+    user,
     request,
     name,
     money,
@@ -100,20 +102,18 @@ export default function Pos() {
     notify("Action completed");
   };
   if (mode === "open") {
-    const branch =
-      refs.branches.find((b: any) => b.code === "CAI") || refs.branches[0];
-    const wh =
-      refs.warehouses.find((w: any) => w.code === "CAI-MAIN") ||
-      refs.warehouses.find((w: any) => w.branchId === branch.id);
+    const branchId=defaultBranch(refs.branches,user);
+    const warehouses=refs.warehouses.filter((w:any)=>String(w.branchId)===String(branchId));
+    const wh=warehouses.length===1?warehouses[0]:undefined;
     return (
       <FormPage
         title="Open register shift"
         close={() => setMode("")}
         defaults={{
-          branchId: branch.id,
+          branchId,
           warehouseId: wh?.id || "",
-          registerCode: "CAI-REG-01",
-          openingCash: "1000.00",
+          registerCode: "",
+          openingCash: "",
         }}
         specs={[
           {

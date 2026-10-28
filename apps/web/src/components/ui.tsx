@@ -22,6 +22,7 @@ import { routeEntry } from "../core/navigation";
 import { pageGuides } from "../core/ui-copy";
 import { useERP } from "../core/erp-context";
 import { cairoDateTime, cairoInstant } from '../core/cairo-time';
+import {statusTone} from '../core/ui-presentation';
 
 export function Brand() {
   const { tr } = useERP();
@@ -66,11 +67,13 @@ export function PageHeader({
   subtitle,
   children,
   back,
+  literal = false,
 }: {
   title: string;
   subtitle?: string;
   children?: ReactNode;
   back?: () => void;
+  literal?: boolean;
 }) {
   const { tr } = useERP();
   const pathname = usePathname();
@@ -86,8 +89,8 @@ export function PageHeader({
             {tr("Back")}
           </button>
         ) : null}
-        <h1 tabIndex={-1}>{tr(title)}</h1>
-        {subtitle ? <p>{tr(subtitle)}</p> : null}
+        <h1 tabIndex={-1}>{literal ? <bdi>{title}</bdi> : tr(title)}</h1>
+        {subtitle ? <p>{literal ? <bdi>{subtitle}</bdi> : tr(subtitle)}</p> : null}
       </div>
       <div className="actions">{children}</div>
     </header>
@@ -121,13 +124,7 @@ export function Panel({
 }
 export function Status({ value,context }: { value: string;context?:string }) {
   const { label, tr } = useERP();
-  const tone = /REJECT|CANCEL|EXPIRED|CLOSED/.test(value)
-    ? "danger"
-    : /^(APPROVED|POSTED|COMPLETED|ACTIVE|OPEN)$/.test(value)
-      ? "success"
-      : /SUBMIT|PENDING|HELD/.test(value)
-        ? "warning"
-        : "neutral";
+  const tone = statusTone(value);
   return (
     <span className={`status ${tone}`}>
       <i />
@@ -162,9 +159,11 @@ export function Stats({
 export function Empty({
   filtered = false,
   children,
+  description,
 }: {
   filtered?: boolean;
   children?: ReactNode;
+  description?: string;
 }) {
   const { tr } = useERP();
   return (
@@ -176,7 +175,7 @@ export function Empty({
         {tr(
           filtered
             ? "Adjust the search or filters to view records."
-            : "Related records will appear here when the workflow progresses.",
+            : description || "Related records will appear here when the workflow progresses.",
         )}
       </p>
       {children}
@@ -210,7 +209,7 @@ export function ErrorNotice({
   return (
     <div className="error-notice" role="alert">
       <strong>{tr(title)}</strong>
-      <p>{message}</p>
+      <p>{tr(message)}</p>
       {retry ? <Button onClick={retry}>{tr("Retry")}</Button> : null}
     </div>
   );
@@ -236,6 +235,7 @@ export type Column = {
   render?: (row: any, index: number) => ReactNode;
   numeric?: boolean;
   width?: string;
+  sortable?: boolean;
 };
 export function Table({
   columns,
@@ -244,6 +244,9 @@ export function Table({
   caption,
   filtered,
   empty,
+  onReset,
+  sort,
+  onSort,
 }: {
   columns: Column[];
   rows: any[];
@@ -251,9 +254,11 @@ export function Table({
   caption?: string;
   filtered?: boolean;
   empty?: string;
+  onReset?: () => void;
+  sort?: {key:string;direction:'asc'|'desc'};
+  onSort?: (key:string) => void;
 }) {
   const { tr } = useERP();
-  if (!rows?.length) return empty ? <div className="empty-state" role="status">{tr(empty)}</div> : <Empty filtered={filtered} />;
   return (
     <div
       className="table-region"
@@ -271,13 +276,15 @@ export function Table({
                 key={c.key}
                 className={c.numeric ? "numeric" : ""}
                 style={{ width: c.width }}
+                aria-sort={c.sortable && onSort ? sort?.key===c.key ? sort.direction==='asc'?'ascending':'descending' : 'none' : undefined}
               >
-                {tr(c.label)}
+                {c.sortable && onSort ? <button type="button" className="table-sort" onClick={()=>onSort(c.key)}>{tr(c.label)}<span aria-hidden="true">{sort?.key===c.key?(sort.direction==='asc'?'↑':'↓'):'↕'}</span></button> : tr(c.label)}
               </th>
             ))}
           </tr>
         </thead>
         <tbody>
+          {!rows?.length ? <tr><td colSpan={Math.max(1,columns.length)}><Empty filtered={filtered} description={empty}>{filtered && onReset ? <Button onClick={onReset}>{tr('Reset filters')}</Button>:null}</Empty></td></tr> : null}
           {rows.map((row, i) => (
             <tr key={row.id || i}>
               {columns.map((c) => (
@@ -286,7 +293,7 @@ export function Table({
                     c.render(row, i)
                   ) : (
                     <bdi>
-                      {row[c.key] == null ? "—" : tr(String(row[c.key]))}
+                      {row[c.key] == null ? "—" : ['status','type','kind','action','scope','bucket','unit'].includes(c.key) ? tr(String(row[c.key])) : String(row[c.key])}
                     </bdi>
                   )}
                 </td>
@@ -382,12 +389,13 @@ export type FieldSpec = {
   testId?: string;
   pattern?: string;
   autoComplete?: string;
+  suggestions?: string[];
 };
 export function Fields({
   specs,
   values,
   set,
-  errors = {},
+  errors: serverErrors = {},
 }: {
   specs: FieldSpec[];
   values: any;
@@ -396,8 +404,12 @@ export function Fields({
 }) {
   const { tr, name } = useERP();
   const id = useId();
+  const [clientErrors,setClientErrors]=useState<Record<string,string>>({});
+  const errors={...clientErrors,...serverErrors};
+  const previousErrors=useRef<string[]>([]);
+  useEffect(()=>{const keys=Object.keys(errors);if(keys.some(key=>!previousErrors.current.includes(key)))document.getElementById(`${id}-${keys[0]}`)?.focus();previousErrors.current=keys;},[errors,id]);
   return (
-    <div className="fields">
+    <div className="fields" onInvalidCapture={event=>{const control=event.target as HTMLInputElement,key=control.dataset.fieldKey;if(key)setClientErrors(old=>({...old,[key]:control.validity.valueMissing?'Complete this required field.':'Check this value.'}));}} onChangeCapture={event=>{const key=(event.target as HTMLInputElement).dataset.fieldKey;if(key)setClientErrors(old=>{if(!old[key])return old;const next={...old};delete next[key];return next;});}}>
       {specs.map((f) => (
         <label
           key={f.key}
@@ -412,13 +424,16 @@ export function Fields({
             <select
               id={`${id}-${f.key}`}
               aria-labelledby={`${id}-${f.key}-label`}
-              aria-describedby={f.hint ? `${id}-${f.key}-hint` : undefined}
+              aria-describedby={[f.hint ? `${id}-${f.key}-hint` : "", errors[f.key] ? `${id}-${f.key}-error` : ""].filter(Boolean).join(" ") || undefined}
+              aria-invalid={!!errors[f.key] || undefined}
+              data-field-key={f.key}
               data-testid={f.testId}
               value={values[f.key] ?? ""}
               disabled={f.readOnly}
               required={f.required}
               onChange={(e) => set(f.key, e.target.value)}
             >
+              {!f.options.some(o=>o === "" || o?.value === "") ? <option value="">{tr("Select")}</option>:null}
               {f.options.map((o, i) =>
                 typeof o === "string" ? (
                   <option key={o} value={o}>
@@ -437,7 +452,9 @@ export function Fields({
             <span className="cairo-date-field">
               <input id={`${id}-${f.key}`}
               aria-labelledby={`${id}-${f.key}-label`}
-              aria-describedby={f.hint ? `${id}-${f.key}-hint` : undefined} type="datetime-local" dir="ltr" required={f.required}
+              aria-describedby={[f.hint ? `${id}-${f.key}-hint` : "", errors[f.key] ? `${id}-${f.key}-error` : ""].filter(Boolean).join(" ") || undefined}
+              aria-invalid={!!errors[f.key] || undefined}
+              data-field-key={f.key} type="datetime-local" dir="ltr" required={f.required}
                 value={values[f.key] ? cairoDateTime(values[f.key]) : ''} readOnly={f.readOnly}
                 onChange={event=>{
                   try {const value=cairoInstant(event.target.value);event.target.setCustomValidity('');set(f.key,value);}
@@ -450,7 +467,9 @@ export function Fields({
             <textarea
               id={`${id}-${f.key}`}
               aria-labelledby={`${id}-${f.key}-label`}
-              aria-describedby={f.hint ? `${id}-${f.key}-hint` : undefined}
+              aria-describedby={[f.hint ? `${id}-${f.key}-hint` : "", errors[f.key] ? `${id}-${f.key}-error` : ""].filter(Boolean).join(" ") || undefined}
+              aria-invalid={!!errors[f.key] || undefined}
+              data-field-key={f.key}
               value={values[f.key] ?? ""}
               readOnly={f.readOnly}
               required={f.required}
@@ -460,7 +479,9 @@ export function Fields({
             <input
               id={`${id}-${f.key}`}
               aria-labelledby={`${id}-${f.key}-label`}
-              aria-describedby={f.hint ? `${id}-${f.key}-hint` : undefined}
+              aria-describedby={[f.hint ? `${id}-${f.key}-hint` : "", errors[f.key] ? `${id}-${f.key}-error` : ""].filter(Boolean).join(" ") || undefined}
+              aria-invalid={!!errors[f.key] || undefined}
+              data-field-key={f.key}
               data-testid={f.testId}
               type="file"
               accept={f.accept}
@@ -472,7 +493,9 @@ export function Fields({
             <input
               id={`${id}-${f.key}`}
               aria-labelledby={`${id}-${f.key}-label`}
-              aria-describedby={f.hint ? `${id}-${f.key}-hint` : undefined}
+              aria-describedby={[f.hint ? `${id}-${f.key}-hint` : "", errors[f.key] ? `${id}-${f.key}-error` : ""].filter(Boolean).join(" ") || undefined}
+              aria-invalid={!!errors[f.key] || undefined}
+              data-field-key={f.key}
               data-testid={f.testId}
               type={f.type === "decimal" ? "text" : f.type || "text"}
               inputMode={f.type === "decimal" ? "decimal" : undefined}
@@ -488,6 +511,7 @@ export function Fields({
               required={f.required}
               pattern={f.pattern}
               autoComplete={f.autoComplete}
+              list={f.suggestions ? `${id}-${f.key}-suggestions`:undefined}
               min={f.min}
               max={f.max}
               step={f.step}
@@ -499,8 +523,9 @@ export function Fields({
               }
             />
           )}{" "}
+          {f.suggestions ? <datalist id={`${id}-${f.key}-suggestions`}>{f.suggestions.map(value=><option key={value} value={value}/>)}</datalist> : null}
           {f.hint ? <small id={`${id}-${f.key}-hint`}>{tr(f.hint)}</small> : null}
-          {errors[f.key] ? <small className="field-error" role="alert">{errors[f.key]}</small> : null}
+          {errors[f.key] ? <small id={`${id}-${f.key}-error`} className="field-error" role="alert">{tr(errors[f.key])}</small> : null}
         </label>
       ))}
     </div>
@@ -535,10 +560,12 @@ export function Dialog({
   title,
   children,
   close,
+  className,
 }: {
   title: string;
   children: ReactNode;
   close: () => void;
+  className?: string;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
   const id = useId();
@@ -556,6 +583,7 @@ export function Dialog({
   }, []);
   return (
     <dialog
+      className={className}
       ref={ref}
       aria-labelledby={id}
       onCancel={(e) => {
@@ -580,6 +608,7 @@ export function Confirm({
   reason = true,
   dangerous = false,
   message,
+  actionLabel = 'Confirm',
 }: {
   title: string;
   action: (comment: string) => Promise<void>;
@@ -587,6 +616,7 @@ export function Confirm({
   reason?: boolean;
   dangerous?: boolean;
   message?: string;
+  actionLabel?: string;
 }) {
   const { tr } = useERP();
   const [comment, setComment] = useState("");
@@ -642,7 +672,7 @@ export function Confirm({
             busy={busy}
             disabled={reason && !comment.trim()}
           >
-            {tr("Confirm")}
+            {tr(actionLabel)}
           </Button>
         </div>
       </form>
@@ -681,10 +711,17 @@ export function useUnsaved(dirty: boolean) {
         event.preventDefault();
     };
     window.addEventListener("odin:before-context-change", contextChange);
+    // Navigation API can cancel same-document Back/Forward before React unmounts.
+    const navigation = (window as any).navigation;
+    const traverse = (event:any) => {
+      if(event.navigationType==='traverse' && event.cancelable && !window.confirm(tr('Discard unsaved changes?'))) event.preventDefault();
+    };
+    navigation?.addEventListener('navigate',traverse);
     window.addEventListener("beforeunload", leave);
     document.addEventListener("click", navigate, true);
     return () => {
       window.removeEventListener("odin:before-context-change", contextChange);
+      navigation?.removeEventListener('navigate',traverse);
       window.removeEventListener("beforeunload", leave);
       document.removeEventListener("click", navigate, true);
     };

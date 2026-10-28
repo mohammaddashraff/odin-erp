@@ -4,6 +4,7 @@ import { ArrowRight, Globe, LockKeyhole } from "lucide-react";
 import { useERP } from "../core/erp-context";
 import { localizeError } from "../core/i18n";
 import { Brand, Button, Fields } from "./ui";
+import ThemeToggle from './theme-toggle';
 export default function Login() {
   const { tr, language, changeLanguage, establishSession, sessionMessage } =
     useERP();
@@ -87,6 +88,7 @@ export default function Login() {
           <LockKeyhole size={24} />
           <h2>{tr(challenge ? "Verify your identity" : "Sign in")}</h2>
           <p>{tr("Use your ERP account to continue.")}</p>
+          <div className="auth-appearance"><ThemeToggle/></div>
           {sessionMessage ? (
             <p className="notice">{tr(sessionMessage)}</p>
           ) : null}
