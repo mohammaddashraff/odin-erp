@@ -1,6 +1,21 @@
 # AV8 Vercel deployment
 
-The user explicitly requested production deployment on 24 October 2026 and approved storing the newly generated AV8 production secrets in Vercel. Deployment uses the current working tree, including the existing uncommitted work, without pushing to the inherited Git remote.
+## Automatic deployments from GitHub
+
+Since 28 October 2026, both existing Vercel projects are connected to the private [mohammaddashraff/odin-erp](https://github.com/mohammaddashraff/odin-erp) repository. Their production branch is `main`.
+
+| Project | Repository root | Production URL |
+| --- | --- | --- |
+| `av8-erp` | `apps/web` | https://av8-erp.vercel.app |
+| `av8-erp-api` | `apps/api` | https://av8-erp-api.vercel.app |
+
+Every commit pushed to `main`, including changes saved through GitHub's browser editor or merged pull requests, triggers production builds for both projects. Each successful deployment updates its existing production domain. Build failures keep that project's previous successful deployment live. Changes on other branches do not update production until merged into `main`.
+
+Both projects use Node.js 24, install with `npm ci --ignore-scripts`, and can access monorepo files outside their root. The frontend builds with `npm run build`; the API builds with `npm run build:vercel`. Skipping unaffected projects is disabled so shared-file changes also build both projects.
+
+Private runtime configuration stays in Vercel. Database migrations remain the explicit release step documented below; Git pushes deploy code and do not automatically apply migrations or seed data. Apply compatible migrations before publishing code that requires them. The frontend and API build independently, so changes to their shared contract should support the previous deployed version during rollout.
+
+The initial 24 October 2026 deployment used the local working tree and owner-approved private Vercel configuration. GitHub is now the source for automatic code deployments.
 
 ## Dedicated resources
 
