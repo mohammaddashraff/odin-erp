@@ -1,9 +1,14 @@
 {
-  "name": "odin-erp",
+  "name": "av8-erp",
   "version": "1.0.0",
   "private": true,
-  "workspaces": ["apps/api", "apps/web"],
-  "engines": { "node": ">=24" },
+  "workspaces": [
+    "apps/api",
+    "apps/web"
+  ],
+  "engines": {
+    "node": ">=24"
+  },
   "scripts": {
     "dev": "concurrently -k -n api,web -c blue,cyan \"npm run dev -w @odin/api\" \"npm run dev -w @odin/web\"",
     "build": "npm run build -w @odin/api && npm run build -w @odin/web",
@@ -25,10 +30,30 @@
     "security:audit": "node scripts/check-dependency-audit.mjs",
     "security:scan": "node scripts/security-scan.mjs",
     "i18n:audit": "node scripts/check-translations.mjs",
-    "i18n:review": "node scripts/check-translations.mjs --report"
+    "i18n:review": "node scripts/check-translations.mjs --report",
+    "av8:dev": "node scripts/av8/run.mjs dev npm run dev",
+    "av8:start": "node scripts/av8/run.mjs dev npm run start",
+    "av8:build": "node scripts/av8/run.mjs dev npm run build",
+    "av8:test": "node scripts/av8/run.mjs test jest --config scripts/av8/jest.config.cjs --runInBand"
   },
   "devDependencies": {
     "@playwright/test": "latest",
-    "concurrently": "10.0.4"
+    "concurrently": "10.0.6"
+  },
+  "overrides": {
+    "deepmerge-ts": "8.0.2",
+    "mysql2": "3.24.4",
+    "multer": "2.5.0",
+    "body-parser": "2.4.0",
+    "proxy-addr": "2.0.8",
+    "sharp": "0.35.5",
+    "source-map-js": "1.2.2",
+    "fast-uri": "3.1.9",
+    "@vercel/cli-config": {
+      "zod": "4.6.6"
+    },
+    "@nestjs/swagger": {
+      "js-yaml": "5.5.0"
+    }
   }
 }

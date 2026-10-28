@@ -1,0 +1,1 @@
+module.exports = {rootDir:'../../apps/api',testEnvironment:'node',testRegex:'av8.*\\.spec\\.ts$',transform:{'^.+\\.ts$':['ts-jest',{tsconfig:require('node:path').join(__dirname,'../../apps/api/tsconfig.json'),diagnostics:false}]},maxWorkers:1};

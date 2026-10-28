@@ -1,0 +1,56 @@
+{
+  "deployedAt": "2026-09-26T22:18:59.964946+00:00",
+  "url": "https://demo.odin-ltd.com",
+  "image": "sha256:2a3eb612713e2f6ce84a94d7e3a55505892db8869c395cb4ca9f0feab23777e0",
+  "previousImage": "sha256:0483f6229b68b1f4e5c272222c7acfecb14ae69780280f000d10ea125a545eb9",
+  "rollbackTag": "odin-demo:before-accounting-v3-20260926",
+  "sourceCheckpoint": "ab2beebc2c9ab23fdbbfc5a994aca8c047a0c514",
+  "runtimeEnvironmentUnchanged": true,
+  "portsUnchanged": true,
+  "noMigrationsOrSeed": true,
+  "integrityMatchesPreRelease": true,
+  "integrity": {
+    "postedJournalsBalanced": true,
+    "ledgerDifferenceMinor": "0",
+    "negativeStockRows": 0,
+    "inventoryDifferenceMinor": "0",
+    "arDifferenceMinor": "0",
+    "apDifferenceMinor": "0",
+    "postedJournalCount": 5,
+    "totalDebitsMinor": "272830000",
+    "totalCreditsMinor": "272830000"
+  },
+  "databaseBackup": "/srv/demo/backups/odin-before-accounting-v3-20260926T221218Z.dump",
+  "rolesBackup": "/srv/demo/backups/odin-before-accounting-v3-20260926T221218Z.roles.sql",
+  "backupArchiveVerified": true,
+  "health": "passed",
+  "authorization": "User explicitly authorized the ongoing replacement deployment",
+  "frontendBuildId": "JOhrUV4sNUTLN4x4uNH4i",
+  "runtimeUser": "node",
+  "dependencyLockUnchanged": true,
+  "oldAccountingUIRetiredFromActiveRoutes": true,
+  "localDefaultBuildUpdated": true,
+  "rollbackCommands": [
+    "docker tag odin-demo:before-accounting-v3-20260926 odin-demo:local",
+    "docker compose -f compose.deploy.yml up -d --no-deps --no-build app"
+  ],
+  "accountingBrowser": {
+    "status": "passed",
+    "routeLanguageViewportChecks": 32,
+    "downloads": 4,
+    "businessMutationRequests": 0,
+    "apiErrors": 0,
+    "runtimeErrors": 0,
+    "evidence": "deployed-verification.json"
+  },
+  "fullSiteBrowser": {
+    "status": "passed",
+    "englishRoutes": 61,
+    "additionalArabicRoutes": 5,
+    "mobileKeyboardNavigation": "passed",
+    "loginLogout": "passed",
+    "businessMutationRequests": 0,
+    "runtimeErrors": 0,
+    "evidence": "public-routes.json"
+  }
+}

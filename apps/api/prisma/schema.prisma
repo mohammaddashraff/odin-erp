@@ -228,6 +228,7 @@ model Tenant {
 }
 
 model Branch {
+  operational Boolean @default(true)
   id                BigInt                 @id @default(autoincrement())
   tenantId          BigInt                 @map("tenant_id")
   code              String
@@ -306,6 +307,14 @@ model User {
   email               String
   name                String
   passwordHash        String                        @map("password_hash")
+  phone               String?
+  jobTitle            String?                       @map("job_title")
+  homeBranchId        BigInt?                       @map("home_branch_id")
+  passwordChangeRequired Boolean                    @default(false) @map("password_change_required")
+  temporaryPasswordExpiresAt DateTime?               @map("temporary_password_expires_at") @db.Timestamptz(3)
+  lastSignInAt        DateTime?                      @map("last_sign_in_at") @db.Timestamptz(3)
+  signInTrackedSince  DateTime?                      @default(now()) @map("sign_in_tracked_since") @db.Timestamptz(3)
+  profileVersion      Int                            @default(0) @map("profile_version")
   branchIds           Json                          @map("branch_ids")
   warehouseIds        Json                          @map("warehouse_ids")
   language            String                        @default("en")
@@ -789,6 +798,13 @@ model Employee {
   code           String
   name           String
   jobTitle       String?    @map("job_title")
+  nameAr         String?    @map("name_ar")
+  email          String?
+  phone          String?
+  hireDate       DateTime?  @map("hire_date") @db.Date
+  employmentType String     @default("FULL_TIME") @map("employment_type")
+  annualLeaveDays Int?      @map("annual_leave_days")
+  workDays       Json       @default("[0,1,2,3,4]") @map("work_days")
   salaryMinor    BigInt?    @map("salary_minor")
   salesEligible  Boolean    @default(false) @map("sales_eligible")
   branchIds      Json       @map("branch_ids")
@@ -797,6 +813,9 @@ model Employee {
   department     Department @relation(fields: [departmentId], references: [id])
   user           User?      @relation(fields: [userId], references: [id], onDelete: SetNull)
   salesDocuments Document[]
+  hrRecords      HrRecord[]
+
+  @@unique([tenantId, id])
 
   @@unique([tenantId, code])
   @@index([tenantId, departmentId, active, salesEligible])
@@ -948,6 +967,8 @@ model DocumentSequence {
 }
 
 model Customer {
+  av8Leads           Av8Lead[]
+  av8Applications    Av8Application[]
   id                 BigInt     @id @default(autoincrement())
   tenantId           BigInt     @map("tenant_id")
   companyId          BigInt?    @map("company_id")
@@ -989,6 +1010,7 @@ model Customer {
 }
 
 model Supplier {
+  av8Applications  Av8Application[]
   id               BigInt     @id @default(autoincrement())
   tenantId         BigInt     @map("tenant_id")
   companyId        BigInt?    @map("company_id")
@@ -1490,6 +1512,7 @@ model BankAccount {
 }
 
 model BankTransaction {
+  av8Fund               Av8Fund?
   id                    BigInt              @id @default(autoincrement())
   tenantId              BigInt              @map("tenant_id")
   branchId              BigInt              @map("branch_id")
@@ -1563,4 +1586,228 @@ model IdempotencyKey {
 
   @@id([tenantId, key])
   @@map("idempotency_keys")
+}
+
+// Employee-linked HR records; payloads are validated by the service per kind.
+model HrRecord {
+  id         BigInt   @id @default(autoincrement())
+  tenantId   BigInt   @map("tenant_id")
+  employeeId BigInt   @map("employee_id")
+  kind       String
+  recordKey  String   @map("record_key")
+  status     String   @default("DRAFT")
+  data       Json
+  createdBy  BigInt   @map("created_by")
+  reviewedBy BigInt?  @map("reviewed_by")
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  employee   Employee @relation(fields: [tenantId, employeeId], references: [tenantId, id], onDelete: Restrict)
+
+  @@unique([tenantId, employeeId, kind, recordKey])
+  @@index([tenantId, kind, createdAt])
+  @@map("hr_records")
+}
+
+model Av8Lead {
+  id             BigInt @id @default(autoincrement())
+  tenantId       BigInt @map("tenant_id")
+  branchId       BigInt @map("branch_id")
+  ownerId        BigInt @map("owner_id")
+  customerId     BigInt @map("customer_id")
+  source         String
+  campaign       String?
+  program        String
+  phones         Json
+  status         String @default("NEW")
+  inquiryAt      DateTime @map("inquiry_at") @db.Timestamptz(3)
+  firstContactAt DateTime? @map("first_contact_at") @db.Timestamptz(3)
+  nextFollowUp   DateTime? @map("next_follow_up") @db.Timestamptz(3)
+  notes          String @default("")
+  version        Int @default(1)
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  customer       Customer @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  applications   Av8Application[]
+  records        Av8Record[]
+  @@index([tenantId, branchId, ownerId, status])
+  @@index([tenantId, nextFollowUp])
+  @@map("av8_leads")
+}
+
+model Av8Application {
+  id           BigInt @id @default(autoincrement())
+  tenantId     BigInt @map("tenant_id")
+  branchId     BigInt @map("branch_id")
+  ownerId      BigInt @map("owner_id")
+  leadId       BigInt @map("lead_id")
+  customerId   BigInt @map("customer_id")
+  academyId    BigInt @map("academy_id")
+  reference    String
+  program      String
+  admissions   String @default("FEE_PENDING")
+  medical      String @default("PENDING")
+  visa         String @default("PREPARING")
+  travel       String @default("PREPARING")
+  guardian     Json @default("{}")
+  version      Int @default(1)
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  departedAt   DateTime? @map("departed_at") @db.Timestamptz(3)
+  customer     Customer @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  academy      Supplier @relation(fields: [academyId], references: [id], onDelete: Restrict)
+  lead         Av8Lead @relation(fields: [leadId], references: [id], onDelete: Restrict)
+  records      Av8Record[]
+  charges      Av8Charge[]
+  funds        Av8Fund[]
+  obligations  Av8Obligation[]
+  attachments  Av8Attachment[]
+  @@unique([tenantId, reference])
+  @@index([tenantId, branchId, ownerId])
+  @@index([tenantId, visa, travel])
+  @@map("av8_applications")
+}
+
+// Validated per-kind operational records: appointments, checklist, contract snapshots,
+// English, visa details, travel details, progress periods, tasks and exceptions.
+model Av8Record {
+  id            BigInt @id @default(autoincrement())
+  tenantId      BigInt @map("tenant_id")
+  leadId        BigInt? @map("lead_id")
+  applicationId BigInt? @map("application_id")
+  kind          String
+  key           String
+  status        String
+  data          Json
+  createdById   BigInt @map("created_by_id")
+  updatedAt     DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  lead          Av8Lead? @relation(fields: [leadId], references: [id], onDelete: Restrict)
+  application   Av8Application? @relation(fields: [applicationId], references: [id], onDelete: Restrict)
+  attachments   Av8Attachment[]
+  @@unique([applicationId, kind, key])
+  @@index([tenantId, kind, status])
+  @@index([tenantId, leadId, kind])
+  @@map("av8_records")
+}
+
+model Av8Policy {
+  id           BigInt @id @default(autoincrement())
+  tenantId     BigInt @map("tenant_id")
+  kind         String
+  key          String
+  version      Int
+  status       String @default("DRAFT")
+  data         Json
+  approvedById BigInt? @map("approved_by_id")
+  approvedAt   DateTime? @map("approved_at") @db.Timestamptz(3)
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  @@unique([tenantId, kind, key, version])
+  @@index([tenantId, kind, status])
+  @@map("av8_policies")
+}
+
+model Av8Charge {
+  id            BigInt @id @default(autoincrement())
+  tenantId      BigInt @map("tenant_id")
+  applicationId BigInt @map("application_id")
+  key           String
+  label         String
+  currency      String @default("USD")
+  amountMinor   BigInt @map("amount_minor")
+  creditMinor   BigInt @default(0) @map("credit_minor")
+  dueDate       DateTime? @map("due_date") @db.Date
+  milestone     String
+  predeparture  Boolean
+  deferred      Boolean @default(false)
+  contractId    BigInt? @map("contract_id")
+  application   Av8Application @relation(fields: [applicationId], references: [id], onDelete: Restrict)
+  allocations   Av8Allocation[]
+  @@unique([applicationId, key])
+  @@index([tenantId, dueDate])
+  @@map("av8_charges")
+}
+
+model Av8Fund {
+  id                BigInt @id @default(autoincrement())
+  tenantId          BigInt @map("tenant_id")
+  branchId          BigInt @map("branch_id")
+  applicationId     BigInt? @map("application_id")
+  academyId         BigInt? @map("academy_id")
+  kind              String
+  status            String @default("PENDING")
+  amountMinor       BigInt @map("amount_minor")
+  currency          String
+  usdMinor          BigInt @map("usd_minor")
+  usdRateMicros     BigInt @map("usd_rate_micros")
+  baseRateMicros    BigInt @map("base_rate_micros")
+  rateDate          DateTime @map("rate_date") @db.Date
+  postingDate       DateTime @map("posting_date") @db.Date
+  bankAccountId     BigInt @map("bank_account_id")
+  method            String
+  reference         String
+  payer             String
+  notes             String @default("")
+  evidenceId        String? @map("evidence_id")
+  refundCaseId      BigInt? @unique @map("refund_case_id")
+  createdById       BigInt @map("created_by_id")
+  approvedById      BigInt? @map("approved_by_id")
+  approvedAt        DateTime? @map("approved_at") @db.Timestamptz(3)
+  clearedAt         DateTime? @map("cleared_at") @db.Timestamptz(3)
+  bankTransactionId BigInt? @unique @map("bank_transaction_id")
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  application       Av8Application? @relation(fields: [applicationId], references: [id], onDelete: Restrict)
+  bankTransaction   BankTransaction? @relation(fields: [bankTransactionId], references: [id], onDelete: Restrict)
+  allocations       Av8Allocation[]
+  @@index([tenantId, branchId, kind, status])
+  @@map("av8_funds")
+}
+
+model Av8Obligation {
+  id            BigInt @id @default(autoincrement())
+  tenantId      BigInt @map("tenant_id")
+  applicationId BigInt @map("application_id")
+  key           String
+  amountMinor   BigInt @map("amount_minor")
+  currency      String @default("USD")
+  predeparture  Boolean
+  evidence      Json
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  application   Av8Application @relation(fields: [applicationId], references: [id], onDelete: Restrict)
+  allocations   Av8Allocation[]
+  @@unique([applicationId, key])
+  @@index([tenantId, applicationId])
+  @@map("av8_obligations")
+}
+
+model Av8Allocation {
+  id            BigInt @id @default(autoincrement())
+  tenantId      BigInt @map("tenant_id")
+  fundId        BigInt @map("fund_id")
+  chargeId      BigInt? @map("charge_id")
+  obligationId  BigInt? @map("obligation_id")
+  amountMinor   BigInt @map("amount_minor")
+  reversedId    BigInt? @unique @map("reversed_id")
+  reason        String
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  fund          Av8Fund @relation(fields: [fundId], references: [id], onDelete: Restrict)
+  charge        Av8Charge? @relation(fields: [chargeId], references: [id], onDelete: Restrict)
+  obligation    Av8Obligation? @relation(fields: [obligationId], references: [id], onDelete: Restrict)
+  @@index([tenantId, fundId])
+  @@map("av8_allocations")
+}
+
+model Av8Attachment {
+  id            String @id @default(uuid()) @db.Uuid
+  tenantId      BigInt @map("tenant_id")
+  applicationId BigInt @map("application_id")
+  recordId      BigInt @map("record_id")
+  category      String
+  filename      String
+  contentType   String @map("content_type")
+  sizeBytes     Int @map("size_bytes")
+  sha256        String
+  content       Bytes
+  uploadedById  BigInt @map("uploaded_by_id")
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  application   Av8Application @relation(fields: [applicationId], references: [id], onDelete: Restrict)
+  record        Av8Record @relation(fields: [recordId], references: [id], onDelete: Restrict)
+  @@index([tenantId, applicationId, recordId])
+  @@map("av8_attachments")
 }

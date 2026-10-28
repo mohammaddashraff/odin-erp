@@ -6,23 +6,24 @@
     "dev": "nest start --watch",
     "prebuild": "prisma generate",
     "build": "nest build",
-    "release:migrate": "prisma migrate deploy && tsx prisma/bootstrap.ts",
-    "start:prod": "node dist/src/main.js",
+    "release:migrate": "prisma migrate deploy && tsx prisma/av8-seed.ts",
+    "start:prod": "node ../../.av8/api/src/main.js",
     "lint": "tsc --noEmit",
     "test": "jest --runInBand",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate deploy",
-    "db:seed": "tsx prisma/seed.ts",
-    "db:reset": "prisma migrate reset --force",
-    "integrity": "tsx src/scripts/integrity.ts"
+    "db:seed": "tsx prisma/av8-seed.ts",
+    "db:reset": "node -e \"throw new Error('Reset is disabled; use a new isolated AV8 test database')\"",
+    "integrity": "tsx src/scripts/integrity.ts",
+    "build:vercel": "prisma generate"
   },
   "dependencies": {
     "@nestjs/common": "latest",
     "@nestjs/core": "latest",
-    "@nestjs/platform-express": "latest",
-    "@nestjs/swagger": "11.4.6",
-    "@prisma/adapter-pg": "7.9.1",
-    "@prisma/client": "7.9.1",
+    "@nestjs/platform-express": "11.2.6",
+    "@nestjs/swagger": "11.4.7",
+    "@prisma/adapter-pg": "7.10.0",
+    "@prisma/client": "7.10.0",
     "bcryptjs": "latest",
     "class-transformer": "latest",
     "class-validator": "latest",
@@ -43,18 +44,26 @@
     "@types/pdfkit": "latest",
     "@types/supertest": "latest",
     "jest": "latest",
-    "prisma": "7.9.1",
+    "prisma": "7.10.0",
     "supertest": "latest",
     "ts-jest": "latest",
     "tsx": "latest",
     "typescript": "6.0.3"
   },
   "jest": {
-    "moduleFileExtensions": ["js", "json", "ts"],
+    "moduleFileExtensions": [
+      "js",
+      "json",
+      "ts"
+    ],
     "rootDir": ".",
     "testRegex": ".*\\.spec\\.ts$",
-    "transform": { "^.+\\.(t|j)s$": "ts-jest" },
-    "collectCoverageFrom": ["src/**/*.(t|j)s"],
+    "transform": {
+      "^.+\\.(t|j)s$": "ts-jest"
+    },
+    "collectCoverageFrom": [
+      "src/**/*.(t|j)s"
+    ],
     "coverageDirectory": "coverage",
     "testEnvironment": "node"
   }

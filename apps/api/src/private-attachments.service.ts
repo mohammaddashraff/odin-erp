@@ -146,7 +146,7 @@ export function sanitizeAttachmentFilename(input: unknown) {
   return safe;
 }
 
-function normalizeContentType(input: unknown) {
+export function normalizeContentType(input: unknown) {
   const contentType = String(input || '').trim().toLowerCase();
   if (!Object.hasOwn(CONTENT_RULES, contentType)) {
     throw new BadRequestException('Attachment type is not allowed. Use PDF, PNG, JPEG, or WebP.');
@@ -154,7 +154,7 @@ function normalizeContentType(input: unknown) {
   return contentType;
 }
 
-function filenameForContentType(input: unknown, contentType: string) {
+export function filenameForContentType(input: unknown, contentType: string) {
   const safe = sanitizeAttachmentFilename(input);
   const expected = CONTENT_EXTENSIONS[contentType];
   const lastDot = safe.lastIndexOf('.');
@@ -189,7 +189,7 @@ export function decodeCanonicalBase64(input: unknown, maximumBytes = BASE64_FALL
   return decoded;
 }
 
-function assertMagicBytes(contentType: string, content: Buffer) {
+export function assertMagicBytes(contentType: string, content: Buffer) {
   if (!CONTENT_RULES[contentType]?.(content)) {
     throw new BadRequestException('Attachment content does not match its declared content type.');
   }

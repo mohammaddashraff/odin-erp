@@ -40,8 +40,11 @@ export function mfaEncryptionKey(environment: NodeJS.ProcessEnv = process.env) {
 }
 
 export const privilegedMfaRequired = (environment: NodeJS.ProcessEnv = process.env) =>
-  (environment.NODE_ENV === 'production' && String(environment.ODIN_ALLOW_SHARED_DEMO_LOGINS).toLowerCase() !== 'true')
-  || String(environment.ODIN_REQUIRE_PRIVILEGED_MFA).toLowerCase() === 'true';
+  String(environment.AV8_SIMPLE_LOGIN).toLowerCase() !== 'true'
+  && (
+    (environment.NODE_ENV === 'production' && String(environment.ODIN_ALLOW_SHARED_DEMO_LOGINS).toLowerCase() !== 'true')
+    || String(environment.ODIN_REQUIRE_PRIVILEGED_MFA).toLowerCase() === 'true'
+  );
 
 export const demoResetEnabled = (environment: NodeJS.ProcessEnv = process.env) =>
   environment.NODE_ENV !== 'production' || environment.ODIN_DEPLOYMENT_MODE === 'demo';

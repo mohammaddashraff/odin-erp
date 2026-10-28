@@ -1,0 +1,38 @@
+[
+  {
+    "name": "Brand on white",
+    "foreground": "#245DE8",
+    "background": "#FFFFFF",
+    "ratio": 5.52
+  },
+  {
+    "name": "Text on panel",
+    "foreground": "#102747",
+    "background": "#F4F7FC",
+    "ratio": 13.94
+  },
+  {
+    "name": "Muted on panel",
+    "foreground": "#53647B",
+    "background": "#F4F7FC",
+    "ratio": 5.63
+  },
+  {
+    "name": "Success",
+    "foreground": "#14613F",
+    "background": "#EAF5EF",
+    "ratio": 6.69
+  },
+  {
+    "name": "Danger",
+    "foreground": "#AA2439",
+    "background": "#FCECF0",
+    "ratio": 6.09
+  },
+  {
+    "name": "Warning",
+    "foreground": "#835600",
+    "background": "#FFF3DB",
+    "ratio": 5.79
+  }
+]

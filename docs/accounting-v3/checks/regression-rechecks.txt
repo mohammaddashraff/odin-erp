@@ -1,0 +1,11 @@
+
+Running 4 tests using 1 worker
+
+(node:820683) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  1 tests/ui-v2/localized-workflows.spec.ts:124:5 › Arabic form defaults, persisted normalized input, dynamic messages and conversion dialog (7.5s)
+  ✓  2 tests/ui-v2/routes.spec.ts:4:5 › every retained route loads real data without runtime errors (58.2s)
+  ✓  3 tests/ui-v2/routes.spec.ts:26:5 › customer create, edit, search, required validation and unsaved navigation (3.2s)
+  ✓  4 tests/ui-v2/security-reports.spec.ts:123:5 › all report choices, CSV/PDF download, ledger drillthrough and source evidence dialog (15.3s)
+
+  4 passed (1.4m)

@@ -1,9 +1,4 @@
 {
-  "redirects": [
-    {
-      "source": "/",
-      "destination": "https://odin-erp-web.vercel.app",
-      "permanent": false
-    }
-  ]
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": "nestjs"
 }

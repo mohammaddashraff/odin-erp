@@ -1,0 +1,43 @@
+{
+  "date": "2026-10-27T00:23:45.989650+03:00",
+  "web": {
+    "id": "dpl_HT5Jpm7Sag9P8G28P3wGhBBgap3P",
+    "url": "https://av8-j7ph46y7c-muhammadashraf-s-projects.vercel.app",
+    "production": "https://av8-erp.vercel.app",
+    "state": "READY"
+  },
+  "api": {
+    "id": "dpl_DEAk5CzXEi2u1AnJ73bK2YUhKPmx",
+    "url": "https://av8-erp-2qz2zoboq-muhammadashraf-s-projects.vercel.app",
+    "production": "https://av8-erp-api.vercel.app",
+    "state": "READY"
+  },
+  "source": {
+    "baseCommit": "f7d740762be2c9235b5ea8557fdabd7ca90ed991",
+    "workingTree": true,
+    "uploadSha256": "ddc77b257942806c0d0aa6ae7160d649a38e042b41f683aa4a9acdc584a55c61",
+    "fileCount": 185
+  },
+  "migration": "20261026160000_account_profiles",
+  "backup": ".av8/administration-release/before.dump",
+  "preservation": {
+    "tablesChecked": 12,
+    "differences": []
+  },
+  "liveBrowser": {
+    "base": "https://av8-erp.vercel.app",
+    "myProfile": true,
+    "readOnlyAccess": true,
+    "arabicRTL": true,
+    "viewport": 390,
+    "browserErrors": [],
+    "serverErrors": [],
+    "businessWrites": 0
+  },
+  "logScan": {
+    "webErrors": 0,
+    "apiRequestFailures": 0,
+    "apiStderrWarnings": 1,
+    "warning": "pg driver concurrent-query deprecation; profile request succeeded"
+  }
+}

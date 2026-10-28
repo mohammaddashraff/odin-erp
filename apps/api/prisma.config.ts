@@ -1,10 +1,10 @@
-import { config } from 'dotenv';
+import { assertAv8Isolation } from './src/av8-isolation';
 import { resolve } from 'node:path';
 import { defineConfig } from 'prisma/config';
 import { normalizeDatabaseUrl } from './src/database-url';
 
-config({ path: resolve(process.cwd(), '.env'), quiet: true });
-config({ path: resolve(process.cwd(), '../../.env'), quiet: true });
+
+assertAv8Isolation();
 
 export default defineConfig({
   schema: 'prisma/schema.prisma',

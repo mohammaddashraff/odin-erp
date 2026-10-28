@@ -1,0 +1,722 @@
+{
+  "date": "2026-09-26",
+  "activeApp": "apps/web",
+  "productionDeployed": true,
+  "qa": {
+    "frontend": "http://127.0.0.1:8184",
+    "api": "http://127.0.0.1:8183",
+    "database": "isolated PostgreSQL on loopback 5547",
+    "authorization": "User replied create to isolated-QA request"
+  },
+  "build": {
+    "command": "API_ORIGIN=http://127.0.0.1:8183 npm run build",
+    "status": "passed",
+    "finalFrontendBuild": "Production frontend build passed after POS cart protection and mobile navigation accessibility corrections",
+    "buildId": "NMpSz34zTQ2I8YNi0rWiw"
+  },
+  "lint": {
+    "command": "npm run lint",
+    "status": "passed",
+    "scope": "API and frontend TypeScript; final frontend also typechecked during production build"
+  },
+  "backend": {
+    "command": "Jest --runInBand against isolated QA environment",
+    "suitesPassed": 19,
+    "testsPassed": 190,
+    "sourceChangedByReplacement": false
+  },
+  "translationAudit": {
+    "command": "npm run i18n:audit",
+    "status": "passed",
+    "findings": 0
+  },
+  "securityScan": {
+    "command": "npm run security:scan",
+    "status": "passed",
+    "findings": 0
+  },
+  "acceptance": {
+    "command": "ODIN_UI_QA_URL=http://127.0.0.1:8184 npm run test:e2e",
+    "fullSuite": {
+      "stats": {
+        "startTime": "2026-09-26T15:20:29.470Z",
+        "duration": 335184.048,
+        "expected": 30,
+        "skipped": 0,
+        "unexpected": 0,
+        "flaky": 0
+      },
+      "tests": [
+        {
+          "file": "api-security.spec.ts",
+          "title": "login session restores through the rotated HttpOnly session and logout revokes it",
+          "status": "passed",
+          "durationMs": 1923
+        },
+        {
+          "file": "api-security.spec.ts",
+          "title": "branch, warehouse, auditor, accountant, sales and POS restrictions survive direct API requests",
+          "status": "passed",
+          "durationMs": 2714
+        },
+        {
+          "file": "api-security.spec.ts",
+          "title": "administrator policy enforces financial assignment, explicit DENY, field redaction, scoped output and approval scope",
+          "status": "passed",
+          "durationMs": 3249
+        },
+        {
+          "file": "api-security.spec.ts",
+          "title": "web and API responses emit the production security-header baseline",
+          "status": "passed",
+          "durationMs": 44
+        },
+        {
+          "file": "attachments-mfa.spec.ts",
+          "title": "private attachment type/signature disclosure and ticketed byte-identical download",
+          "status": "passed",
+          "durationMs": 2856
+        },
+        {
+          "file": "attachments-mfa.spec.ts",
+          "title": "MFA enrollment, authenticator login and single-use recovery preserve the auth contract",
+          "status": "passed",
+          "durationMs": 5857
+        },
+        {
+          "file": "finance-pos.spec.ts",
+          "title": "manual journal validation, edit, independent approval, posting, reversal and periods",
+          "status": "passed",
+          "durationMs": 14282
+        },
+        {
+          "file": "finance-pos.spec.ts",
+          "title": "bank movement, statement import and reconciliation",
+          "status": "passed",
+          "durationMs": 2806
+        },
+        {
+          "file": "finance-pos.spec.ts",
+          "title": "POS barcode, split tender, hold, resume, receipt, return and shift close",
+          "status": "passed",
+          "durationMs": 3667
+        },
+        {
+          "file": "localization-contracts.spec.ts",
+          "title": "Arabic formatters enforce Western digits, separators, dates, currency and exact large values",
+          "status": "passed",
+          "durationMs": 26
+        },
+        {
+          "file": "localization-contracts.spec.ts",
+          "title": "display permissions include company-scoped grants while explicit denials still win",
+          "status": "passed",
+          "durationMs": 4
+        },
+        {
+          "file": "localization-contracts.spec.ts",
+          "title": "Arabic and English report/PDF export endpoints honor the requested locale",
+          "status": "passed",
+          "durationMs": 557
+        },
+        {
+          "file": "localization-contracts.spec.ts",
+          "title": "numeric API strings keep arbitrary precision and reject malformed display grouping",
+          "status": "passed",
+          "durationMs": 45
+        },
+        {
+          "file": "localized-workflows.spec.ts",
+          "title": "all Arabic routes, canonical bookmarks, Western input digits and guarded language switch",
+          "status": "passed",
+          "durationMs": 68633
+        },
+        {
+          "file": "localized-workflows.spec.ts",
+          "title": "password visibility, manual exchange-rate validation, foreign-currency draft and review decisions",
+          "status": "passed",
+          "durationMs": 9298
+        },
+        {
+          "file": "localized-workflows.spec.ts",
+          "title": "Arabic form defaults, persisted normalized input, dynamic messages and conversion dialog",
+          "status": "passed",
+          "durationMs": 6702
+        },
+        {
+          "file": "operations.spec.ts",
+          "title": "purchase request through RFQ, order, receipt, bill, payment and return",
+          "status": "passed",
+          "durationMs": 27974
+        },
+        {
+          "file": "operations.spec.ts",
+          "title": "inventory adjustment, transfer and physical stock count",
+          "status": "passed",
+          "durationMs": 13524
+        },
+        {
+          "file": "operations.spec.ts",
+          "title": "all supported master creation forms persist complete records",
+          "status": "passed",
+          "durationMs": 8001
+        },
+        {
+          "file": "routes.spec.ts",
+          "title": "every retained route loads real data without runtime errors",
+          "status": "passed",
+          "durationMs": 57203
+        },
+        {
+          "file": "routes.spec.ts",
+          "title": "customer create, edit, search, required validation and unsaved navigation",
+          "status": "passed",
+          "durationMs": 3137
+        },
+        {
+          "file": "security-reports.spec.ts",
+          "title": "all twelve seeded roles, denied navigation, invalid login, refresh and cross-tab logout",
+          "status": "passed",
+          "durationMs": 24846
+        },
+        {
+          "file": "security-reports.spec.ts",
+          "title": "all report choices, CSV/PDF download and source evidence dialog",
+          "status": "passed",
+          "durationMs": 7187
+        },
+        {
+          "file": "security-reports.spec.ts",
+          "title": "governance context, safe preview, review and role lifecycle",
+          "status": "passed",
+          "durationMs": 14110
+        },
+        {
+          "file": "security-reports.spec.ts",
+          "title": "user access editor persists MFA requirements and explicit permission overrides",
+          "status": "passed",
+          "durationMs": 4458
+        },
+        {
+          "file": "security-reports.spec.ts",
+          "title": "signing into another account clears the previous account notifications",
+          "status": "passed",
+          "durationMs": 3490
+        },
+        {
+          "file": "transactions.spec.ts",
+          "title": "quotation edit, independent approval, order, delivery, invoice, receipt, return and credit",
+          "status": "passed",
+          "durationMs": 26633
+        },
+        {
+          "file": "visual.spec.ts",
+          "title": "visual viewport and Arabic acceptance with real screenshots",
+          "status": "passed",
+          "durationMs": 12022
+        },
+        {
+          "file": "visual.spec.ts",
+          "title": "keyboard dialog focus, error/retry/loading states and reduced motion",
+          "status": "passed",
+          "durationMs": 3811
+        },
+        {
+          "file": "visual.spec.ts",
+          "title": "compact navigation persistence, mobile navigation and browser print",
+          "status": "passed",
+          "durationMs": 3696
+        }
+      ]
+    },
+    "affectedEditorRegressions": {
+      "stats": {
+        "startTime": "2026-09-26T15:28:58.374Z",
+        "duration": 91439.83600000001,
+        "expected": 6,
+        "skipped": 0,
+        "unexpected": 0,
+        "flaky": 0
+      },
+      "tests": [
+        {
+          "file": "localized-workflows.spec.ts",
+          "title": "password visibility, manual exchange-rate validation, foreign-currency draft and review decisions",
+          "status": "passed",
+          "durationMs": 10182
+        },
+        {
+          "file": "localized-workflows.spec.ts",
+          "title": "redacted master prices remain restricted until an explicit known price is entered",
+          "status": "passed",
+          "durationMs": 2687
+        },
+        {
+          "file": "operations.spec.ts",
+          "title": "purchase request through RFQ, order, receipt, bill, payment and return",
+          "status": "passed",
+          "durationMs": 27498
+        },
+        {
+          "file": "operations.spec.ts",
+          "title": "inventory adjustment, transfer and physical stock count",
+          "status": "passed",
+          "durationMs": 13734
+        },
+        {
+          "file": "operations.spec.ts",
+          "title": "all supported master creation forms persist complete records",
+          "status": "passed",
+          "durationMs": 8752
+        },
+        {
+          "file": "transactions.spec.ts",
+          "title": "quotation edit, independent approval, order, delivery, invoice, receipt, return and credit",
+          "status": "passed",
+          "durationMs": 27376
+        }
+      ]
+    },
+    "verifiedUniqueTests": 34,
+    "tracePolicy": "off; MFA enrollment/recovery screenshots disabled",
+    "releaseGate": {
+      "mainAttempt": {
+        "command": "npm run test:e2e",
+        "status": "runner terminated with SIGTERM after 32 completed passes, before the attachment/MFA group completed",
+        "exitCode": 143,
+        "completedPasses": 32,
+        "tests": [
+          {
+            "file": "tests/ui-v2/api-security.spec.ts",
+            "title": "login session restores through the rotated HttpOnly session and logout revokes it",
+            "status": "passed",
+            "duration": "2.2s"
+          },
+          {
+            "file": "tests/ui-v2/api-security.spec.ts",
+            "title": "branch, warehouse, auditor, accountant, sales and POS restrictions survive direct API requests",
+            "status": "passed",
+            "duration": "2.7s"
+          },
+          {
+            "file": "tests/ui-v2/api-security.spec.ts",
+            "title": "administrator policy enforces financial assignment, explicit DENY, field redaction, scoped output and approval scope",
+            "status": "passed",
+            "duration": "3.3s"
+          },
+          {
+            "file": "tests/ui-v2/api-security.spec.ts",
+            "title": "web and API responses emit the production security-header baseline",
+            "status": "passed",
+            "duration": "21ms"
+          },
+          {
+            "file": "tests/ui-v2/completion.spec.ts",
+            "title": "unsaved POS cart survives cancelled navigation, language change and sign out",
+            "status": "passed",
+            "duration": "3.8s"
+          },
+          {
+            "file": "tests/ui-v2/completion.spec.ts",
+            "title": "mobile navigation contains keyboard focus, hides closed controls and restores focus in both languages",
+            "status": "passed",
+            "duration": "1.9s"
+          },
+          {
+            "file": "tests/ui-v2/completion.spec.ts",
+            "title": "200 percent desktop zoom equivalent keeps English and Arabic workflows operable",
+            "status": "passed",
+            "duration": "4.4s"
+          },
+          {
+            "file": "tests/ui-v2/finance-pos.spec.ts",
+            "title": "manual journal validation, edit, independent approval, posting, reversal and periods",
+            "status": "passed",
+            "duration": "14.7s"
+          },
+          {
+            "file": "tests/ui-v2/finance-pos.spec.ts",
+            "title": "bank movement, statement import and reconciliation",
+            "status": "passed",
+            "duration": "3.0s"
+          },
+          {
+            "file": "tests/ui-v2/finance-pos.spec.ts",
+            "title": "POS barcode, split tender, hold, resume, receipt, return and shift close",
+            "status": "passed",
+            "duration": "3.9s"
+          },
+          {
+            "file": "tests/ui-v2/localization-contracts.spec.ts",
+            "title": "Arabic formatters enforce Western digits, separators, dates, currency and exact large values",
+            "status": "passed",
+            "duration": "27ms"
+          },
+          {
+            "file": "tests/ui-v2/localization-contracts.spec.ts",
+            "title": "display permissions include company-scoped grants while explicit denials still win",
+            "status": "passed",
+            "duration": "2ms"
+          },
+          {
+            "file": "tests/ui-v2/localization-contracts.spec.ts",
+            "title": "Arabic and English report/PDF export endpoints honor the requested locale",
+            "status": "passed",
+            "duration": "599ms"
+          },
+          {
+            "file": "tests/ui-v2/localization-contracts.spec.ts",
+            "title": "numeric API strings keep arbitrary precision and reject malformed display grouping",
+            "status": "passed",
+            "duration": "41ms"
+          },
+          {
+            "file": "tests/ui-v2/localized-workflows.spec.ts",
+            "title": "all Arabic routes, canonical bookmarks, Western input digits and guarded language switch",
+            "status": "passed",
+            "duration": "1.1m"
+          },
+          {
+            "file": "tests/ui-v2/localized-workflows.spec.ts",
+            "title": "password visibility, manual exchange-rate validation, foreign-currency draft and review decisions",
+            "status": "passed",
+            "duration": "9.5s"
+          },
+          {
+            "file": "tests/ui-v2/localized-workflows.spec.ts",
+            "title": "Arabic form defaults, persisted normalized input, dynamic messages and conversion dialog",
+            "status": "passed",
+            "duration": "6.8s"
+          },
+          {
+            "file": "tests/ui-v2/localized-workflows.spec.ts",
+            "title": "redacted master prices remain restricted until an explicit known price is entered",
+            "status": "passed",
+            "duration": "2.6s"
+          },
+          {
+            "file": "tests/ui-v2/operations.spec.ts",
+            "title": "purchase request through RFQ, order, receipt, bill, payment and return",
+            "status": "passed",
+            "duration": "30.7s"
+          },
+          {
+            "file": "tests/ui-v2/operations.spec.ts",
+            "title": "inventory adjustment, transfer and physical stock count",
+            "status": "passed",
+            "duration": "16.0s"
+          },
+          {
+            "file": "tests/ui-v2/operations.spec.ts",
+            "title": "all supported master creation forms persist complete records",
+            "status": "passed",
+            "duration": "8.0s"
+          },
+          {
+            "file": "tests/ui-v2/routes.spec.ts",
+            "title": "every retained route loads real data without runtime errors",
+            "status": "passed",
+            "duration": "57.7s"
+          },
+          {
+            "file": "tests/ui-v2/routes.spec.ts",
+            "title": "customer create, edit, search, required validation and unsaved navigation",
+            "status": "passed",
+            "duration": "3.3s"
+          },
+          {
+            "file": "tests/ui-v2/security-reports.spec.ts",
+            "title": "all twelve seeded roles, denied navigation, invalid login, refresh and cross-tab logout",
+            "status": "passed",
+            "duration": "24.8s"
+          },
+          {
+            "file": "tests/ui-v2/security-reports.spec.ts",
+            "title": "all report choices, CSV/PDF download and source evidence dialog",
+            "status": "passed",
+            "duration": "7.5s"
+          },
+          {
+            "file": "tests/ui-v2/security-reports.spec.ts",
+            "title": "governance context, safe preview, review and role lifecycle",
+            "status": "passed",
+            "duration": "14.1s"
+          },
+          {
+            "file": "tests/ui-v2/security-reports.spec.ts",
+            "title": "user access editor persists MFA requirements and explicit permission overrides",
+            "status": "passed",
+            "duration": "4.6s"
+          },
+          {
+            "file": "tests/ui-v2/security-reports.spec.ts",
+            "title": "signing into another account clears the previous account notifications",
+            "status": "passed",
+            "duration": "3.5s"
+          },
+          {
+            "file": "tests/ui-v2/transactions.spec.ts",
+            "title": "quotation edit, independent approval, order, delivery, invoice, receipt, return and credit",
+            "status": "passed",
+            "duration": "26.3s"
+          },
+          {
+            "file": "tests/ui-v2/visual.spec.ts",
+            "title": "visual viewport and Arabic acceptance with real screenshots",
+            "status": "passed",
+            "duration": "12.2s"
+          },
+          {
+            "file": "tests/ui-v2/visual.spec.ts",
+            "title": "keyboard dialog focus, error/retry/loading states and reduced motion",
+            "status": "passed",
+            "duration": "3.9s"
+          },
+          {
+            "file": "tests/ui-v2/visual.spec.ts",
+            "title": "compact navigation persistence, mobile navigation and browser print",
+            "status": "passed",
+            "duration": "4.0s"
+          }
+        ]
+      },
+      "completionGroup": {
+        "command": "npm run test:e2e -- tests/ui-v2/attachments-mfa.spec.ts tests/ui-v2/completion.spec.ts",
+        "stats": {
+          "startTime": "2026-09-26T20:49:58.596Z",
+          "duration": 21280.753,
+          "expected": 5,
+          "skipped": 0,
+          "unexpected": 0,
+          "flaky": 0
+        },
+        "tests": [
+          {
+            "file": "tests/ui-v2/attachments-mfa.spec.ts",
+            "title": "private attachment type/signature disclosure and ticketed byte-identical download",
+            "status": "passed",
+            "durationMs": 3060
+          },
+          {
+            "file": "tests/ui-v2/attachments-mfa.spec.ts",
+            "title": "MFA enrollment, authenticator login and single-use recovery preserve the auth contract",
+            "status": "passed",
+            "durationMs": 5975
+          },
+          {
+            "file": "tests/ui-v2/completion.spec.ts",
+            "title": "unsaved POS cart survives cancelled navigation, language change and sign out",
+            "status": "passed",
+            "durationMs": 3718
+          },
+          {
+            "file": "tests/ui-v2/completion.spec.ts",
+            "title": "mobile navigation contains keyboard focus, hides closed controls and restores focus in both languages",
+            "status": "passed",
+            "durationMs": 2404
+          },
+          {
+            "file": "tests/ui-v2/completion.spec.ts",
+            "title": "200 percent desktop zoom equivalent keeps English and Arabic workflows operable",
+            "status": "passed",
+            "durationMs": 4354
+          }
+        ]
+      },
+      "verifiedUniqueTests": 34,
+      "assertionFailures": 0
+    }
+  },
+  "routes": {
+    "retained": 61,
+    "languages": [
+      "English",
+      "Arabic"
+    ],
+    "legacyRedirects": 10,
+    "metadataRoute": "/manifest.webmanifest"
+  },
+  "visual": {
+    "screenshots": [
+      "docs/ui-v2/screenshots/dashboard-ar-1440.png",
+      "docs/ui-v2/screenshots/dashboard-en-1366.png",
+      "docs/ui-v2/screenshots/dashboard-en-1440.png",
+      "docs/ui-v2/screenshots/dashboard-en-1920.png",
+      "docs/ui-v2/screenshots/deployed-login-en.png",
+      "docs/ui-v2/screenshots/detail-en-1440.png",
+      "docs/ui-v2/screenshots/dialog-en-1440.png",
+      "docs/ui-v2/screenshots/editor-ar-1440.png",
+      "docs/ui-v2/screenshots/editor-ar-zoom-200.png",
+      "docs/ui-v2/screenshots/editor-en-1440.png",
+      "docs/ui-v2/screenshots/editor-en-zoom-200.png",
+      "docs/ui-v2/screenshots/editor-lines-ar-1440.png",
+      "docs/ui-v2/screenshots/editor-lines-en-1440.png",
+      "docs/ui-v2/screenshots/empty-en.png",
+      "docs/ui-v2/screenshots/error-en.png",
+      "docs/ui-v2/screenshots/listing-ar-1440.png",
+      "docs/ui-v2/screenshots/listing-ar-390.png",
+      "docs/ui-v2/screenshots/listing-ar-768.png",
+      "docs/ui-v2/screenshots/listing-en-1440.png",
+      "docs/ui-v2/screenshots/listing-en-390.png",
+      "docs/ui-v2/screenshots/listing-en-768.png",
+      "docs/ui-v2/screenshots/loading-en.png",
+      "docs/ui-v2/screenshots/login-en.png",
+      "docs/ui-v2/screenshots/navigation-ar-390.png",
+      "docs/ui-v2/screenshots/navigation-en-390.png",
+      "docs/ui-v2/screenshots/report-print.png",
+      "docs/ui-v2/screenshots/restricted-price-en.png"
+    ],
+    "desktopViewports": [
+      "1366x768",
+      "1440x900",
+      "1920x1080"
+    ],
+    "tabletViewport": "768x1024",
+    "mobileViewport": "390x844",
+    "inspected": [
+      "original mark and lockup",
+      "dashboard financial amounts",
+      "English and Arabic listing",
+      "complex editor and line items",
+      "posted document detail",
+      "dialog",
+      "loading/error/empty states",
+      "browser print",
+      "login",
+      "mobile RTL navigation after settled transition",
+      "200% zoom-equivalent editor",
+      "deployed public login"
+    ],
+    "zoomCheck": "200% desktop-zoom equivalent: 720x450 CSS viewport, deviceScaleFactor 2; English and Arabic editor controls and no page overflow"
+  },
+  "rollback": {
+    "originalWorkCommit": "54e6ac7c2d20a9b624126b8a2515dee60e36f89e",
+    "bundle": "/srv/demo/backups/odin-before-ui-v2.bundle",
+    "bundleVerified": true
+  },
+  "limits": [
+    "Mutating business workflows tested only in isolated QA; public deployment verification was read-only apart from authentication/session events",
+    "Physical scanners/printers unverified",
+    "Original optional external staging suite retained but not run remotely",
+    "Existing general-document API cap is 200; dashboard labels that scope",
+    "Existing journal default cost-center and seeded CFO approval-limit restrictions preserved"
+  ],
+  "frontendSourceManifest": [
+    {
+      "file": "apps/web/src/app/[...route]/page.tsx",
+      "sha256": "34c2d9f524657b1da6accff7f8d3885826586e0b056dd83002ea3e9b194be90d"
+    },
+    {
+      "file": "apps/web/src/app/layout.tsx",
+      "sha256": "be92f338c134e9b9c3a7f9508bbc0eb823e2e2d381dcf5b3abe4149830024305"
+    },
+    {
+      "file": "apps/web/src/app/manifest.ts",
+      "sha256": "f59c8c0ae8b830dc2f81ffded43182f47dd7c6d4bc92ad2851fbaba2a6c8f656"
+    },
+    {
+      "file": "apps/web/src/app/page.tsx",
+      "sha256": "399c2701650eb0cf2090d76133b8129e57faea7331429628b5064b6247204356"
+    },
+    {
+      "file": "apps/web/src/app/workspace.css",
+      "sha256": "2ba0fff06117d8892d0a8d3c4465ad03971ca48661e43c3e0f3d54a1d3c482a5"
+    },
+    {
+      "file": "apps/web/src/components/login.tsx",
+      "sha256": "1e7cff96ef2d9f665fa347c7d25e7a1d08289501c318f6814621a0779ca7d509"
+    },
+    {
+      "file": "apps/web/src/components/step-up-dialog.tsx",
+      "sha256": "57eef0ac6ee259c28fdee2cdb70a85b7c7720c1d75265a4549e051acdb074d7d"
+    },
+    {
+      "file": "apps/web/src/components/ui.tsx",
+      "sha256": "e1f8dbf820eef3a1acea45ee78c09114097a1e99d4bdbd4cbdee6fe815e493a1"
+    },
+    {
+      "file": "apps/web/src/components/workspace.tsx",
+      "sha256": "b8e294df82f599ca9877838d9035fa3c575518404421f2cbff292f6913920a67"
+    },
+    {
+      "file": "apps/web/src/core/erp-context.tsx",
+      "sha256": "0be056e7b26649802e78d11c7bfc5537ed2ce277fc09cf9e2d3e482fe74ab8c6"
+    },
+    {
+      "file": "apps/web/src/core/formatters.ts",
+      "sha256": "c2a4e43ea47d37ed40b4e883525e51ac97b66b4cf25b58f17d9f7013e110145c"
+    },
+    {
+      "file": "apps/web/src/core/i18n-server.ts",
+      "sha256": "ada308f8375b8da35653a6bd4afc5f32cb3df4e3e02113abe905bf566f74a3b7"
+    },
+    {
+      "file": "apps/web/src/core/i18n.ts",
+      "sha256": "b9bb05326beff325ada2f326377caa38c5645d2cc7f150bc4c58744cacb56929"
+    },
+    {
+      "file": "apps/web/src/core/navigation.ts",
+      "sha256": "ef3dbfeba171037eac4736eee6ca1fb0eb9d14e2c16dbc57aefc203c43ffa3d5"
+    },
+    {
+      "file": "apps/web/src/core/numeric-input.ts",
+      "sha256": "f498f32a494137f527ddfcf056211dfa6ce99d08ee033a874fe4bc837f3c092a"
+    },
+    {
+      "file": "apps/web/src/core/session-provider.tsx",
+      "sha256": "fcce1fdd9cf7c0a298414470f9fd6a10a0e64c7d9d7234695745c6722dd75a2d"
+    },
+    {
+      "file": "apps/web/src/core/ui-copy.ts",
+      "sha256": "1619e3b3a94a5f07665b9e976a35dfc5b602caf1caf32e0fc560deb050ead233"
+    },
+    {
+      "file": "apps/web/src/screens/access.tsx",
+      "sha256": "0a42598d087c521eca2fee1f500824317d5cbab9ce14263a323f1d9b6fe20e1d"
+    },
+    {
+      "file": "apps/web/src/screens/document-editor.tsx",
+      "sha256": "94685fdaabd6d14264d6ccb8ce4c68ca4e73caa36469731227db77e653030185"
+    },
+    {
+      "file": "apps/web/src/screens/documents.tsx",
+      "sha256": "59129ffb610781bdf0057e48428bc90545ba757ae0aee3ef44c3e6f8c95266b5"
+    },
+    {
+      "file": "apps/web/src/screens/finance.tsx",
+      "sha256": "21cbd1c276e2b8142a2284c31426274463b671b92874f2e7c47b3edc3d3782b3"
+    },
+    {
+      "file": "apps/web/src/screens/index.tsx",
+      "sha256": "b9c4cfbf3da2feafdb5c4118cbeb089be766df5ac08d9a1495feb5e7897efce9"
+    },
+    {
+      "file": "apps/web/src/screens/masters.tsx",
+      "sha256": "f0330632d06e136188865a4764210a64b7963a76549f31a41ab40e5faeba20a9"
+    },
+    {
+      "file": "apps/web/src/screens/overview.tsx",
+      "sha256": "03c4ea233b9a622f0db312963c5fd9fb534bad7a8b484e2e7be6aab49b957d29"
+    },
+    {
+      "file": "apps/web/src/screens/pos.tsx",
+      "sha256": "c3fe44ca3e375b835d640e28c4215f73f7b015d5add2dfe90a8109c70300f8fa"
+    },
+    {
+      "file": "apps/web/src/screens/reports.tsx",
+      "sha256": "eae00c158fa6ed80fe08d3bbb81dfde6cb2e8ec0bd0070155c328d5d342871cd"
+    }
+  ],
+  "deploymentAuthorization": {
+    "userMessage": "i authorize",
+    "scope": "existing ERP service at https://demo.odin-ltd.com; frontend-only release after verification"
+  },
+  "deployment": {
+    "url": "https://demo.odin-ltd.com",
+    "image": "sha256:0483f6229b68b1f4e5c272222c7acfecb14ae69780280f000d10ea125a545eb9",
+    "releaseBuildId": "qao1W32hnAMM0WawkX3RO",
+    "evidence": "docs/ui-v2/deployment.json",
+    "readOnlySmoke": "61 English routes, five Arabic routes, mobile keyboard navigation and login/logout passed",
+    "integrity": "all differences zero; matches pre-release baseline"
+  }
+}

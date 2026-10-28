@@ -4,7 +4,8 @@ import { extname, join, relative } from 'node:path';
 
 const root = process.cwd();
 const failures = [];
-const tracked = execFileSync('git', ['ls-files', '-z'], { cwd: root, encoding: 'utf8' }).split('\0').filter(Boolean);
+const tracked = execFileSync('git', ['ls-files', '-z', '--cached', '--others', '--exclude-standard'], { cwd: root, encoding: 'utf8' }).split('\0').filter(Boolean);
+const webRoot = join(root, process.env.ODIN_UI_APP || 'apps/web');
 const textExtensions = new Set(['', '.cjs', '.css', '.env', '.example', '.html', '.js', '.json', '.md', '.mjs', '.prisma', '.sql', '.ts', '.tsx', '.txt', '.yaml', '.yml']);
 const secretPatterns = [
   ['private key', /-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----/],
@@ -25,7 +26,7 @@ for (const file of tracked) {
   for (const [label, pattern] of secretPatterns) if (pattern.test(content)) failures.push(`${label}: ${file}`);
 }
 
-const publicRoot = join(root, 'apps/web/public');
+const publicRoot = join(webRoot, 'public');
 const exposedExtensions = new Set(['.db', '.dump', '.env', '.key', '.pem', '.pfx', '.p12', '.sql', '.sqlite']);
 const walk = (directory) => readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
   const path = join(directory, entry.name);
@@ -33,13 +34,13 @@ const walk = (directory) => readdirSync(directory, { withFileTypes: true }).flat
 });
 for (const file of walk(publicRoot)) if (exposedExtensions.has(extname(file).toLowerCase())) failures.push(`sensitive public file: ${relative(root, file)}`);
 
-const loginSource = readFileSync(join(root, 'apps/web/src/app/odin-app.tsx'), 'utf8');
-if (!loginSource.includes("process.env.NEXT_PUBLIC_ODIN_DEMO_MODE === 'true'")) failures.push('demo credential UI is not feature-gated');
+const loginSource = readFileSync(join(webRoot, 'src/components/login.tsx'), 'utf8');
+if (/admin@odin\.demo|Password: password/.test(loginSource)) failures.push('demo credentials exposed in login UI');
 if (/useState\(['"]admin@odin\.demo['"]\)/.test(loginSource)) failures.push('demo account is the unconditional production login default');
 const seedSource = readFileSync(join(root, 'apps/api/prisma/seed.ts'), 'utf8');
 if (!seedSource.includes("if (!demoResetEnabled()) throw new Error('Demo seed is disabled for production deployments.')")) failures.push('demo seed lacks a production deployment guard');
 
-const builtStatic = join(root, 'apps/web/.next/static');
+const builtStatic = join(webRoot, process.env.ODIN_UI_BUILD_DIR || '.next', 'static');
 if (existsSync(builtStatic) && process.env.NEXT_PUBLIC_ODIN_DEMO_MODE !== 'true') {
   for (const file of walk(builtStatic)) {
     if (!['.js', '.json'].includes(extname(file))) continue;
@@ -52,5 +53,5 @@ if (failures.length) {
   for (const failure of failures) console.error(`- ${failure}`);
   process.exitCode = 1;
 } else {
-  console.log(`Security scan passed: ${scanned} tracked text files, high-confidence secrets, public files, demo controls, and production browser assets checked.`);
+  console.log(`Security scan passed: ${scanned} repository text files, high-confidence secrets, public files, demo controls, and production browser assets checked.`);
 }

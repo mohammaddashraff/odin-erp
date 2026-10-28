@@ -36,6 +36,8 @@ export type Actor = {
   departmentId?: string;
   sessionId?: string;
   mfaEnabled?: boolean;
+  passwordChangeRequired?: boolean;
+  language?: string;
   mfaVerifiedAt?: string;
 };
 
@@ -91,6 +93,8 @@ export class AuthService {
       employeeId: user.employee?.id?.toString(),
       departmentId: user.employee?.departmentId?.toString(),
       mfaEnabled: user.mfaEnabled,
+      passwordChangeRequired: user.passwordChangeRequired,
+      language: user.language,
     };
   }
 
@@ -256,6 +260,9 @@ export class AuthService {
       await this.recordLoginFailure(throttleKeys);
       throw new UnauthorizedException('Invalid email or password');
     }
+    if (user.passwordChangeRequired && user.temporaryPasswordExpiresAt && user.temporaryPasswordExpiresAt <= new Date()) {
+      throw new UnauthorizedException('Temporary password expired. Ask your administrator for a new one.');
+    }
     await this.clearLoginFailures(throttleKeys);
     const actor = this.actorFor(user);
     const mfaRequired = user.mfaRequired || (privilegedMfaRequired() && this.isPrivileged(actor));
@@ -266,6 +273,7 @@ export class AuthService {
       return { mfaRequired: true, ...challenge };
     }
     const refresh = await this.createRefreshSession(user, rememberMe);
+    await this.db.admin.user.update({ where: { id: user.id }, data: { lastSignInAt: new Date() } });
     await this.authAudit(user, 'LOGIN_SUCCEEDED', { mfa: false });
     return this.sessionResult(user, refresh);
   }
@@ -313,6 +321,7 @@ export class AuthService {
       } else {
         ({ accepted, recoveryHashes } = await this.verifyMfa(user, code, recoveryCode));
       }
+      if (user.passwordChangeRequired && user.temporaryPasswordExpiresAt && user.temporaryPasswordExpiresAt <= now) return { kind: 'INVALID_CHALLENGE' } as const;
       if (!accepted) {
         const attempts = challenge.attempts + 1;
         await tx.mfaChallenge.update({
@@ -324,6 +333,7 @@ export class AuthService {
 
       const updated = await tx.user.update({ where: { id: user.id }, data: {
         mfaEnabled: true,
+        lastSignInAt: now,
         mfaEnrolledAt: challenge.purpose === 'ENROLLMENT' ? now : undefined,
         mfaRecoveryHashes: recoveryHashes,
       }, include: this.userInclude });
@@ -404,7 +414,7 @@ export class AuthService {
       where: { tokenHash },
       include: { user: { include: this.userInclude } },
     });
-    if (!existing || existing.revokedAt || existing.expiresAt <= new Date() || !existing.user.active) {
+    if (!existing || existing.revokedAt || existing.expiresAt <= new Date() || !existing.user.active || (existing.user.passwordChangeRequired && !!existing.user.temporaryPasswordExpiresAt && existing.user.temporaryPasswordExpiresAt <= new Date())) {
       throw new UnauthorizedException('Refresh session has expired');
     }
     const now = new Date();
@@ -464,16 +474,18 @@ export class AuthService {
   }
 
   async changePassword(actor: Actor, currentPassword: string, newPassword: string) {
-    if (newPassword.length < 12) throw new ForbiddenException('New password must contain at least 12 characters');
-    const user = await this.db.admin.user.findUnique({ where: { id: actor.userId } });
-    if (!user || !await compare(currentPassword, user.passwordHash)) throw new UnauthorizedException('Invalid email or password');
-    const rounds = Number(process.env.ODIN_BCRYPT_ROUNDS || (process.env.NODE_ENV === 'production' ? 12 : 4));
-    const now = new Date();
-    await this.db.admin.$transaction([
-      this.db.admin.user.update({ where: { id: actor.userId }, data: { passwordHash: await hash(newPassword, rounds), authVersion: { increment: 1 } } }),
-      this.db.admin.refreshSession.updateMany({ where: { userId: actor.userId, revokedAt: null }, data: { revokedAt: now } }),
-      this.db.admin.auditEvent.create({ data: { tenantId: actor.tenantId, userId: actor.userId, action: 'PASSWORD_CHANGED', entityType: 'AUTH_SECURITY', entityId: actor.userId.toString() } }),
-    ]);
+    if (newPassword.length < 12 || newPassword.length > 128 || Buffer.byteLength(newPassword, 'utf8') > 72) throw new ForbiddenException('Use 12–72 bytes for the new password.');
+    if (currentPassword === newPassword) throw new ForbiddenException('Choose a different password.');
+    const passwordHash = await hash(newPassword, 12);
+    await this.db.tenant(actor.tenantId, async tx => {
+      await tx.$queryRaw`SELECT id FROM users WHERE id = ${actor.userId} FOR UPDATE`;
+      const user = await tx.user.findFirst({ where: { id: actor.userId, active: true } });
+      if (!user || !await compare(currentPassword, user.passwordHash)) throw new UnauthorizedException('Invalid email or password');
+      await tx.user.update({ where: { id: actor.userId }, data: { passwordHash, passwordChangeRequired: false, temporaryPasswordExpiresAt: null, authVersion: { increment: 1 } } });
+      await tx.refreshSession.updateMany({ where: { userId: actor.userId, revokedAt: null }, data: { revokedAt: new Date() } });
+      await tx.mfaChallenge.updateMany({ where: { userId: actor.userId, consumedAt: null }, data: { consumedAt: new Date() } });
+      await tx.auditEvent.create({ data: { tenantId: actor.tenantId, userId: actor.userId, action: 'PASSWORD_CHANGED', entityType: 'AUTH_SECURITY', entityId: actor.userId.toString() } });
+    });
     return { ok: true, reauthenticate: true };
   }
 
@@ -489,6 +501,7 @@ export class AuthService {
     const now = new Date();
     if (!user || !user.active || user.tenant.resetVersion !== payload.resetVersion || user.authVersion !== payload.authVersion
       || !session || session.userId !== user.id || session.revokedAt || session.expiresAt <= now) throw new UnauthorizedException('Session is no longer valid');
+    if (user.passwordChangeRequired && user.temporaryPasswordExpiresAt && user.temporaryPasswordExpiresAt <= now) throw new UnauthorizedException('Temporary password expired.');
     const actor = this.actorFor(user);
     const idleMinutes = Math.max(5, Number(process.env.ODIN_SESSION_IDLE_MINUTES || 30));
     const privilegedHours = Math.max(1, Number(process.env.ODIN_PRIVILEGED_SESSION_HOURS || 8));
@@ -513,6 +526,9 @@ export class AuthGuard implements CanActivate {
     const header = String(request.headers.authorization || '');
     if (!header.startsWith('Bearer ')) throw new UnauthorizedException('Sign in is required');
     request.actor = await this.auth.verifyToken(header.slice(7));
+    if (request.actor.passwordChangeRequired && !['/api/auth/me', '/api/auth/change-password', '/api/auth/step-up'].includes(request.path)) {
+      throw new ForbiddenException({ message: 'Change your temporary password before continuing.', code: 'PASSWORD_CHANGE_REQUIRED' });
+    }
     return true;
   }
 }

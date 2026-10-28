@@ -1,0 +1,14 @@
+import fs from 'node:fs';
+import path from 'node:path';
+import {fileURLToPath} from 'node:url';
+import {spawnSync} from 'node:child_process';
+import dotenv from 'dotenv';
+import pg from 'pg';
+const root=fs.realpathSync(path.resolve(path.dirname(fileURLToPath(import.meta.url)),'../..'));
+const [command,...args]=process.argv.slice(2);if(!command)throw new Error('Command required');
+const env={...process.env};for(const key of Object.keys(env))if(/^(DATABASE|POSTGRES|PG|AV8_|ODIN|NEXT_PUBLIC|VERCEL|API_|SMTP|QUEUE|REDIS)/.test(key))delete env[key];
+Object.assign(env,dotenv.parse(fs.readFileSync(path.join(root,'.av8/production.env'))),{AV8_ROOT:root,PATH:`${root}/.av8/bin:${root}/node_modules/.bin:${env.PATH}`,NODE_OPTIONS:'--max-old-space-size=1024'});
+const u=new URL(env.DATABASE_ADMIN_URL);if(u.hostname!=='ep-billowing-dust-ba5ea0c4.c-8.eu-central-1.aws.neon.tech'||u.pathname!=='/neondb'||u.username!=='neondb_owner'||env.AV8_ENV!=='production')throw new Error('Hosted AV8 identity mismatch');
+const db=new pg.Client({connectionString:env.DATABASE_ADMIN_URL});await db.connect();const marker=await db.query('SELECT resource FROM av8_guard.av8_environment_identity');await db.end();
+if(marker.rows.length!==1||marker.rows[0].resource!=='av8-erp-production:cool-meadow-67774901')throw new Error('Hosted AV8 marker mismatch');
+const result=spawnSync(command,args,{cwd:root,env,stdio:'inherit'});if(result.error)throw result.error;process.exit(result.status??1);

@@ -1,5 +1,4 @@
-import { redirect } from 'next/navigation';
-
+import Workspace from "../components/workspace";
 export default function Page() {
-  redirect('/dashboard');
+  return <Workspace route="/dashboard" />;
 }

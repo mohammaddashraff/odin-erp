@@ -29,6 +29,20 @@ const document = (module: string, resource: string, extra: string[] = []) => res
 export const PERMISSION_REGISTRY: readonly PermissionDefinition[] = [
   { key: 'system.super_admin', module: 'system', resource: 'access', action: 'manage', description: 'Unrestricted tenant administration' },
   ...resourcePermissions('dashboard', 'overview', ['view']),
+  ...resourcePermissions('av8', 'workspace', ['view']),
+  ...resourcePermissions('av8', 'leads', ['view', 'create', 'edit', 'import', 'convert']),
+  ...resourcePermissions('av8', 'applications', ['view', 'create', 'edit']),
+  ...resourcePermissions('av8', 'medical', ['view', 'edit']),
+  ...resourcePermissions('av8', 'affairs', ['view', 'edit']),
+  ...resourcePermissions('av8', 'finance', ['view', 'create', 'approve', 'confirm', 'adjust']),
+  ...resourcePermissions('av8', 'policies', ['view', 'manage', 'approve']),
+  ...resourcePermissions('av8', 'exceptions', ['approve']),
+  ...resourcePermissions('av8', 'reports', ['view', 'export', 'print']),
+  ...resourcePermissions('av8', 'passport', ['view', 'edit']),
+  ...resourcePermissions('av8', 'bank', ['view', 'edit']),
+  ...resourcePermissions('av8', 'criminal', ['view', 'edit']),
+  ...resourcePermissions('av8', 'guardian', ['view', 'edit']),
+
   ...resourcePermissions('sales', 'overview', ['view']),
   ...document('sales', 'customer'),
   ...document('sales', 'quotation', ['convert']),
@@ -67,6 +81,10 @@ export const PERMISSION_REGISTRY: readonly PermissionDefinition[] = [
   ...resourcePermissions('pos', 'sale', ['view', 'create', 'edit', 'cancel', 'print', 'history']),
   ...resourcePermissions('pos', 'return', ['view', 'create', 'approve']),
   ...document('hr', 'employee'),
+  ...resourcePermissions('hr', 'department', ['view', 'create', 'edit']),
+  ...resourcePermissions('hr', 'attendance', ['view', 'create', 'edit']),
+  ...resourcePermissions('hr', 'leave', ['view', 'create', 'edit', 'approve', 'reject', 'cancel']),
+  ...resourcePermissions('hr', 'payroll', ['view', 'create', 'edit', 'approve', 'reject']),
   ...resourcePermissions('reports', 'standard', ['view', 'export', 'print']),
   ...resourcePermissions('reports', 'profitability', ['view', 'export', 'print']),
   ...resourcePermissions('approvals', 'queue', ['view', 'approve', 'reject', 'edit', 'history']),
@@ -160,6 +178,7 @@ export const DATA_SCOPE_RESOURCES = [
   'transfer', 'adjustment', 'stock_count',
   'pos_terminal', 'bank_account', 'account', 'cost_center', 'project',
   'journal', 'payment', 'approval_queue', 'report', 'export', 'print', 'attachment',
+  'av8_lead', 'av8_application',
 ] as const;
 
 export const LIMIT_REGISTRY = [

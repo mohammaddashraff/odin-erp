@@ -1,9 +1,12 @@
-import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { hash } from 'bcryptjs';
 import { PermissionOverrideEffect, Prisma } from '@prisma/client';
-import type { Actor } from './auth';
+import { Actor, AuthService } from './auth';
+import { accessRevision, profileInput } from './administration.service';
 import { PrismaService } from './prisma.service';
 import { DATA_SCOPE_RESOURCES, FIELD_REGISTRY, hasPermission, LIMIT_REGISTRY, normalizePermissions, PERMISSION_REGISTRY } from './permissions';
-import { evaluateSodRules } from './access-governance';
+import { evaluateSodRules, resolveEffectiveAccess } from './access-governance';
+import { rolePresentation, permissionPresentation, resourceLabel, supportedScopes, scopePresentation } from './access-presentation';
 
 type Tx = Prisma.TransactionClient;
 export type AccessRequestContext = { ipAddress?: string; requestId?: string };
@@ -14,6 +17,15 @@ const idStrings = (values: unknown) => Array.isArray(values) ? values.map(String
 @Injectable()
 export class AccessControlService {
   constructor(private readonly db: PrismaService) {}
+
+  private assertAssignable(actor: Actor, grants: string[]) {
+    if (grants.some(key => !hasPermission(actor.permissions,actor.deniedPermissions,key)) || PERMISSION_REGISTRY.some(p=>hasPermission(grants,[],p.key)&&!hasPermission(actor.permissions,actor.deniedPermissions,p.key))) throw new ForbiddenException('You cannot assign permissions beyond your own authority.');
+  }
+
+  private async ensureEligibleAdministrator(tx: Tx) {
+    const users=await tx.user.findMany({where:{active:true,OR:[{passwordChangeRequired:false},{temporaryPasswordExpiresAt:{gt:new Date()}}]},include:{role:{include:{permissionAssignments:{include:{permission:true}}}},additionalRoles:{include:{role:{include:{permissionAssignments:{include:{permission:true}}}}}},permissionOverrides:{include:{permission:true}}}});
+    if(!users.some(user=>{const effective=resolveEffectiveAccess(user);return hasPermission(effective.permissions,effective.deniedPermissions,'system.super_admin');}))throw new ConflictException('At least one active System Administrator must remain.');
+  }
 
   private async ensureRegistry(tx: Tx, tenantId: bigint) {
     for (const definition of PERMISSION_REGISTRY) {
@@ -65,9 +77,10 @@ export class AccessControlService {
 
   private roleView(role: any) {
     return {
+      ...rolePresentation(role),
       id: role.id.toString(), key: role.key, name: role.name, description: role.description, active: role.active,
       archivedAt: role.archivedAt, createdAt: role.createdAt, updatedAt: role.updatedAt,
-      permissionKeys: role.permissionAssignments.map((assignment: any) => assignment.permission.key).sort(),
+      permissionKeys: [...new Set([...idStrings(role.permissions), ...normalizePermissions(idStrings(role.permissions)), ...role.permissionAssignments.map((assignment: any) => assignment.permission.key)])].sort(),
       limits: role.limits.map((limit: any) => ({ key: limit.key, value: limit.value })),
       dataScopes: role.dataScopes.map((scope: any) => ({ resource: scope.resource, scope: scope.scope, config: scope.config })),
       fieldPermissions: role.fieldPermissions.map((field: any) => ({ resource: field.resource, field: field.field, access: field.access })),
@@ -101,10 +114,13 @@ export class AccessControlService {
           branchIds: idStrings(user.branchIds), warehouseIds: idStrings(user.warehouseIds),
           mfaEnabled: user.mfaEnabled, mfaRequired: user.mfaRequired, mfaEnrolledAt: user.mfaEnrolledAt,
         })),
-        permissions: permissions.map((permission) => ({ id: permission.id.toString(), key: permission.key, module: permission.module, resource: permission.resource, action: permission.action, description: permission.description })),
+        permissions: permissions.map(permission => ({id:String(permission.id),...permissionPresentation(permission)})),
         audit: audit.map((entry) => ({ ...entry, id: entry.id.toString(), tenantId: entry.tenantId?.toString(), actorUserId: entry.actorUserId?.toString(), subjectUserId: entry.subjectUserId?.toString(), subjectRoleId: entry.subjectRoleId?.toString(), branchId: entry.branchId?.toString(), warehouseId: entry.warehouseId?.toString(), actorUser: entry.actorUser && { ...entry.actorUser, id: entry.actorUser.id.toString() }, subjectUser: entry.subjectUser && { ...entry.subjectUser, id: entry.subjectUser.id.toString() }, subjectRole: entry.subjectRole && { ...entry.subjectRole, id: entry.subjectRole.id.toString() } })),
         configuration: {
           dataScopeResources: DATA_SCOPE_RESOURCES,
+          scopeDefinitions: DATA_SCOPE_RESOURCES.map(resource=>({resource,label:resourceLabel(resource),modes:supportedScopes(resource),modeLabels:Object.fromEntries(supportedScopes(resource).map(mode=>[mode,scopePresentation(resource,mode)]))})),
+          currency: await tx.tenant.findUnique({where:{id:actor.tenantId},select:{baseCurrency:true}}).then(async tenant=>tx.currency.findFirst({where:{code:tenant!.baseCurrency},select:{code:true,precision:true}})),
+          branches:await tx.branch.findMany({where:{companyLinks:{some:{active:true,company:{active:true}}}},select:{id:true,name:true,code:true,operational:true}}).then(rows=>rows.map(row=>({...row,id:String(row.id)}))),
           assignableResources: {
             bank_account: bankAccounts.map((item) => ({ ...item, id: item.id.toString() })),
             account: accounts.map((item) => ({ ...item, id: item.id.toString() })),
@@ -124,6 +140,7 @@ export class AccessControlService {
       const duplicate = await tx.role.findFirst({ where: { name: { equals: name, mode: 'insensitive' } } });
       if (duplicate) throw new ConflictException('A role with this name already exists.');
       const role = await tx.role.create({ data: { tenantId: actor.tenantId, name, description: String(body.description || '').trim() || null, permissions: [] } });
+      this.assertAssignable(actor,body.permissionKeys||[]);
       const sodWarnings = await this.replaceRolePolicy(tx, actor.tenantId, role.id, body);
       await this.audit(tx, actor, 'ROLE_CREATED', context, { subjectRoleId: role.id, newValue: { name, description: role.description } });
       const created = await tx.role.findUniqueOrThrow({ where: { id: role.id }, include: this.roleInclude });
@@ -139,11 +156,14 @@ export class AccessControlService {
       await this.ensureRegistry(tx, actor.tenantId);
       const before = await tx.role.findFirst({ where: { id: roleId }, include: this.roleInclude });
       if (!before) throw new NotFoundException('Role not found.');
+      if(body.expectedUpdatedAt && new Date(body.expectedUpdatedAt).valueOf()!==before.updatedAt.valueOf()) throw new ConflictException('This access group changed. Reload before saving.');
+      if(Array.isArray(body.permissionKeys))this.assertAssignable(actor,body.permissionKeys);
       const name = body.name === undefined ? before.name : String(body.name).trim();
       if (!name) throw new BadRequestException('Role name is required.');
       await tx.role.update({ where: { id: roleId }, data: { name, description: body.description === undefined ? before.description : String(body.description || '').trim() || null } });
       const sodWarnings = await this.replaceRolePolicy(tx, actor.tenantId, roleId, body);
-      await this.invalidateRoleSessions(tx, roleId);
+      if(Array.isArray(body.permissionKeys))await this.ensureEligibleAdministrator(tx);
+      if(['permissionKeys','dataScopes','fieldPermissions','limits'].some(key=>Array.isArray(body[key])))await this.invalidateRoleSessions(tx, roleId);
       const after = await tx.role.findUniqueOrThrow({ where: { id: roleId }, include: this.roleInclude });
       await this.audit(tx, actor, 'ROLE_UPDATED', context, { subjectRoleId: roleId, previousValue: this.roleView(before), newValue: this.roleView(after) });
       const beforePermissions = new Set(before.permissionAssignments.map(({ permission }) => permission.key));
@@ -162,8 +182,10 @@ export class AccessControlService {
     let sodWarnings: ReturnType<typeof evaluateSodRules> = [];
     if (Array.isArray(body.permissionKeys)) {
       const keys = [...new Set<string>(body.permissionKeys.map(String))];
-      const permissions = await tx.permission.findMany({ where: { key: { in: keys }, active: true } });
-      if (permissions.length !== keys.length) throw new BadRequestException('One or more permission keys are invalid.');
+      const previous=await tx.role.findUniqueOrThrow({where:{id:roleId},include:{permissionAssignments:{include:{permission:true}}}});
+      const priorKeys=[...idStrings(previous.permissions),...previous.permissionAssignments.map(p=>p.permission.key)];
+      const permissions = await tx.permission.findMany({ where: { key: { in: keys }, OR:[{active:true},{key:{in:priorKeys}}] } });
+      if (keys.some(key=>!permissions.some(p=>p.key===key)&&!priorKeys.includes(key))) throw new BadRequestException('One or more permission keys are invalid.');
       const conflicts = evaluateSodRules(keys, await tx.sodRule.findMany({ where: { active: true } }));
       const blocking = conflicts.filter(({ enforcement }) => enforcement === 'BLOCK');
       if (blocking.length) throw new ConflictException({ message: 'The role violates a blocking segregation-of-duties rule.', conflicts: blocking });
@@ -173,20 +195,25 @@ export class AccessControlService {
       await tx.role.update({ where: { id: roleId }, data: { permissions: keys } });
     }
     if (Array.isArray(body.limits)) {
-      const validLimits = new Set<string>(LIMIT_REGISTRY.map(({ key }) => key));
-      if (body.limits.some((limit: any) => !validLimits.has(String(limit.key)) || !Number.isFinite(Number(limit.value)) || Number(limit.value) < 0)) {
+      const existingLimits=await tx.roleLimit.findMany({where:{roleId}});
+      for(const limit of body.limits){if(existingLimits.some(l=>l.key===limit.key&&JSON.stringify(l.value)===JSON.stringify(limit.value)))continue;const definition=LIMIT_REGISTRY.find(l=>l.key===limit.key);if(definition?.unit==='minor_currency'&&limit.value!==null&&!Number.isSafeInteger(Number(typeof limit.value==='object'?limit.value.value:limit.value)))throw new BadRequestException('Legacy group amounts must be safe whole minor units. Use company authority policies for larger amounts.');}
+      const validLimits = new Set<string>([...LIMIT_REGISTRY.map(({ key }) => key),...existingLimits.map(l=>l.key)]);
+      if (body.limits.some((limit: any) => !existingLimits.some(l=>l.key===limit.key&&JSON.stringify(l.value)===JSON.stringify(limit.value)) && (!validLimits.has(String(limit.key)) || (limit.value!==null && (typeof limit.value==='object' ? !Number.isFinite(Number(limit.value.value)) || Number(limit.value.value)<0 : !/^(?:\d+)(?:\.\d+)?$/.test(String(limit.value))))))) {
         throw new BadRequestException('One or more role limits are invalid.');
       }
       await tx.roleLimit.deleteMany({ where: { roleId } });
-      if (body.limits.length) await tx.roleLimit.createMany({ data: body.limits.map((limit: any) => ({ tenantId, roleId, key: String(limit.key), value: json(limit.value) })) });
+      if (body.limits.length) await tx.roleLimit.createMany({ data: body.limits.map((limit: any) => ({ tenantId, roleId, key: String(limit.key), value: limit.value===null?Prisma.JsonNull:json(limit.value) })) });
     }
     if (Array.isArray(body.dataScopes)) {
-      const validResources = new Set<string>(DATA_SCOPE_RESOURCES);
+      const existingScopes=await tx.roleDataScope.findMany({where:{roleId}});
+      const validResources = new Set<string>([...DATA_SCOPE_RESOURCES,...existingScopes.map(s=>s.resource)]);
       const validScopes = new Set(['NONE', 'OWN', 'ASSIGNED', 'TEAM', 'BRANCH', 'WAREHOUSE', 'DEPARTMENT', 'ALL']);
       if (body.dataScopes.some((scope: any) => !validResources.has(String(scope.resource)) || !validScopes.has(String(scope.scope)))) {
         throw new BadRequestException('One or more data scopes are invalid.');
       }
       for (const scope of body.dataScopes) {
+        if(existingScopes.some(s=>s.resource===scope.resource&&s.scope===scope.scope&&JSON.stringify(s.config)===JSON.stringify(scope.config??null)))continue;
+        if(scope.scope==='TEAM'&&scope.config?.userIds){const ids=idStrings(scope.config.userIds);if(ids.some(v=>!/^\d+$/.test(v))||await tx.user.count({where:{id:{in:ids.map(BigInt)}}})!==ids.length)throw new BadRequestException('Select valid team members.');}
         if (String(scope.scope) !== 'ASSIGNED') continue;
         const resource = String(scope.resource);
         const resourceIds = [...new Set<string>((scope.config?.resourceIds || []).map(String))];
@@ -202,7 +229,8 @@ export class AccessControlService {
       if (body.dataScopes.length) await tx.roleDataScope.createMany({ data: body.dataScopes.map((scope: any) => ({ tenantId, roleId, resource: String(scope.resource), scope: scope.scope, config: scope.config === undefined ? undefined : json(scope.config) })) });
     }
     if (Array.isArray(body.fieldPermissions)) {
-      const validFields = new Set(FIELD_REGISTRY.map(([resource, field]) => `${resource}.${field}`));
+      const existingFields=await tx.roleFieldPermission.findMany({where:{roleId}});
+      const validFields = new Set([...FIELD_REGISTRY.map(([resource, field]) => `${resource}.${field}`),...existingFields.map(f=>`${f.resource}.${f.field}`)]);
       const validAccess = new Set(['HIDDEN', 'VIEW', 'EDIT']);
       if (body.fieldPermissions.some((field: any) => !validFields.has(`${String(field.resource)}.${String(field.field)}`) || !validAccess.has(String(field.access)))) {
         throw new BadRequestException('One or more field permissions are invalid.');
@@ -245,15 +273,46 @@ export class AccessControlService {
     });
   }
 
+  async createUser(actor: Actor, body: any, context: AccessRequestContext) {
+    if(!hasPermission(actor.permissions,actor.deniedPermissions,'system.super_admin'))throw new ForbiddenException('Super Admin access is required.');
+    const name=String(body.name||'').trim(),email=String(body.email||'').trim().toLowerCase(),password=String(body.password||'');
+    if(name.length<2||name.length>160||!/^\S+@\S+\.\S+$/.test(email)||email.length>200)throw new BadRequestException('Enter a valid name and email.');
+    if(password.length<12||password.length>128)throw new BadRequestException('Use an initial password between 12 and 128 characters.');
+    if(!/^[1-9]\d{0,17}$/.test(String(body.roleId))||!/^[1-9]\d{0,17}$/.test(String(body.branchId)))throw new BadRequestException('Select an active role and branch.');
+    if(Buffer.byteLength(password,'utf8')>72)throw new BadRequestException('Password must not exceed 72 UTF-8 bytes.');
+    profileInput({name,email,phone:body.phone,jobTitle:body.jobTitle},false);
+    const passwordHash=await hash(password,12);
+    return this.db.tenant(actor.tenantId,async tx=>{
+      const role=await tx.role.findFirst({where:{id:BigInt(body.roleId),tenantId:actor.tenantId,active:true,archivedAt:null},include:{permissionAssignments:{include:{permission:true}}}});
+      const link=await tx.companyBranch.findFirst({where:{tenantId:actor.tenantId,branchId:BigInt(body.branchId),branch:{operational:true},active:true,company:{active:true}}});
+      if(!role||!link)throw new BadRequestException('Select an active role and branch.');
+      if(await tx.user.findFirst({where:{tenantId:actor.tenantId,email:{equals:email,mode:'insensitive'}}}))throw new ConflictException('This email is already in use.');
+      const grants=normalizePermissions([...idStrings(role.permissions),...role.permissionAssignments.map(p=>p.permission.key)]);
+      this.assertAssignable(actor,grants);
+      const conflicts=evaluateSodRules(PERMISSION_REGISTRY.map(p=>p.key).filter(key=>hasPermission(grants,[],key)),await tx.sodRule.findMany({where:{active:true}}));
+      if(conflicts.some(c=>c.enforcement==='BLOCK'))throw new ConflictException('The role violates a blocking segregation-of-duties rule.');
+      const user=await tx.user.create({data:{tenantId:actor.tenantId,roleId:role.id,name,email,passwordHash,passwordChangeRequired:true,temporaryPasswordExpiresAt:new Date(Date.now()+7*86400000),homeBranchId:link.branchId,phone:body.phone?String(body.phone).trim().slice(0,50):null,jobTitle:body.jobTitle?String(body.jobTitle).trim().slice(0,120):null,branchIds:[String(link.branchId)],warehouseIds:[],mfaRequired:body.mfaRequired===true},select:{id:true,name:true,email:true}});
+      await tx.companyMembership.deleteMany({where:{userId:user.id,companyId:{not:link.companyId}}});
+      await tx.companyMembership.upsert({where:{tenantId_companyId_userId:{tenantId:actor.tenantId,companyId:link.companyId,userId:user.id}},update:{active:true,role:'MEMBER',createdById:actor.userId},create:{tenantId:actor.tenantId,companyId:link.companyId,userId:user.id,role:'MEMBER',createdById:actor.userId}});
+      await this.audit(tx,actor,'USER_CREATED',context,{subjectUserId:user.id,newValue:{name,email,roleId:String(role.id),branchId:String(link.branchId),companyId:String(link.companyId)}});
+      return {...user,id:String(user.id),passwordChangeRequired:true};
+    }).catch(error=>{if(error.code==='P2002')throw new ConflictException('This email is already in use.');throw error;});
+  }
+
   async updateUser(actor: Actor, userId: bigint, body: any, context: AccessRequestContext) {
     return this.db.tenant(actor.tenantId, async (tx) => {
       await this.ensureRegistry(tx, actor.tenantId);
+      if(body.revision){const current=await tx.user.findFirst({where:{id:userId},include:new AuthService(this.db).userInclude});if(!current||accessRevision(current)!==body.revision)throw new ConflictException('Access changed. Reload before previewing or saving.');}
       const before = await tx.user.findFirst({ where: { id: userId }, include: { role: true, additionalRoles: { include: { role: true } }, permissionOverrides: { include: { permission: true } } } });
       if (!before) throw new NotFoundException('User not found.');
+      if(body.expectedAuthVersion!==undefined&&body.expectedAuthVersion!==before.authVersion)throw new ConflictException('This account changed. Reload before saving.');
       if (userId === actor.userId && body.active === false) throw new ConflictException('You cannot deactivate your own account.');
+      for(const key of ['primaryRoleId'])if(body[key]!==undefined&&!/^[1-9]\d{0,17}$/.test(String(body[key])))throw new BadRequestException('Select a valid access group.');
+      for(const key of ['branchIds','warehouseIds','additionalRoleIds'])if(body[key]!==undefined&&(!Array.isArray(body[key])||body[key].some((id:any)=>!/^[1-9]\d{0,17}$/.test(String(id)))))throw new BadRequestException('Invalid access assignments.');
+      for(const key of ['active','mfaRequired'])if(body[key]!==undefined&&typeof body[key]!=='boolean')throw new BadRequestException('Invalid account setting.');
       const primaryRoleId = body.primaryRoleId === undefined ? before.roleId : BigInt(body.primaryRoleId);
       const primaryRole = await tx.role.findFirst({
-        where: { id: primaryRoleId, active: true, archivedAt: null },
+        where: { id: primaryRoleId, ...(primaryRoleId===before.roleId?{}:{active: true, archivedAt: null}) },
         include: { permissionAssignments: { include: { permission: true } } },
       });
       if (!primaryRole) throw new BadRequestException('Primary role is invalid or archived.');
@@ -262,6 +321,10 @@ export class AccessControlService {
       const branchIds = requestedBranchIds.map(BigInt);
       const warehouseIds = requestedWarehouseIds.map(BigInt);
       if (await tx.branch.count({ where: { id: { in: branchIds } } }) !== branchIds.length) throw new BadRequestException('One or more branch assignments are invalid.');
+      if(body.branchIds!==undefined){
+        const links=await tx.companyBranch.findMany({where:{branchId:{in:branchIds},active:true,company:{active:true,memberships:{some:{userId,active:true}}},branch:{OR:[{operational:true},{id:{in:idStrings(before.branchIds).map(BigInt)}}]}}});
+        if(!branchIds.length||branchIds.some(id=>!links.some(link=>link.branchId===id)))throw new BadRequestException('Branches must belong to the user’s active company memberships.');
+      }
       const warehouses = await tx.warehouse.findMany({ where: { id: { in: warehouseIds }, active: true }, select: { id: true, branchId: true } });
       if (warehouses.length !== warehouseIds.length || warehouses.some((warehouse) => !branchIds.includes(warehouse.branchId))) {
         throw new BadRequestException('Warehouses must be active and belong to an assigned branch.');
@@ -270,10 +333,11 @@ export class AccessControlService {
         ? [...new Set<string>(body.additionalRoleIds.map(String))].filter((value) => value !== primaryRoleId.toString()).map(BigInt)
         : before.additionalRoles.map(({ role }) => role.id);
       const requestedRoles = requestedAdditionalRoleIds.length ? await tx.role.findMany({
-        where: { id: { in: requestedAdditionalRoleIds }, active: true, archivedAt: null },
+        where: { id: { in: requestedAdditionalRoleIds }, OR:[{active:true,archivedAt:null},{id:{in:before.additionalRoles.map(x=>x.roleId)}}] },
         include: { permissionAssignments: { include: { permission: true } } },
       }) : [];
       if (requestedRoles.length !== requestedAdditionalRoleIds.length) throw new BadRequestException('One or more additional roles are invalid.');
+      if(body.overrides!==undefined&&(!Array.isArray(body.overrides)||body.overrides.some((o:any)=>!['GRANT','DENY'].includes(o.effect))))throw new BadRequestException('Invalid permission exception.');
       const requestedOverrides: Array<{ permissionKey: string; effect: PermissionOverrideEffect; reason: string | null }> = Array.isArray(body.overrides)
         ? body.overrides.map((override: any) => ({
           permissionKey: String(override.permissionKey),
@@ -282,7 +346,7 @@ export class AccessControlService {
         }))
         : before.permissionOverrides.map((override) => ({ permissionKey: override.permission.key, effect: override.effect, reason: override.reason }));
       const overrideKeys = [...new Set(requestedOverrides.map(({ permissionKey }) => permissionKey))];
-      const overridePermissions = overrideKeys.length ? await tx.permission.findMany({ where: { key: { in: overrideKeys }, active: true } }) : [];
+      const overridePermissions = overrideKeys.length ? await tx.permission.findMany({ where: { key: { in: overrideKeys }, OR:[{active:true},{key:{in:before.permissionOverrides.filter(o=>requestedOverrides.some(r=>r.permissionKey===o.permission.key&&r.effect===o.effect)).map(o=>o.permission.key)}}] } }) : [];
       if (overridePermissions.length !== overrideKeys.length) throw new BadRequestException('One or more override permissions are invalid.');
       const permissionByKey = new Map(overridePermissions.map((permission) => [permission.key, permission]));
       // Older persisted roles still carry pre-registry aliases in Role.permissions.
@@ -294,21 +358,13 @@ export class AccessControlService {
       ]));
       const overrideGrants = requestedOverrides.filter(({ effect }) => effect === PermissionOverrideEffect.GRANT).map(({ permissionKey }) => permissionKey);
       const overrideDenies = requestedOverrides.filter(({ effect }) => effect === PermissionOverrideEffect.DENY).map(({ permissionKey }) => permissionKey);
+      this.assertAssignable(actor,[...roleGrants,...overrideGrants]);
       const effectivePermissions = PERMISSION_REGISTRY.map(({ key }) => key)
         .filter((permission) => hasPermission([...roleGrants, ...overrideGrants], overrideDenies, permission));
       const sodConflicts = evaluateSodRules(effectivePermissions, await tx.sodRule.findMany({ where: { active: true } }));
       const blockingSod = sodConflicts.filter(({ enforcement }) => enforcement === 'BLOCK');
       if (blockingSod.length) throw new ConflictException({ message: 'The user access change violates a blocking segregation-of-duties rule.', conflicts: blockingSod });
       const sodWarnings = sodConflicts.filter(({ enforcement }) => enforcement === 'WARN');
-      const hadSuperAdmin = before.role.key === 'super_admin' || before.additionalRoles.some(({ role }) => role.key === 'super_admin');
-      const willHaveSuperAdmin = primaryRole.key === 'super_admin' || requestedRoles.some((role) => role.key === 'super_admin');
-      if (hadSuperAdmin && (!willHaveSuperAdmin || body.active === false)) {
-        const otherSuperAdmins = await tx.user.count({ where: {
-          id: { not: userId }, active: true,
-          OR: [{ role: { key: 'super_admin', active: true } }, { additionalRoles: { some: { role: { key: 'super_admin', active: true } } } }],
-        } });
-        if (otherSuperAdmins === 0) throw new ConflictException('At least one active Super Admin must remain.');
-      }
       await tx.user.update({ where: { id: userId }, data: {
         roleId: primaryRoleId,
         active: body.active === undefined ? before.active : Boolean(body.active),
@@ -329,6 +385,7 @@ export class AccessControlService {
           reason: override.reason, createdById: actor.userId,
         })) });
       }
+      await this.ensureEligibleAdministrator(tx);
       await tx.refreshSession.updateMany({ where: { userId, revokedAt: null }, data: { revokedAt: new Date() } });
       const after = await tx.user.findUniqueOrThrow({ where: { id: userId }, include: { role: true, additionalRoles: { include: { role: true } }, permissionOverrides: { include: { permission: true } } } });
       const snapshot = (user: any) => ({ active: user.active, primaryRole: user.role.name, additionalRoles: user.additionalRoles.map((item: any) => item.role.name), overrides: user.permissionOverrides.map((item: any) => ({ permissionKey: item.permission.key, effect: item.effect })) });

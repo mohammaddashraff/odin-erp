@@ -13,3 +13,11 @@ playwright-report/
 test-results/
 tmp/
 odin-dashboard*.png
+
+.av8/
+**/.next*/
+**/*.tsbuildinfo
+**/*.spec.ts
+docs/
+tests/
+.git/

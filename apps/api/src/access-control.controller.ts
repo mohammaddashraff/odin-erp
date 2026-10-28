@@ -46,6 +46,11 @@ export class AccessControlController {
   @RequireStepUp()
   updateUser(@Req() request: AuthRequest, @Param('id') userId: string, @Body() body: any) { return this.access.updateUser(request.actor, id(userId), body, context(request)); }
 
+  @Post('users')
+  @RequirePermissions('system.super_admin')
+  @RequireStepUp()
+  createUser(@Req() request: AuthRequest, @Body() body: any) { return this.access.createUser(request.actor, body, context(request)); }
+
   @Post('users/:id/mfa-reset')
   @RequirePermissions('system.super_admin')
   @RequireStepUp()

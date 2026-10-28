@@ -513,7 +513,9 @@ export class AccessGovernanceService {
   }
 
   async createAuthorityPolicy(actor: Actor, body: any, context: RequestContext) {
-    const companyId = BigInt(body.companyId || 0);
+    for(const field of ['companyId','branchId','roleId','departmentId'])if((field==='companyId'||body[field])&&!/^[1-9]\d{0,17}$/.test(String(body[field])))throw new BadRequestException('Authority policy assignment is invalid.');
+    if(body.maxAmountMinor!==undefined&&body.maxAmountMinor!==null&&!/^\d{1,18}$/.test(String(body.maxAmountMinor)))throw new BadRequestException('Authority policy amount is invalid.');
+    const companyId = BigInt(body.companyId);
     const reason = this.assertReason(body.reason);
     const key = String(body.key || '');
     const currency = String(body.currency || '').toUpperCase();
@@ -526,6 +528,7 @@ export class AccessGovernanceService {
     if (!definition || !currency || typedLimitInvalid || maxAmountMinor !== null && maxAmountMinor < 0n || maxPercentBps !== null && (!Number.isInteger(maxPercentBps) || maxPercentBps < 0 || maxPercentBps > 10_000)) throw new BadRequestException('Authority policy limit is invalid.');
     return this.db.tenant(actor.tenantId, async (tx) => {
       await this.assertCompany(tx, actor, companyId);
+      if(!await tx.currency.findFirst({where:{code:currency,active:true}}))throw new BadRequestException('Select an active configured currency.');
       const branchId = body.branchId ? BigInt(body.branchId) : null;
       const roleId = body.roleId ? BigInt(body.roleId) : null;
       const departmentId = body.departmentId ? BigInt(body.departmentId) : null;

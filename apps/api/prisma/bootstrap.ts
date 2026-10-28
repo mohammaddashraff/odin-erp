@@ -1,3 +1,4 @@
+import { assertAv8Isolation } from '../src/av8-isolation';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '@prisma/client';
 import { normalizeDatabaseUrl } from '../src/database-url';
@@ -13,6 +14,7 @@ if (!adminUrl) throw new Error('A PostgreSQL connection URL is required to boots
 const bootstrapUrl: string = normalizeDatabaseUrl(adminUrl);
 
 async function main() {
+  assertAv8Isolation();
   const db = new PrismaClient({ adapter: new PrismaPg(bootstrapUrl) });
   const tenants = await db.tenant.findMany({ select: { id: true } });
   const tenantCount = tenants.length;

@@ -5,11 +5,13 @@ data/postgres/
 apps/api/src/generated/
 node_modules/
 .next/
+.next-*/
 dist/
 output/pdf/
 test-results/
 playwright-report/
 artifacts/screenshots/
+artifacts/audit/
 .env
 coverage/
 *.log
@@ -19,3 +21,12 @@ odin-dashboard*.png
 .vercel/
 .env.local
 .env.*.local
+deliverables/
+
+# AV8 private runtime
+.av8/
+.next-av8/
+.vercel
+.env*
+!.env.example
+!.env.av8.example

@@ -1,0 +1,325 @@
+{
+  "baseUrl": "http://127.0.0.1:8185",
+  "run": "candidate",
+  "startedAt": "2026-09-26T22:11:24.288Z",
+  "routes": [
+    {
+      "route": "/accounting/overview",
+      "language": "en",
+      "viewport": "desktop",
+      "heading": "Accounting Overview",
+      "noPageOverflow": true
+    },
+    {
+      "route": "/accounting/chart-of-accounts",
+      "language": "en",
+      "viewport": "desktop",
+      "heading": "Chart of Accounts",
+      "noPageOverflow": true
+    },
+    {
+      "route": "/accounting/journals",
+      "language": "en",
+      "viewport": "desktop",
+      "heading": "Journal Entries",
+      "noPageOverflow": true
+    },
+    {
+      "route": "/accounting/periods",
+      "language": "en",
+      "viewport": "desktop",
+      "heading": "Fiscal Periods",
+      "noPageOverflow": true
+    },
+    {
+      "route": "/accounting/general-ledger",
+      "language": "en",
+      "viewport": "desktop",
+      "heading": "General ledger",
+      "noPageOverflow": true
+    },
+    {
+      "route": "/accounting/trial-balance",
+      "language": "en",
+      "viewport": "desktop",
+      "heading": "Trial Balance",
+      "noPageOverflow": true
+    },
+    {
+      "route": "/accounting/income-statement",
+      "language": "en",
+      "viewport": "desktop",
+      "heading": "Income Statement",
+      "noPageOverflow": true
+    },
+    {
+      "route": "/accounting/balance-sheet",
+      "language": "en",
+      "viewport": "desktop",
+      "heading": "Balance Sheet",
+      "noPageOverflow": true
+    },
+    {
+      "route": "/accounting/overview",
+      "language": "en",
+      "viewport": "mobile",
+      "heading": "Accounting Overview",
+      "noPageOverflow": true
+    },
+    {
+      "route": "/accounting/chart-of-accounts",
+      "language": "en",
+      "viewport": "mobile",
+      "heading": "Chart of Accounts",
+      "noPageOverflow": true
+    },
+    {
+      "route": "/accounting/journals",
+      "language": "en",
+      "viewport": "mobile",
+      "heading": "Journal Entries",
+      "noPageOverflow": true
+    },
+    {
+      "route": "/accounting/periods",
+      "language": "en",
+      "viewport": "mobile",
+      "heading": "Fiscal Periods",
+      "noPageOverflow": true
+    },
+    {
+      "route": "/accounting/general-ledger",
+      "language": "en",
+      "viewport": "mobile",
+      "heading": "General ledger",
+      "noPageOverflow": true
+    },
+    {
+      "route": "/accounting/trial-balance",
+      "language": "en",
+      "viewport": "mobile",
+      "heading": "Trial Balance",
+      "noPageOverflow": true
+    },
+    {
+      "route": "/accounting/income-statement",
+      "language": "en",
+      "viewport": "mobile",
+      "heading": "Income Statement",
+      "noPageOverflow": true
+    },
+    {
+      "route": "/accounting/balance-sheet",
+      "language": "en",
+      "viewport": "mobile",
+      "heading": "Balance Sheet",
+      "noPageOverflow": true
+    },
+    {
+      "route": "/accounting/overview",
+      "language": "ar",
+      "viewport": "desktop",
+      "heading": "نظرة عامة على الحسابات",
+      "noPageOverflow": true
+    },
+    {
+      "route": "/accounting/chart-of-accounts",
+      "language": "ar",
+      "viewport": "desktop",
+      "heading": "دليل الحسابات",
+      "noPageOverflow": true
+    },
+    {
+      "route": "/accounting/journals",
+      "language": "ar",
+      "viewport": "desktop",
+      "heading": "القيود اليومية",
+      "noPageOverflow": true
+    },
+    {
+      "route": "/accounting/periods",
+      "language": "ar",
+      "viewport": "desktop",
+      "heading": "الفترات المالية",
+      "noPageOverflow": true
+    },
+    {
+      "route": "/accounting/general-ledger",
+      "language": "ar",
+      "viewport": "desktop",
+      "heading": "دفتر الأستاذ العام",
+      "noPageOverflow": true
+    },
+    {
+      "route": "/accounting/trial-balance",
+      "language": "ar",
+      "viewport": "desktop",
+      "heading": "ميزان المراجعة",
+      "noPageOverflow": true
+    },
+    {
+      "route": "/accounting/income-statement",
+      "language": "ar",
+      "viewport": "desktop",
+      "heading": "قائمة الدخل",
+      "noPageOverflow": true
+    },
+    {
+      "route": "/accounting/balance-sheet",
+      "language": "ar",
+      "viewport": "desktop",
+      "heading": "قائمة المركز المالي",
+      "noPageOverflow": true
+    },
+    {
+      "route": "/accounting/overview",
+      "language": "ar",
+      "viewport": "mobile",
+      "heading": "نظرة عامة على الحسابات",
+      "noPageOverflow": true
+    },
+    {
+      "route": "/accounting/chart-of-accounts",
+      "language": "ar",
+      "viewport": "mobile",
+      "heading": "دليل الحسابات",
+      "noPageOverflow": true
+    },
+    {
+      "route": "/accounting/journals",
+      "language": "ar",
+      "viewport": "mobile",
+      "heading": "القيود اليومية",
+      "noPageOverflow": true
+    },
+    {
+      "route": "/accounting/periods",
+      "language": "ar",
+      "viewport": "mobile",
+      "heading": "الفترات المالية",
+      "noPageOverflow": true
+    },
+    {
+      "route": "/accounting/general-ledger",
+      "language": "ar",
+      "viewport": "mobile",
+      "heading": "دفتر الأستاذ العام",
+      "noPageOverflow": true
+    },
+    {
+      "route": "/accounting/trial-balance",
+      "language": "ar",
+      "viewport": "mobile",
+      "heading": "ميزان المراجعة",
+      "noPageOverflow": true
+    },
+    {
+      "route": "/accounting/income-statement",
+      "language": "ar",
+      "viewport": "mobile",
+      "heading": "قائمة الدخل",
+      "noPageOverflow": true
+    },
+    {
+      "route": "/accounting/balance-sheet",
+      "language": "ar",
+      "viewport": "mobile",
+      "heading": "قائمة المركز المالي",
+      "noPageOverflow": true
+    }
+  ],
+  "forms": [
+    {
+      "name": "manual journal",
+      "blank": true,
+      "submitted": false
+    },
+    {
+      "name": "account",
+      "blank": true,
+      "submitted": false
+    }
+  ],
+  "downloads": [
+    {
+      "language": "en",
+      "format": "csv",
+      "bytes": 223,
+      "rowCount": 1,
+      "filtersPreserved": true,
+      "localeVerified": true
+    },
+    {
+      "language": "en",
+      "format": "pdf",
+      "bytes": 209393,
+      "rowCount": 1,
+      "filtersPreserved": true,
+      "localeVerified": true
+    },
+    {
+      "language": "ar",
+      "format": "csv",
+      "bytes": 449,
+      "rowCount": 1,
+      "filtersPreserved": true,
+      "localeVerified": true
+    },
+    {
+      "language": "ar",
+      "format": "pdf",
+      "bytes": 218330,
+      "rowCount": 1,
+      "filtersPreserved": true,
+      "localeVerified": true
+    }
+  ],
+  "screenshots": [
+    "/srv/demo/odin-erp/docs/accounting-v3/screenshots/candidate/overview-en-desktop.png",
+    "/srv/demo/odin-erp/docs/accounting-v3/screenshots/candidate/chart-en-desktop.png",
+    "/srv/demo/odin-erp/docs/accounting-v3/screenshots/candidate/journals-en-desktop.png",
+    "/srv/demo/odin-erp/docs/accounting-v3/screenshots/candidate/periods-en-desktop.png",
+    "/srv/demo/odin-erp/docs/accounting-v3/screenshots/candidate/ledger-en-desktop.png",
+    "/srv/demo/odin-erp/docs/accounting-v3/screenshots/candidate/trial-en-desktop.png",
+    "/srv/demo/odin-erp/docs/accounting-v3/screenshots/candidate/income-en-desktop.png",
+    "/srv/demo/odin-erp/docs/accounting-v3/screenshots/candidate/balance-en-desktop.png",
+    "/srv/demo/odin-erp/docs/accounting-v3/screenshots/candidate/overview-en-mobile.png",
+    "/srv/demo/odin-erp/docs/accounting-v3/screenshots/candidate/chart-en-mobile.png",
+    "/srv/demo/odin-erp/docs/accounting-v3/screenshots/candidate/journals-en-mobile.png",
+    "/srv/demo/odin-erp/docs/accounting-v3/screenshots/candidate/periods-en-mobile.png",
+    "/srv/demo/odin-erp/docs/accounting-v3/screenshots/candidate/ledger-en-mobile.png",
+    "/srv/demo/odin-erp/docs/accounting-v3/screenshots/candidate/trial-en-mobile.png",
+    "/srv/demo/odin-erp/docs/accounting-v3/screenshots/candidate/income-en-mobile.png",
+    "/srv/demo/odin-erp/docs/accounting-v3/screenshots/candidate/balance-en-mobile.png",
+    "/srv/demo/odin-erp/docs/accounting-v3/screenshots/candidate/journal-detail-en-desktop.png",
+    "/srv/demo/odin-erp/docs/accounting-v3/screenshots/candidate/overview-ar-desktop.png",
+    "/srv/demo/odin-erp/docs/accounting-v3/screenshots/candidate/chart-ar-desktop.png",
+    "/srv/demo/odin-erp/docs/accounting-v3/screenshots/candidate/journals-ar-desktop.png",
+    "/srv/demo/odin-erp/docs/accounting-v3/screenshots/candidate/periods-ar-desktop.png",
+    "/srv/demo/odin-erp/docs/accounting-v3/screenshots/candidate/ledger-ar-desktop.png",
+    "/srv/demo/odin-erp/docs/accounting-v3/screenshots/candidate/trial-ar-desktop.png",
+    "/srv/demo/odin-erp/docs/accounting-v3/screenshots/candidate/income-ar-desktop.png",
+    "/srv/demo/odin-erp/docs/accounting-v3/screenshots/candidate/balance-ar-desktop.png",
+    "/srv/demo/odin-erp/docs/accounting-v3/screenshots/candidate/overview-ar-mobile.png",
+    "/srv/demo/odin-erp/docs/accounting-v3/screenshots/candidate/chart-ar-mobile.png",
+    "/srv/demo/odin-erp/docs/accounting-v3/screenshots/candidate/journals-ar-mobile.png",
+    "/srv/demo/odin-erp/docs/accounting-v3/screenshots/candidate/periods-ar-mobile.png",
+    "/srv/demo/odin-erp/docs/accounting-v3/screenshots/candidate/ledger-ar-mobile.png",
+    "/srv/demo/odin-erp/docs/accounting-v3/screenshots/candidate/trial-ar-mobile.png",
+    "/srv/demo/odin-erp/docs/accounting-v3/screenshots/candidate/income-ar-mobile.png",
+    "/srv/demo/odin-erp/docs/accounting-v3/screenshots/candidate/balance-ar-mobile.png",
+    "/srv/demo/odin-erp/docs/accounting-v3/screenshots/candidate/journal-detail-ar-desktop.png",
+    "/srv/demo/odin-erp/docs/accounting-v3/screenshots/candidate/journal-blank-en-desktop.png",
+    "/srv/demo/odin-erp/docs/accounting-v3/screenshots/candidate/account-blank-en-desktop.png"
+  ],
+  "blockedMutations": [],
+  "apiErrors": [],
+  "runtimeErrors": [],
+  "status": "passed",
+  "realLedger": {
+    "rows": 429,
+    "currency": "EGP",
+    "drilldownJournalId": "1"
+  },
+  "completedAt": "2026-09-26T22:12:11.810Z"
+}

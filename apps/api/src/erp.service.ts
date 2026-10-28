@@ -3,6 +3,7 @@ import {
   AccountType, BankAccountType, BankTransactionKind, DocumentType, FinancialResourceType, JournalStatus, PaymentKind, PaymentMethod, PaymentStatus,
   PosSaleStatus, PosShiftStatus, Prisma, WorkflowStatus,
 } from '@prisma/client';
+import { randomUUID } from 'node:crypto';
 import { compare } from 'bcryptjs';
 import { Actor, can, requirePermission } from './auth';
 import { CustomerReceivablesService, receivableBaseMinor, receivableJournalAmounts } from './customer-receivables';
@@ -14,6 +15,9 @@ import { canAtCompany, companyForBranch, requirePermissionAtCompany } from './ac
 import { AccessGovernanceService } from './access-governance.service';
 import { fieldAccess, projectRecord } from './field-projection';
 import { seed } from '../prisma/seed';
+import { accountingFilters, accountingReportNames, buildAccountingReport } from './accounting-workspace';
+import { hrKind, hrRecordInput, hrDate, leaveBalance, assertAnnualLeaveBalance } from './hr-workspace';
+import { accountCodePrefix, nextAvailableAccountCode } from './account-code';
 
 type Tx = Prisma.TransactionClient;
 type JournalLineInput = { code: string; debit?: bigint; credit?: bigint; description: string };
@@ -84,6 +88,47 @@ export class ErpService {
   async health() {
     await this.db.healthCheck();
     return { api: 'ok', database: 'ok', timestamp: new Date().toISOString() };
+  }
+
+  av8Number(tx: Tx, actor: Actor, branchId: bigint, type: string) {
+    return this.sequence(tx, actor, branchId, type, new Date());
+  }
+
+  /** AV8 operational subledger posts through the existing bank, numbering,
+   * authority, balanced journal and locked-period controls. No external transfer. */
+  async postAv8Cash(tx: Tx, actor: Actor, fund: any, agencyAccountId: bigint, permission = 'av8.finance.confirm') {
+    const companyId = this.requireAtBranch(actor, permission, fund.branchId);
+    this.assertResourceId(actor, 'bank_account', fund.bankAccountId, companyId);
+    const bank = await tx.bankAccount.findFirst({ where: { id: fund.bankAccountId, tenantId: actor.tenantId, active: true,
+      ...this.resourceIdScope(actor, 'bank_account', companyId) }, include: { glAccount: true } });
+    if (!bank || bank.currency !== fund.currency) throw new BadRequestException('Select an accessible bank account in the receipt/remittance currency');
+    const agency = await tx.account.findFirst({ where: {
+      tenantId: actor.tenantId, id: agencyAccountId, active: true, postingAllowed: true, type: AccountType.LIABILITY,
+      financialResources: { some: { tenantId: actor.tenantId, companyId, type: FinancialResourceType.GL_ACCOUNT, active: true } },
+    } });
+    if (!agency || agency.id === bank.glAccountId) throw new BadRequestException('The AV8 student-collections account is not configured for this company');
+    await this.governance.enforceAuthorityLimit(tx, actor, { companyId, branchId: fund.branchId,
+      key: 'payments.payment_amount_minor', currency: fund.currency, amountMinor: fund.amountMinor });
+    const base = roundDiv(BigInt(fund.amountMinor) * BigInt(fund.baseRateMicros), 1000000n);
+    const incoming = fund.kind === 'RECEIPT';
+    const number = await this.sequence(tx, actor, fund.branchId, incoming ? 'RECEIPT' : 'PAYMENT', fund.postingDate);
+    const tenant = await tx.tenant.findUniqueOrThrow({ where: { id: actor.tenantId } });
+    const journal = await this.postedJournal(tx, actor, {
+      branchId: fund.branchId, date: fund.postingDate, description: `AV8 ${fund.kind} ${number}`, module: 'AV8',
+      sourceType: 'AV8_CASH', sourceId: fund.id, sourceNumber: number, currency: tenant.baseCurrency,
+      lines: incoming ? [
+        {code: bank.glAccount.code, debit: base, description: number}, {code: agency.code, credit: base, description: 'Student agency collections'},
+      ] : [
+        {code: agency.code, debit: base, description: number}, {code: bank.glAccount.code, credit: base, description: fund.kind},
+      ],
+    });
+    const transaction = await tx.bankTransaction.create({data: {
+      tenantId: actor.tenantId, branchId: fund.branchId, bankAccountId: bank.id, counterpartyAccountId: agency.id,
+      kind: incoming ? BankTransactionKind.RECEIPT : BankTransactionKind.PAYMENT, number,
+      postingDate: fund.postingDate, amountMinor: fund.amountMinor, reference: fund.reference,
+      description: `AV8 ${fund.kind}; internal recording`, journalEntryId: journal.id, createdById: actor.userId,
+    }});
+    return transaction;
   }
 
   private assertBranch(actor: Actor, branchId: bigint) {
@@ -585,7 +630,7 @@ export class ErpService {
   }
 
   private async postedJournal(tx: Tx, actor: Actor, input: {
-    branchId: bigint; date: Date; description: string; module: string; sourceType: string; sourceId: bigint; sourceNumber: string; lines: JournalLineInput[];
+    branchId: bigint; date: Date; description: string; module: string; sourceType: string; sourceId: bigint; sourceNumber: string; lines: JournalLineInput[]; currency?: string;
   }) {
     await this.assertOpenPeriod(tx, actor, input.date);
     const debit = input.lines.reduce((sum, line) => sum + (line.debit || 0n), 0n);
@@ -599,7 +644,7 @@ export class ErpService {
     const number = await this.sequence(tx, actor, input.branchId, 'JOURNAL', input.date);
     const journal = await tx.journalEntry.create({ data: {
       tenantId: actor.tenantId, branchId: input.branchId, number, postingDate: input.date,
-      description: input.description, status: JournalStatus.DRAFT, sourceModule: input.module,
+      description: input.description, status: JournalStatus.DRAFT, sourceModule: input.module, currency: input.currency,
       sourceType: input.sourceType, sourceId: input.sourceId, sourceNumber: input.sourceNumber,
       createdById: actor.userId, submittedById: actor.userId, approvedById: actor.userId, postedById: actor.userId,
       submittedAt: new Date(), approvedAt: new Date(), postedAt: new Date(),
@@ -652,6 +697,7 @@ export class ErpService {
     const itemCompanies = this.companiesForPermissions(actor, ['inventory.item.view', 'sales.quotation.create', 'purchasing.order.create']);
     const bankCompanies = this.companiesForPermissions(actor, ['banking.account.view', 'payments.receipt.create', 'payments.payment.create']);
     const accountCompanies = this.companiesForPermissions(actor, ['accounting.account.view']);
+    const accountingCompanies = this.companiesForPermissions(actor, ['accounting.account.view', 'accounting.journal.view', 'accounting.overview.view']);
     const salesEmployeeBranches = this.branchesForPermissions(actor, ['hr.employee.view', 'sales.quotation.view', 'sales.quotation.create']);
     const periodCompanies = this.companiesForPermissions(actor, ['accounting.period.view']);
     const hrCompanies = this.companiesForPermissions(actor, ['hr.employee.view']);
@@ -664,6 +710,7 @@ export class ErpService {
         ? await tx.employee.findMany({ where: { active: true, AND: [this.employeeScope(actor), { OR: [{ salesEligible: true }, { department: { code: 'SALES' } }] }] }, include: { department: true }, orderBy: { name: 'asc' } }) : [];
       return {
       tenant: await tx.tenant.findUnique({ where: { id: actor.tenantId } }),
+      companies: accountingCompanies.length ? (await tx.company.findMany({ where: { id: { in: accountingCompanies }, active: true }, select: { id: true, name: true, baseCurrency: true }, orderBy: { name: 'asc' } })).map((company) => ({ ...company, branchIds: actor.companyBranchIds[company.id.toString()] || [] })) : [],
       branches: await tx.branch.findMany({ where: can(actor, 'system.super_admin') ? {} : { id: { in: actor.branchIds.map(BigInt) } }, orderBy: { code: 'asc' } }),
       warehouses: await tx.warehouse.findMany({ where: { active: true, ...(can(actor, 'system.super_admin') ? {} : { id: { in: actor.warehouseIds.map(BigInt) } }) }, orderBy: { code: 'asc' } }),
       customers: customerCompanies.length ? (await tx.customer.findMany({ where: {
@@ -1038,9 +1085,14 @@ export class ErpService {
     requirePermission(actor, 'accounting.period.manage');
     const year = Number(body.year), month = Number(body.month);
     if (!Number.isInteger(year) || year < 2000 || year > 2200 || !Number.isInteger(month) || month < 1 || month > 12) throw new BadRequestException('A valid fiscal year and month are required');
-    return this.masterCreate(actor, 'FISCAL_PERIOD', (tx) => tx.fiscalPeriod.create({ data: {
-      tenantId: actor.tenantId, year, month, name: this.requiredText(body.name, 'Period name'), startDate: this.date(body.startDate, 'start date'), endDate: this.date(body.endDate, 'end date'), status: 'OPEN',
-    } }));
+    const range = accountingFilters({ from: this.requiredText(body.startDate, 'Start date'), to: this.requiredText(body.endDate, 'End date') });
+    const startDate = this.date(range.from, 'start date'), endDate = this.date(range.to, 'end date');
+    return this.masterCreate(actor, 'FISCAL_PERIOD', async (tx) => {
+      if (await tx.fiscalPeriod.findFirst({ where: { startDate: { lte: endDate }, endDate: { gte: startDate } } })) throw new BadRequestException('Fiscal periods must not overlap.');
+      return tx.fiscalPeriod.create({ data: {
+        tenantId: actor.tenantId, year, month, name: this.requiredText(body.name, 'Period name'), startDate, endDate, status: 'OPEN',
+      } });
+    });
   }
 
   async listDocuments(actor: Actor, type?: string, status?: string) {
@@ -1199,17 +1251,180 @@ export class ErpService {
     const permittedBranches = this.branchesForPermissions(actor, ['hr.employee.view']);
     if (!can(actor, 'system.super_admin') && !permittedBranches.length) requirePermission(actor, 'hr.employee.view');
     const search = String(query.search || '').trim();
+    if (query.branchId) this.assertBranch(actor, BigInt(query.branchId));
     return this.withTenant(actor, async (tx) => (await tx.employee.findMany({
       where: {
-        AND: [this.employeeScope(actor), ...(query.departmentId ? [{ departmentId: BigInt(query.departmentId) }] : [])],
+        AND: [this.employeeScope(actor), ...(query.branchId ? [{ branchIds: { array_contains: [String(query.branchId)] } }] : []), ...(query.departmentId ? [{ departmentId: BigInt(query.departmentId) }] : [])],
         ...(query.status === 'INACTIVE' ? { active: false } : query.status === 'ALL' ? {} : { active: true }),
         ...(search ? { OR: [{ code: { contains: search, mode: 'insensitive' } }, { name: { contains: search, mode: 'insensitive' } }, { jobTitle: { contains: search, mode: 'insensitive' } }] } : {}),
       },
       include: { department: true },
       orderBy: { name: 'asc' },
-      take: 100,
-    })).filter((employee) => can(actor, 'system.super_admin') || (employee.branchIds as string[]).some((branchId) => permittedBranches.some((candidate) => candidate.toString() === branchId)))
+    })).filter((employee) => can(actor, 'system.super_admin') || ((employee.branchIds as string[]).length > 0 && (employee.branchIds as string[]).every((branchId) => permittedBranches.some((candidate) => candidate.toString() === branchId))))
       .map((employee) => this.employeeForActor(actor, employee)));
+  }
+
+  private async hrEmployee(tx: Tx, actor: Actor, employeeId: bigint, permission: string) {
+    const employee = await tx.employee.findFirst({ where: { tenantId: actor.tenantId, id: employeeId, AND: [this.employeeScope(actor)] }, include: { department: true } });
+    if (!employee) throw new NotFoundException('Employee not found.');
+    const branches = employee.branchIds as string[];
+    const permitted = this.branchesForPermissions(actor, [permission]).map(String);
+    if (!can(actor, 'system.super_admin') && (!branches.length || branches.some((id) => !permitted.includes(id)))) throw new ForbiddenException('Employee is outside your access scope.');
+    return employee;
+  }
+
+  async hrProfile(actor: Actor, employeeId: bigint, yearValue?: string) {
+    const year = yearValue ? Number(yearValue) : Number(new Intl.DateTimeFormat('en', { timeZone: 'Africa/Cairo', year: 'numeric' }).format(new Date()));
+    if (!Number.isInteger(year) || year < 1900 || year > 2200) throw new BadRequestException('Select a valid leave year.');
+    return this.withTenant(actor, async (tx) => {
+      const employee = await this.hrEmployee(tx, actor, employeeId, 'hr.employee.view');
+      const canView = (kind: string) => can(actor, 'system.super_admin') || (employee.branchIds as string[]).every((id) => this.branchesForPermissions(actor, [`hr.${kind}.view`]).map(String).includes(id));
+      const kinds = ['attendance','leave','payroll'].filter((kind) => canView(kind) && (kind !== 'payroll' || fieldAccess(actor, 'employee', 'salaryMinor') !== 'HIDDEN'));
+      const records = await tx.hrRecord.findMany({ where: { tenantId: actor.tenantId, employeeId, kind: { in: kinds } }, orderBy: { createdAt: 'desc' } });
+      const leave = records.filter((row) => row.kind === 'leave');
+      const attendance = records.filter((row) => row.kind === 'attendance' && String((row.data as any).date).startsWith(`${year}-`));
+      return { employee: this.employeeForActor(actor, employee), year,
+        leaveBalance: canView('leave') ? leaveBalance(employee.annualLeaveDays, leave.map((row) => ({ status: row.status, data: row.data })), year) : null,
+        attendanceSummary: canView('attendance') ? { present: attendance.filter((row) => (row.data as any).attendanceStatus === 'PRESENT').length, absent: attendance.filter((row) => (row.data as any).attendanceStatus === 'ABSENT').length, remote: attendance.filter((row) => (row.data as any).attendanceStatus === 'REMOTE').length } : null,
+        records: records.filter((row) => row.kind === 'leave' ? (row.data as any).startDate <= `${year}-12-31` && (row.data as any).endDate >= `${year}-01-01` : row.recordKey.startsWith(`${year}-`)), visibleSections: kinds };
+    });
+  }
+
+  async cancelHrLeave(actor: Actor, recordId: bigint, body: any) {
+    const reason = String(body.reason || '').trim().slice(0,2000);
+    if (!reason) throw new BadRequestException('Enter a reason for cancelling the leave.');
+    return this.withTenant(actor, async (tx) => {
+      const row = await tx.hrRecord.findFirst({ where: { tenantId: actor.tenantId, id: recordId, kind: 'leave' } });
+      if (!row) throw new NotFoundException('HR request not found.');
+      await this.hrEmployee(tx, actor, row.employeeId, 'hr.leave.cancel');
+      if (!['SUBMITTED','APPROVED'].includes(row.status)) throw new BadRequestException('Only a pending or approved leave can be cancelled.');
+      const result = await tx.hrRecord.update({ where: { id: recordId }, data: { status: 'CANCELLED', reviewedBy: actor.userId, data: { ...(row.data as any), cancellationReason: reason } } });
+      await this.audit(tx, actor, 'CANCEL', 'HR_LEAVE', recordId, { employeeId: String(row.employeeId), reason });
+      return result;
+    });
+  }
+
+  async hrDepartments(actor: Actor) {
+    return this.withTenant(actor, (tx) => tx.department.findMany({ where: { tenantId: actor.tenantId }, orderBy: { name: 'asc' } }));
+  }
+
+  async saveHrDepartment(actor: Actor, body: any, departmentId?: bigint) {
+    requirePermission(actor, departmentId ? 'hr.department.edit' : 'hr.department.create');
+    const code = String(body.code || '').trim(), name = String(body.name || '').trim();
+    if (!code || !name || code.length > 50 || name.length > 200) throw new BadRequestException('Enter a department code and name.');
+    return this.withTenant(actor, async (tx) => {
+      if (departmentId && !await tx.department.findFirst({ where: { id: departmentId, tenantId: actor.tenantId } })) throw new NotFoundException('Department not found.');
+      if (await tx.department.findFirst({ where: { tenantId: actor.tenantId, code, ...(departmentId ? { id: { not: departmentId } } : {}) } })) throw new BadRequestException('Department code already exists.');
+      const data = { code, name, active: body.active !== false };
+      const result = departmentId ? await tx.department.update({ where: { id: departmentId }, data }) : await tx.department.create({ data: { tenantId: actor.tenantId, ...data } });
+      await this.audit(tx, actor, departmentId ? 'UPDATE' : 'CREATE', 'HR_DEPARTMENT', result.id, { code, name });
+      return result;
+    });
+  }
+
+  async saveHrEmployee(actor: Actor, body: any, employeeId?: bigint) {
+    const permission = employeeId ? 'hr.employee.edit' : 'hr.employee.create';
+    const code = String(body.code || '').trim(), name = String(body.name || '').trim();
+    if (!code || !name || code.length > 50 || name.length > 200 || !/^[1-9]\d*$/.test(String(body.departmentId))) throw new BadRequestException('Enter an employee code, name and department.');
+    const branchIds = [...new Set<string>((Array.isArray(body.branchIds) ? body.branchIds : [body.branchId]).map(String))];
+    if (!branchIds.length || branchIds.some((id) => !/^[1-9]\d*$/.test(id))) throw new BadRequestException('Select an employee branch.');
+    for (const branchId of branchIds) this.requireAtBranch(actor, permission, BigInt(branchId));
+    return this.withTenant(actor, async (tx) => {
+      const current = employeeId ? await this.hrEmployee(tx, actor, employeeId, permission) : null;
+      if (!can(actor, 'system.super_admin')) {
+        const scope = this.scope(actor, 'employee');
+        if ((!current && !['ALL', 'BRANCH', 'WAREHOUSE', 'DEPARTMENT'].includes(scope)) || (scope === 'DEPARTMENT' && actor.departmentId !== String(body.departmentId))) throw new ForbiddenException('Employee creation is outside your access scope.');
+      }
+      const department = await tx.department.findFirst({ where: { id: BigInt(body.departmentId), tenantId: actor.tenantId, active: true } });
+      if (!department && current?.departmentId.toString() !== String(body.departmentId)) throw new BadRequestException('Select an active department.');
+      if (await tx.branch.count({ where: { tenantId: actor.tenantId, id: { in: branchIds.map(BigInt) } } }) !== branchIds.length) throw new BadRequestException('Select a valid employee branch.');
+      if (await tx.employee.findFirst({ where: { tenantId: actor.tenantId, code, ...(employeeId ? { id: { not: employeeId } } : {}) } })) throw new BadRequestException('Employee code already exists.');
+      const employmentType = String(body.employmentType || current?.employmentType || 'FULL_TIME');
+      if (!['FULL_TIME','PART_TIME','CONTRACT'].includes(employmentType)) throw new BadRequestException('Employment type is invalid.');
+      const email = String(body.email ?? current?.email ?? '').trim();
+      if (email && (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 254)) throw new BadRequestException('Enter a valid employee email.');
+      const workDays = body.workDays ?? current?.workDays ?? [0,1,2,3,4];
+      if (!Array.isArray(workDays) || !workDays.length || workDays.some((day) => !Number.isInteger(day) || day < 0 || day > 6)) throw new BadRequestException('Select at least one valid working day.');
+      let annualLeaveDays = current?.annualLeaveDays ?? null;
+      if (body.annualLeaveDays !== undefined) {
+        if (body.annualLeaveDays === '' || body.annualLeaveDays === null) annualLeaveDays = null;
+        else { annualLeaveDays = Number(body.annualLeaveDays); if (!Number.isInteger(annualLeaveDays) || annualLeaveDays < 0 || annualLeaveDays > 366) throw new BadRequestException('Annual leave allowance must be a whole number from 0 to 366.'); }
+      }
+      const profileData = { nameAr: String(body.nameAr ?? current?.nameAr ?? '').trim().slice(0,200) || null, email: email || null, phone: String(body.phone ?? current?.phone ?? '').slice(0,50) || null, hireDate: body.hireDate === undefined ? current?.hireDate : body.hireDate ? new Date(hrDate(body.hireDate)) : null, employmentType, annualLeaveDays, workDays: [...new Set(workDays)] };
+      const data: Prisma.EmployeeUncheckedCreateInput = { ...profileData, tenantId: actor.tenantId, code, name, departmentId: BigInt(body.departmentId), branchIds, jobTitle: String(body.jobTitle || '').slice(0, 200), salesEligible: body.salesEligible === true, active: body.active !== false };
+      if (body.salary !== undefined) {
+        if (fieldAccess(actor, 'employee', 'salaryMinor') !== 'EDIT') throw new ForbiddenException('Employee salary is read-only.');
+        data.salaryMinor = body.salary === '' ? null : money(body.salary, 'salary');
+        if (data.salaryMinor != null && data.salaryMinor < 0n) throw new BadRequestException('Salary cannot be negative.');
+      }
+      const result = employeeId ? await tx.employee.update({ where: { id: employeeId }, data, include: { department: true } }) : await tx.employee.create({ data, include: { department: true } });
+      await this.audit(tx, actor, employeeId ? 'UPDATE' : 'CREATE', 'HR_EMPLOYEE', result.id, { code, name, branchIds });
+      return this.employeeForActor(actor, result);
+    });
+  }
+
+  async hrRecords(actor: Actor, kindValue: string) {
+    const kind = hrKind(kindValue);
+    const permission = `hr.${kind}.view`;
+    if (kind === 'payroll' && fieldAccess(actor, 'employee', 'salaryMinor') === 'HIDDEN') throw new ForbiddenException('Employee salary is restricted.');
+    const branches = this.branchesForPermissions(actor, [permission]).map(String);
+    return this.withTenant(actor, async (tx) => {
+      const employees = await tx.employee.findMany({ where: { tenantId: actor.tenantId, AND: [this.employeeScope(actor)] }, select: { id: true, branchIds: true } });
+      const ids = employees.filter((e) => can(actor, 'system.super_admin') || (e.branchIds as string[]).every((id) => branches.includes(id)) && (e.branchIds as string[]).length > 0).map((e) => e.id);
+      const rows = await tx.hrRecord.findMany({ where: { tenantId: actor.tenantId, kind, employeeId: { in: ids } }, include: { employee: { include: { department: true } } }, orderBy: { createdAt: 'desc' } });
+      return rows.map((row) => ({ ...row, employee: this.employeeForActor(actor, row.employee) }));
+    });
+  }
+
+  async saveHrRecord(actor: Actor, kindValue: string, body: any, recordId?: bigint) {
+    const kind = hrKind(kindValue);
+    if (!/^[1-9]\d*$/.test(String(body.employeeId))) throw new BadRequestException('Select an employee.');
+    if (kind === 'payroll' && fieldAccess(actor, 'employee', 'salaryMinor') !== 'EDIT') throw new ForbiddenException('Employee salary is read-only.');
+    return this.withTenant(actor, async (tx) => {
+      const employee = await this.hrEmployee(tx, actor, BigInt(body.employeeId), `hr.${kind}.${recordId ? "edit" : "create"}`);
+      if (!employee.active) throw new BadRequestException('Select an active employee.');
+      const current = recordId ? await tx.hrRecord.findFirst({ where: { id: recordId, tenantId: actor.tenantId, kind } }) : null;
+      if (recordId && !current) throw new NotFoundException('HR request not found.');
+      if (current) {
+        await this.hrEmployee(tx, actor, current.employeeId, `hr.${kind}.edit`);
+        if (kind !== 'attendance' && current.createdBy !== actor.userId) throw new ForbiddenException('Only the request creator can edit it.');
+        if (['APPROVED','CANCELLED'].includes(current.status)) throw new BadRequestException('Approved or cancelled HR requests cannot be changed.');
+      }
+      const input = hrRecordInput(kind, body, employee.salaryMinor, employee.workDays as number[]);
+      const duplicate = await tx.hrRecord.findFirst({ where: { tenantId: actor.tenantId, employeeId: employee.id, kind, recordKey: input.recordKey, ...(recordId ? { id: { not: recordId } } : {}) } });
+      if (duplicate && kind === 'leave' && ['REJECTED','CANCELLED'].includes(duplicate.status)) input.recordKey += `:${randomUUID()}`;
+      else if (duplicate) throw new BadRequestException('A record already exists for this employee and date or month. Edit the existing record.');
+      if (kind === 'leave') {
+        const existing = await tx.hrRecord.findMany({ where: { tenantId: actor.tenantId, employeeId: employee.id, kind, ...(recordId ? { id: { not: recordId } } : {}), status: { in: ['SUBMITTED', 'APPROVED'] } } });
+        assertAnnualLeaveBalance(employee.annualLeaveDays, existing.map((row) => ({ status: row.status, data: row.data })), input.data);
+        if (existing.some((row) => { const data = row.data as any; return data.startDate <= input.data.endDate! && data.endDate >= input.data.startDate!; })) throw new BadRequestException('This leave overlaps an existing request.');
+      }
+      const data = { tenantId: actor.tenantId, employeeId: employee.id, kind, ...input, createdBy: actor.userId, reviewedBy: null };
+      const result = recordId ? await tx.hrRecord.update({ where: { id: recordId }, data }) : await tx.hrRecord.create({ data });
+      await this.audit(tx, actor, recordId ? 'UPDATE' : 'CREATE', `HR_${kind.toUpperCase()}`, result.id, { employeeId: String(employee.id), recordKey: input.recordKey });
+      return result;
+    });
+  }
+
+  async reviewHrRecord(actor: Actor, recordId: bigint, body: any) {
+    if (!['APPROVED', 'REJECTED'].includes(body.status)) throw new BadRequestException('HR review status is invalid.');
+    return this.withTenant(actor, async (tx) => {
+      const row = await tx.hrRecord.findFirst({ where: { id: recordId, tenantId: actor.tenantId } });
+      if (!row || !['leave', 'payroll'].includes(row.kind)) throw new NotFoundException('HR request not found.');
+      const employee = await this.hrEmployee(tx, actor, row.employeeId, `hr.${row.kind}.${body.status === 'APPROVED' ? 'approve' : 'reject'}`);
+      if (row.kind === 'payroll' && fieldAccess(actor, 'employee', 'salaryMinor') !== 'EDIT') throw new ForbiddenException('Employee salary is read-only.');
+      if (row.createdBy === actor.userId) throw new ForbiddenException('Another authorized user must review this request.');
+      if (!['DRAFT', 'SUBMITTED'].includes(row.status)) throw new BadRequestException('This request has already been reviewed.');
+      if (row.kind === 'leave' && body.status === 'APPROVED') {
+        const existing = await tx.hrRecord.findMany({ where: { tenantId: actor.tenantId, employeeId: row.employeeId, kind: 'leave', status: 'APPROVED', id: { not: recordId } } });
+        assertAnnualLeaveBalance(employee.annualLeaveDays, existing.map((entry) => ({ status: entry.status, data: entry.data })), row.data, false);
+      }
+      const reviewReason = String(body.reason || '').trim().slice(0,2000);
+      if (body.status === 'REJECTED' && !reviewReason) throw new BadRequestException('Enter a reason for rejecting the request.');
+      const result = await tx.hrRecord.update({ where: { id: recordId }, data: { status: body.status, reviewedBy: actor.userId, data: { ...(row.data as any), reviewReason } } });
+      await this.audit(tx, actor, body.status, `HR_${row.kind.toUpperCase()}`, row.id, { employeeId: String(row.employeeId) });
+      return result;
+    });
   }
 
   async exchangeRate(actor: Actor, currency: string, dateValue?: string) {
@@ -2220,6 +2435,193 @@ export class ErpService {
     });
   }
 
+  private async nextAccountingCode(tx: Tx, actor: Actor, companyId: bigint, type: AccountType, parentCode?: string | null) {
+    const prefix = accountCodePrefix(type, parentCode);
+    const accounts = await tx.account.findMany({ where: { tenantId: actor.tenantId, code: { startsWith: prefix } }, select: { code: true } });
+    const resources = await tx.financialResource.findMany({ where: { tenantId: actor.tenantId, companyId, type: FinancialResourceType.GL_ACCOUNT, code: { startsWith: prefix } }, select: { code: true } });
+    return nextAvailableAccountCode([...accounts.map((account) => account.code), ...resources.map((resource) => resource.code)], prefix);
+  }
+
+  async suggestedAccountingAccountCode(actor: Actor, query: any) {
+    const companyId = BigInt(accountingFilters({ accountId: query.companyId }).accountId || 0);
+    if (!companyId) throw new BadRequestException('Company is required.');
+    if (!can(actor, 'system.super_admin') && !actor.companyIds.includes(companyId.toString())) throw new ForbiddenException('Company is outside your active memberships.');
+    requirePermissionAtCompany(actor, 'accounting.account.create', companyId);
+    if (this.scope(actor, 'account') === 'NONE') throw new ForbiddenException('Accounts are outside your access scope.');
+    const type = String(query.type || '') as AccountType;
+    if (!Object.values(AccountType).includes(type)) throw new BadRequestException('Account type is invalid.');
+    return this.withTenant(actor, async (tx) => {
+      if (!await tx.company.findFirst({ where: { id: companyId, active: true } })) throw new BadRequestException('Company is invalid.');
+      const parentId = query.parentId ? BigInt(accountingFilters({ accountId: query.parentId }).accountId) : null;
+      const parent = parentId ? await tx.account.findFirst({ where: { id: parentId, active: true, ...this.resourceIdScope(actor, 'account') }, include: { financialResources: true } }) : null;
+      if (parentId && (!parent || !parent.financialResources.some((resource) => resource.companyId === companyId && resource.active))) throw new BadRequestException('Parent account must be active and available in the selected company.');
+      if (parent && parent.type !== type) throw new BadRequestException('Parent and child accounts must have the same account type.');
+      return { code: await this.nextAccountingCode(tx, actor, companyId, type, parent?.code), provisional: true };
+    });
+  }
+
+  async accountingAccounts(actor: Actor, query: any = {}) {
+    const companies = this.companiesForPermissions(actor, ['accounting.account.view']);
+    if (!can(actor, 'system.super_admin') && !companies.length) throw new ForbiddenException('Account view permission is required in an assigned company.');
+    const companyId = query.companyId ? BigInt(accountingFilters({ accountId: query.companyId }).accountId) : null;
+    if (companyId && !can(actor, 'system.super_admin') && !companies.includes(companyId)) throw new ForbiddenException('Company is outside your access scope.');
+    return this.withTenant(actor, async (tx) => {
+      const companyRows = await tx.company.findMany({ where: { active: true, ...(can(actor, 'system.super_admin') ? {} : { id: { in: companies } }) }, select: { id: true, name: true, baseCurrency: true }, orderBy: { name: 'asc' } });
+      const rows = await tx.account.findMany({ where: {
+        ...(query.includeInactive === 'true' ? {} : { active: true }),
+        AND: [this.resourceIdScope(actor, 'account', companyId || undefined), { financialResources: { some: { companyId: { in: companyId ? [companyId] : companyRows.map((company) => company.id) }, active: true } } }],
+      }, include: { financialResources: { select: { companyId: true } }, _count: { select: { journalLines: true, children: true, bankAccounts: true, bankCounterparties: true } } }, orderBy: { code: 'asc' } });
+      const visible = new Set(rows.map((account) => account.id.toString()));
+      return { rows: rows.map(({ financialResources, _count, ...account }) => ({ ...account, parentId: account.parentId && visible.has(account.parentId.toString()) ? account.parentId : null, hasActivity: _count.journalLines > 0, hasChildren: _count.children > 0, linkedBank: _count.bankAccounts > 0 || _count.bankCounterparties > 0, companyIds: financialResources.filter((resource) => companyRows.some((company) => company.id === resource.companyId)).map((resource) => resource.companyId), editable: financialResources.every((resource) => (can(actor, 'system.super_admin') || actor.companyIds.includes(resource.companyId.toString())) && canAtCompany(actor, 'accounting.account.edit', resource.companyId)) })), companies: companyRows };
+    });
+  }
+
+  async saveAccountingAccount(actor: Actor, accountId: bigint | null, body: any) {
+    const permission = accountId ? 'accounting.account.edit' : 'accounting.account.create';
+    const autoCode = !accountId && body.autoCode === true;
+    if (body.autoCode !== undefined && typeof body.autoCode !== 'boolean') throw new BadRequestException('autoCode must be true or false.');
+    if (accountId && body.autoCode) throw new BadRequestException('An existing account code cannot be automatically changed.');
+    const save = () => this.withTenant(actor, async (tx) => {
+      const original = accountId ? await tx.account.findFirst({ where: { id: accountId, ...this.resourceIdScope(actor, 'account') }, include: { financialResources: true, _count: { select: { journalLines: true, children: true, bankAccounts: true, bankCounterparties: true } } } }) : null;
+      if (accountId && !original) throw new NotFoundException('Account not found.');
+      const companyIds = original ? original.financialResources.map((resource) => resource.companyId) : [BigInt(accountingFilters({ accountId: body.companyId }).accountId || 0)];
+      if (!companyIds.length || companyIds.some((companyId) => companyId === 0n)) throw new BadRequestException('Company is required.');
+      for (const companyId of companyIds) {
+        if (!can(actor, 'system.super_admin') && !actor.companyIds.includes(companyId.toString())) throw new ForbiddenException('Company is outside your active memberships.');
+        requirePermissionAtCompany(actor, permission, companyId);
+        if (!await tx.company.findFirst({ where: { id: companyId, active: true } })) throw new BadRequestException('Company is invalid.');
+      }
+      if (!original && this.scope(actor, 'account') === 'NONE') throw new ForbiddenException('Accounts are outside your access scope.');
+      let code = autoCode ? '' : String(body.code ?? original?.code ?? '').trim().toUpperCase();
+      const name = this.requiredText(body.name ?? original?.name, 'Account name');
+      if (name.length > 160) throw new BadRequestException('Account name must not exceed 160 characters.');
+      const type = String(body.type ?? original?.type ?? '') as AccountType;
+      if (!Object.values(AccountType).includes(type)) throw new BadRequestException('Account type is invalid.');
+      for (const key of ['postingAllowed', 'active']) if (body[key] !== undefined && typeof body[key] !== 'boolean') throw new BadRequestException(`${key} must be true or false.`);
+      if (body.controlType !== undefined && body.controlType !== original?.controlType) throw new BadRequestException('Control account mappings cannot be changed here.');
+      const postingAllowed = body.postingAllowed ?? original?.postingAllowed ?? true;
+      const active = body.active ?? original?.active ?? true;
+      const parentId = body.parentId === undefined ? original?.parentId || null : body.parentId ? BigInt(accountingFilters({ accountId: body.parentId }).accountId) : null;
+      let parentCode: string | null = null;
+      if (parentId) {
+        if (parentId === accountId) throw new BadRequestException('An account cannot be its own parent.');
+        const parent = await tx.account.findFirst({ where: { id: parentId, active: true, ...this.resourceIdScope(actor, 'account') }, include: { financialResources: true } });
+        if (!parent || companyIds.some((companyId) => !parent.financialResources.some((resource) => resource.companyId === companyId && resource.active))) throw new BadRequestException('Parent account must be active and available in every linked company.');
+        if (parent.type !== type) throw new BadRequestException('Parent and child accounts must have the same account type.');
+        parentCode = parent.code;
+        const visited = new Set<string>(accountId ? [accountId.toString()] : []);
+        let ancestor: { id: bigint; parentId: bigint | null } | null = parent;
+        while (ancestor) {
+          if (visited.has(ancestor.id.toString())) throw new BadRequestException('Account hierarchy cannot contain a cycle.');
+          visited.add(ancestor.id.toString());
+          ancestor = ancestor.parentId ? await tx.account.findUnique({ where: { id: ancestor.parentId }, select: { id: true, parentId: true } }) : null;
+        }
+      }
+      if (autoCode) {
+        // Serialize automatic allocations per tenant. The unique indexes remain the final guard.
+        await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`odin-account-code:${actor.tenantId.toString()}`}, 0))`;
+        code = await this.nextAccountingCode(tx, actor, companyIds[0], type, parentCode);
+      }
+      if (!/^[A-Z0-9][A-Z0-9._-]{0,39}$/.test(code)) throw new BadRequestException('Account code must contain 1 to 40 letters, numbers, dots, dashes, or underscores.');
+      if (original) {
+        const systemMapping = original.financialResources.some((resource) => ['1000', '1010', '1020', '1100', '1200', '1300', '2000', '2100', '2200', '4000', '5000', '5100', '5200'].includes(resource.code));
+        const protectedDefinition = systemMapping || original._count.journalLines > 0 || original._count.bankAccounts > 0 || original._count.bankCounterparties > 0 || Boolean(original.controlType);
+        if (protectedDefinition && (code !== original.code || type !== original.type || postingAllowed !== original.postingAllowed)) throw new BadRequestException('An account with activity or a system mapping cannot change code, type, or posting mode.');
+        if (original._count.children && (type !== original.type || (!original.postingAllowed && postingAllowed))) throw new BadRequestException('An account with children must retain its type and a non-posting group cannot become posting.');
+        if (!active && original.active) {
+          if (systemMapping || original.controlType || original._count.bankAccounts || original._count.bankCounterparties) throw new BadRequestException('A system or bank-linked account cannot be deactivated.');
+          if (await tx.account.count({ where: { parentId: original.id, active: true } })) throw new BadRequestException('Deactivate active child accounts first.');
+          const unposted = await tx.journalLine.count({ where: { accountId: original.id, journalEntry: { status: { in: [JournalStatus.DRAFT, JournalStatus.SUBMITTED, JournalStatus.APPROVED] } } } });
+          if (unposted) throw new BadRequestException('Account is used by an unposted journal.');
+          const posted = await tx.journalLine.findMany({ where: { accountId: original.id, journalEntry: { status: JournalStatus.POSTED } }, select: { debitMinor: true, creditMinor: true, journalEntry: { select: { branchId: true } } } });
+          const branchBalances = new Map<string, bigint>();
+          for (const line of posted) { const branch = line.journalEntry.branchId.toString(); branchBalances.set(branch, (branchBalances.get(branch) || 0n) + line.debitMinor - line.creditMinor); }
+          if ([...branchBalances.values()].some((balance) => balance !== 0n)) throw new BadRequestException('An account with a non-zero posted balance cannot be deactivated.');
+        }
+      }
+      if (await tx.account.findFirst({ where: { code, ...(accountId ? { id: { not: accountId } } : {}) } })) throw new ConflictException('Account code already exists.');
+      const data = { code, name, type, parentId, postingAllowed, active };
+      const saved = original ? await tx.account.update({ where: { id: original.id }, data }) : await tx.account.create({ data: { tenantId: actor.tenantId, ...data } });
+      if (!original) {
+        // The legacy insert trigger maps to DEFAULT. Only this newly-created account's
+        // automatic mapping is removed; existing company mappings are never moved.
+        await tx.financialResource.deleteMany({ where: { linkedAccountId: saved.id, companyId: { not: companyIds[0] } } });
+        const automatic = await tx.financialResource.findFirst({ where: { linkedAccountId: saved.id, companyId: companyIds[0] } });
+        if (!automatic) await tx.financialResource.create({ data: { tenantId: actor.tenantId, companyId: companyIds[0], type: FinancialResourceType.GL_ACCOUNT, code, name, linkedAccountId: saved.id } });
+      } else {
+        await tx.financialResource.updateMany({ where: { linkedAccountId: saved.id, code: original.code }, data: { code, name } });
+      }
+      await tx.auditEvent.create({ data: { tenantId: actor.tenantId, userId: actor.userId, companyId: companyIds[0].toString(), action: original ? 'UPDATE' : 'CREATE', entityType: 'ACCOUNT', entityId: saved.id.toString(), previousValues: original ? serialize({ code: original.code, name: original.name, type: original.type, parentId: original.parentId, postingAllowed: original.postingAllowed, active: original.active }) as any : undefined, newValues: serialize(data) as any } });
+      return saved;
+    });
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      try {
+        return await save();
+      } catch (error: any) {
+        const uniqueConflict = error?.code === 'P2002' || (error?.code === 'P2010' && String(error?.meta?.code) === '23505');
+        if (autoCode && attempt < 4 && uniqueConflict) continue;
+        throw error;
+      }
+    }
+    throw new ConflictException('Could not allocate a unique account code. Please retry.');
+  }
+
+  async accountingLedger(actor: Actor, query: any = {}) {
+    const branchIds = this.branchesForPermissions(actor, ['accounting.journal.view']);
+    if (!can(actor, 'system.super_admin') && !branchIds.length) throw new ForbiddenException('Journal view permission is required in an assigned branch.');
+    this.requireFieldView(actor, 'journal', 'lines', 'Journal entry details');
+    const filters = accountingFilters(query);
+    if (filters.branchId && !can(actor, 'system.super_admin') && !branchIds.some((branchId) => branchId.toString() === filters.branchId)) throw new ForbiddenException('Branch is outside your access scope.');
+    return this.withTenant(actor, async (tx) => {
+      let scopedBranches = can(actor, 'system.super_admin') ? undefined : branchIds;
+      let selectedCompany: { id: bigint; name: string } | null = null;
+      if (filters.companyId) {
+        if (!can(actor, 'system.super_admin') && !actor.companyIds.includes(filters.companyId)) throw new ForbiddenException('Company is outside your access scope.');
+        selectedCompany = await tx.company.findFirst({ where: { id: BigInt(filters.companyId), active: true }, select: { id: true, name: true } });
+        if (!selectedCompany) throw new ForbiddenException('Company is outside your access scope.');
+        const links = await tx.companyBranch.findMany({ where: { companyId: selectedCompany.id, active: true }, select: { branchId: true } });
+        scopedBranches = links.map((link) => link.branchId).filter((branch) => can(actor, 'system.super_admin') || branchIds.includes(branch));
+        if (filters.branchId && !scopedBranches.some((branch) => branch.toString() === filters.branchId)) throw new ForbiddenException('Branch is outside the selected company.');
+      }
+      const companyIds = actor.companyIds.filter((companyId) => (actor.companyBranchIds[companyId] || []).some((branch) => branchIds.some((id) => id.toString() === branch))).map(BigInt);
+      const accountScope: Prisma.AccountWhereInput = { AND: [can(actor, 'system.super_admin') ? {} : { AND: [this.resourceIdScope(actor, 'account'), { financialResources: { some: { companyId: { in: companyIds }, active: true } } }] }, ...(selectedCompany ? [{ financialResources: { some: { companyId: selectedCompany.id, active: true } } }] : [])] };
+      const accounts = await tx.account.findMany({ where: accountScope, orderBy: { code: 'asc' } });
+      const lines = await tx.journalLine.findMany({ where: { account: accountScope, journalEntry: { status: JournalStatus.POSTED, AND: [this.journalScope(actor), ...(scopedBranches ? [{ branchId: { in: scopedBranches } }] : [])] } }, include: { account: true, journalEntry: true } });
+      const tenant = await tx.tenant.findUniqueOrThrow({ where: { id: actor.tenantId }, select: { baseCurrency: true, name: true } });
+      const branch = filters.branchId ? await tx.branch.findUnique({ where: { id: BigInt(filters.branchId) }, select: { name: true } }) : null;
+      return { ...buildAccountingReport('general-ledger', accounts, lines, filters, tenant.baseCurrency, true), reportContext: { company: selectedCompany?.name || tenant.name, branch: branch?.name || 'All authorized branches' } };
+    });
+  }
+
+  async journalDetail(actor: Actor, journalId: bigint) {
+    const branchIds = this.branchesForPermissions(actor, ['accounting.journal.view']);
+    return this.withTenant(actor, async (tx) => {
+      const journal = await tx.journalEntry.findFirst({ where: { id: journalId, AND: [this.journalScope(actor), ...(can(actor, 'system.super_admin') ? [] : [{ branchId: { in: branchIds } }])] }, include: { lines: { include: { account: true } }, branch: true, createdBy: publicUser, submittedBy: publicUser, approvedBy: publicUser, postedBy: publicUser, reversesEntry: { select: { id: true, number: true } }, reversedBy: { select: { id: true, number: true } } } });
+      if (!journal) throw new NotFoundException('Journal not found.');
+      return this.journalForActor(actor, journal);
+    });
+  }
+
+  async accountingJournals(actor: Actor, query: any = {}) {
+    const filters = accountingFilters(query);
+    const branches = this.branchesForPermissions(actor, ['accounting.journal.view']);
+    if (!can(actor, 'system.super_admin') && !branches.length) throw new ForbiddenException('Journal view permission is required in an assigned branch.');
+    if (filters.branchId && !can(actor, 'system.super_admin') && !branches.some((branch) => branch.toString() === filters.branchId)) throw new ForbiddenException('Branch is outside your access scope.');
+    if (query.status && !Object.values(JournalStatus).includes(query.status)) throw new BadRequestException('Journal status is invalid.');
+    return this.withTenant(actor, async (tx) => {
+      const where: Prisma.JournalEntryWhereInput = { AND: [this.journalScope(actor), ...(can(actor, 'system.super_admin') ? [] : [{ branchId: { in: branches } }]), ...(filters.branchId ? [{ branchId: BigInt(filters.branchId) }] : [])],
+        ...(filters.from || filters.to ? { postingDate: { ...(filters.from ? { gte: new Date(`${filters.from}T00:00:00.000Z`) } : {}), ...(filters.to ? { lte: new Date(`${filters.to}T00:00:00.000Z`) } : {}) } } : {}),
+        ...(query.status ? { status: query.status } : {}), ...(query.sourceType ? { sourceType: String(query.sourceType) } : {}),
+        ...(filters.search ? { OR: ['number', 'description', 'sourceNumber'].map((field) => ({ [field]: { contains: filters.search, mode: 'insensitive' } })) } : {}),
+      };
+      const [rows, total] = await Promise.all([
+        tx.journalEntry.findMany({ where, include: { lines: { include: { account: true } }, branch: true, createdBy: publicUser, approvedBy: publicUser, reversesEntry: { select: { id: true, number: true } }, reversedBy: { select: { id: true, number: true } } }, orderBy: [{ postingDate: 'desc' }, { id: 'desc' }], skip: (filters.page - 1) * filters.pageSize, take: filters.pageSize }),
+        tx.journalEntry.count({ where }),
+      ]);
+      return { rows: rows.map((journal) => this.journalForActor(actor, journal)), pagination: { page: filters.page, pageSize: filters.pageSize, total, totalPages: Math.max(1, Math.ceil(total / filters.pageSize)) } };
+    });
+  }
+
   async journals(actor: Actor) {
     const branchIds = this.branchesForPermissions(actor, ['accounting.journal.view']);
     if (!can(actor, 'system.super_admin') && !branchIds.length) requirePermission(actor, 'accounting.journal.view');
@@ -2227,10 +2629,9 @@ export class ErpService {
       .map((journal) => this.journalForActor(actor, journal)));
   }
 
-  async createJournal(actor: Actor, body: any) {
-    return this.withTenant(actor, async (tx) => {
+  private async validateJournalDraft(tx: Tx, actor: Actor, body: any, permission: string) {
       const branchId = BigInt(body.branchId || 0); this.assertBranch(actor, branchId);
-      const companyId = this.requireAtBranch(actor, 'accounting.journal.create', branchId);
+      const companyId = this.requireAtBranch(actor, permission, branchId);
       this.requireFieldEdit(actor, 'journal', 'lines', 'Journal entry details');
       const date = this.date(body.postingDate || new Date().toISOString().slice(0, 10), 'posting date');
       await this.assertOpenPeriod(tx, actor, date);
@@ -2245,9 +2646,9 @@ export class ErpService {
         if (!account || !account.postingAllowed) throw new BadRequestException(`Line ${index + 1}: account is invalid`);
         if (account.controlType) throw new BadRequestException(`Manual posting to control account ${account.code} is blocked`);
         const dr = money(line.debit || 0, `line ${index + 1} debit`), cr = money(line.credit || 0, `line ${index + 1} credit`);
-        if ((dr > 0n) === (cr > 0n)) throw new BadRequestException(`Line ${index + 1}: enter either debit or credit`);
+        if (dr < 0n || cr < 0n || (dr > 0n) === (cr > 0n)) throw new BadRequestException(`Line ${index + 1}: enter either debit or credit`);
         debit += dr; credit += cr;
-        return { tenantId: actor.tenantId, accountId: account.id, description: String(line.description || body.description), debitMinor: dr, creditMinor: cr, costCenter: line.costCenter || null };
+        return { tenantId: actor.tenantId, accountId: account.id, description: String(line.description || body.description), debitMinor: dr, creditMinor: cr, costCenter: String(line.costCenter || '').trim() || null };
       });
       if (debit <= 0n || debit !== credit) throw new BadRequestException(`Journal is unbalanced: ${debit} / ${credit}`);
       const costCenterCodes = [...new Set<string>(body.lines.map((line: any) => String(line.costCenter || '').trim()).filter(Boolean))];
@@ -2256,6 +2657,12 @@ export class ErpService {
         const assigned = await tx.financialResource.count({ where: { id: { in: assignedIds }, companyId, type: FinancialResourceType.COST_CENTER, code: { in: costCenterCodes }, active: true } });
         if (assigned !== costCenterCodes.length) throw new ForbiddenException('One or more journal cost centers are not assigned in this company.');
       }
+      return { branchId, date, lines, debit };
+  }
+
+  async createJournal(actor: Actor, body: any) {
+    return this.withTenant(actor, async (tx) => {
+      const { branchId, date, lines, debit } = await this.validateJournalDraft(tx, actor, body, 'accounting.journal.create');
       const number = await this.sequence(tx, actor, branchId, 'JOURNAL', date);
       const [{ id }] = await tx.$queryRaw<Array<{ id: bigint }>>`SELECT nextval(pg_get_serial_sequence('journal_entries', 'id'))::bigint AS id`;
       const journal = await tx.journalEntry.create({ data: {
@@ -2270,13 +2677,29 @@ export class ErpService {
 
   async updateJournal(actor: Actor, id: bigint, body: any) {
     return this.withTenant(actor, async (tx) => {
-      const journal = await tx.journalEntry.findFirst({ where: { id, ...this.journalMutationScope(actor, 'accounting.journal.edit') } });
+      const visible = await tx.journalEntry.findFirst({ where: { id, ...this.journalMutationScope(actor, 'accounting.journal.edit') } });
+      if (!visible) throw new NotFoundException('Journal not found');
+      await tx.$queryRaw`SELECT id FROM journal_entries WHERE id = ${id} FOR UPDATE`;
+      const journal = await tx.journalEntry.findFirst({ where: { id, ...this.journalMutationScope(actor, 'accounting.journal.edit') }, include: { lines: true } });
       if (!journal) throw new NotFoundException('Journal not found');
       this.requireAtBranch(actor, 'accounting.journal.edit', journal.branchId);
       if (journal.status !== JournalStatus.DRAFT) throw new BadRequestException('Posted or controlled journals are immutable; create a linked reversal');
-      const description = this.requiredText(body.description, 'Description');
-      const updated = await tx.journalEntry.update({ where: { id }, data: { description } });
-      await this.audit(tx, actor, 'UPDATE', 'JOURNAL', id, { number: journal.number, description });
+      const description = this.requiredText(body.description ?? journal.description, 'Description');
+      const hasDetails = body.lines !== undefined || body.postingDate !== undefined || body.branchId !== undefined;
+      let details: Awaited<ReturnType<ErpService['validateJournalDraft']>> | undefined;
+      if (hasDetails) {
+        if (journal.sourceType !== 'MANUAL') throw new BadRequestException('Only manual draft journal details can be edited. Linked reversal lines must preserve the original posting.');
+        const decimal = (value: bigint) => `${value / 100n}.${(value % 100n).toString().padStart(2, '0')}`;
+        details = await this.validateJournalDraft(tx, actor, {
+          description,
+          branchId: body.branchId ?? journal.branchId.toString(),
+          postingDate: body.postingDate ?? journal.postingDate.toISOString().slice(0, 10),
+          lines: body.lines ?? journal.lines.map((line) => ({ accountId: line.accountId.toString(), description: line.description, costCenter: line.costCenter, debit: decimal(line.debitMinor), credit: decimal(line.creditMinor) })),
+        }, 'accounting.journal.edit');
+      }
+      if (details) await tx.journalLine.deleteMany({ where: { journalEntryId: id } });
+      const updated = await tx.journalEntry.update({ where: { id }, data: { description, ...(details ? { branchId: details.branchId, postingDate: details.date, lines: { create: details.lines } } : {}) }, include: { lines: { include: { account: true } } } });
+      await this.audit(tx, actor, 'UPDATE', 'JOURNAL', id, { number: journal.number, description, ...(details ? { debitMinor: details.debit.toString(), postingDate: details.date.toISOString().slice(0, 10), branchId: details.branchId.toString() } : {}) });
       return this.journalForActor(actor, updated);
     });
   }
@@ -2340,6 +2763,7 @@ export class ErpService {
         AND: [this.resourceIdScope(actor, 'account', companyId)],
       } });
       if (authorizedAccounts !== accountIds.length) throw new ForbiddenException('One or more reversal accounts are outside your company assignment.');
+      if (original.sourceModule === 'AV8') throw new BadRequestException('AV8 cash journals require an approved AV8 refund or allocation correction; a standalone reversal would leave the student/academy statement inconsistent.');
       const date = this.date(body.postingDate || new Date().toISOString().slice(0, 10), 'reversal date');
       const number = await this.sequence(tx, actor, original.branchId, 'JOURNAL', date);
       await this.assertOpenPeriod(tx, actor, date);
@@ -2545,6 +2969,8 @@ export class ErpService {
       const bank = await tx.bankAccount.findFirst({ where: { id: bankAccountId, ...this.resourceIdScope(actor, 'bank_account', companyId) }, include: { glAccount: true } });
       const counterparty = await tx.account.findFirst({ where: { id: counterpartyAccountId, ...this.resourceIdScope(actor, 'account', companyId) } });
       if (!bank || !counterparty || !counterparty.postingAllowed) throw new BadRequestException('Bank or counterparty account is invalid');
+      const tenant=await tx.tenant.findUniqueOrThrow({where:{id:actor.tenantId},select:{baseCurrency:true}});
+      if(bank.currency!==tenant.baseCurrency)throw new BadRequestException('Use AV8 Collections & academy for foreign-currency movements with explicit historical exchange rates.');
       const kind = body.kind as BankTransactionKind;
       if (!Object.values(BankTransactionKind).includes(kind)) throw new BadRequestException('Bank transaction kind is invalid');
       const date = this.date(body.postingDate || new Date().toISOString().slice(0, 10), 'posting date');
@@ -2705,7 +3131,7 @@ export class ErpService {
     return rows.reduce((sum, row) => sum + row.debitMinor - row.creditMinor, 0n);
   }
 
-  async report(actor: Actor, name: string, outputAction?: 'export' | 'print') {
+  async report(actor: Actor, name: string, outputAction?: 'export' | 'print', query: any = {}) {
     const reportResource = ['income-statement', 'balance-sheet', 'sales-profitability'].includes(name) ? 'profitability' : 'standard';
     const reportPermissions = [`reports.${reportResource}.view`, ...(outputAction ? [`reports.${reportResource}.${outputAction}`] : [])];
     const reportBranches = this.branchesForAllPermissions(actor, reportPermissions);
@@ -2745,7 +3171,19 @@ export class ErpService {
       throw new ForbiddenException('Cost and profitability values are hidden for your role.');
     }
     return this.withTenant(actor, async (tx) => {
-      const scopedBranchIds = can(actor, 'system.super_admin') ? undefined : branchIds;
+      let scopedBranchIds = can(actor, 'system.super_admin') ? undefined : branchIds;
+      let selectedAccountingCompany: { id: bigint; name: string } | null = null;
+      if (accountingReportNames.has(name)) {
+        const filters = accountingFilters(query);
+        if (filters.companyId) {
+          if (!can(actor, 'system.super_admin') && !actor.companyIds.includes(filters.companyId)) throw new ForbiddenException('Company is outside your access scope.');
+          selectedAccountingCompany = await tx.company.findFirst({ where: { id: BigInt(filters.companyId), active: true }, select: { id: true, name: true } });
+          if (!selectedAccountingCompany) throw new ForbiddenException('Company is outside your access scope.');
+          const links = await tx.companyBranch.findMany({ where: { companyId: selectedAccountingCompany.id, active: true }, select: { branchId: true } });
+          scopedBranchIds = links.map((link) => link.branchId).filter((branch) => can(actor, 'system.super_admin') || branchIds.includes(branch));
+          if (filters.branchId && !scopedBranchIds.some((branch) => branch.toString() === filters.branchId)) throw new ForbiddenException('Branch is outside the selected company.');
+        }
+      }
       const dataCompanyIds = can(actor, 'system.super_admin') ? actor.companyIds.map(BigInt) : actor.companyIds
         .filter((companyId) => (actor.companyBranchIds[companyId] || []).some((branchId) => scopedBranchIds!.some((candidate) => candidate.toString() === branchId)))
         .map(BigInt);
@@ -2796,35 +3234,28 @@ export class ErpService {
         ...(warehouseIds ? { warehouseId: { in: warehouseIds }, warehouse: { branchId: { in: scopedBranchIds || [] } } } : {}),
         item: this.inventoryItemScope(actor),
       } : { id: -1n };
-      const accountScope: Prisma.AccountWhereInput = can(actor, 'system.super_admin') ? {} : { AND: [
+      const accountScope: Prisma.AccountWhereInput = { AND: [can(actor, 'system.super_admin') ? {} : { AND: [
         this.resourceIdScope(actor, 'account'),
         { financialResources: { some: { companyId: { in: dataCompanyIds }, active: true } } },
-      ] };
+      ] }, ...(selectedAccountingCompany ? [{ financialResources: { some: { companyId: selectedAccountingCompany.id, active: true } } }] : [])] };
       const accountingDataAllowed = can(actor, 'system.super_admin')
         || (this.scope(actor, 'report') !== 'NONE' && this.scope(actor, 'journal') !== 'NONE');
       const accounts = accountingDataAllowed
         ? await tx.account.findMany({ where: accountScope, orderBy: { code: 'asc' } })
         : [];
       const journalLines = await tx.journalLine.findMany({ where: { account: accountScope, journalEntry: { status: JournalStatus.POSTED, AND: [reportJournalScope] } }, include: { account: true, journalEntry: true } });
+      if (accountingReportNames.has(name)) {
+        const filters = accountingFilters(query);
+        if (filters.branchId && !can(actor, 'system.super_admin') && !branchIds.some((branchId) => branchId.toString() === filters.branchId)) throw new ForbiddenException('Branch is outside your access scope.');
+        const tenant = await tx.tenant.findUniqueOrThrow({ where: { id: actor.tenantId }, select: { baseCurrency: true, name: true } });
+        const branch = filters.branchId ? await tx.branch.findUnique({ where: { id: BigInt(filters.branchId) }, select: { name: true } }) : null;
+        return { ...buildAccountingReport(name, accounts, journalLines, filters, tenant.baseCurrency), reportContext: { company: selectedAccountingCompany?.name || tenant.name, branch: branch?.name || 'All authorized branches' } };
+      }
       const byAccount = accounts.map((account) => {
         const lines = journalLines.filter((line) => line.accountId === account.id);
         const debitMinor = lines.reduce((sum, line) => sum + line.debitMinor, 0n), creditMinor = lines.reduce((sum, line) => sum + line.creditMinor, 0n);
         return { id: account.id, code: account.code, name: account.name, type: account.type, debitMinor, creditMinor, balanceMinor: debitMinor - creditMinor };
       });
-      if (name === 'trial-balance') return { name: 'Trial balance', rows: byAccount.filter((row) => row.debitMinor || row.creditMinor), totals: { debitMinor: byAccount.reduce((sum, row) => sum + row.debitMinor, 0n), creditMinor: byAccount.reduce((sum, row) => sum + row.creditMinor, 0n) } };
-      if (name === 'general-ledger') return { name: 'General ledger', rows: journalLines.map((line) => ({ journal: line.journalEntry.number, date: line.journalEntry.postingDate, account: `${line.account.code} ${line.account.name}`, description: line.description, debitMinor: line.debitMinor, creditMinor: line.creditMinor, source: line.journalEntry.sourceNumber })) };
-      if (name === 'account-ledger') return { name: 'Account ledger', rows: byAccount.filter((row) => row.debitMinor || row.creditMinor).map((row) => ({ code: row.code, account: row.name, type: row.type, debitMinor: row.debitMinor, creditMinor: row.creditMinor, balanceMinor: row.balanceMinor })) };
-      if (name === 'income-statement') {
-        const incomeTypes = new Set<AccountType>([AccountType.REVENUE, AccountType.COGS, AccountType.EXPENSE, AccountType.OTHER_INCOME, AccountType.OTHER_EXPENSE]);
-        const rows = byAccount.filter((row) => incomeTypes.has(row.type));
-        const profitMinor = -rows.reduce((sum, row) => sum + row.balanceMinor, 0n);
-        return { name: 'Income statement', rows, totals: { profitMinor } };
-      }
-      if (name === 'balance-sheet') {
-        const balanceTypes = new Set<AccountType>([AccountType.ASSET, AccountType.LIABILITY, AccountType.EQUITY]);
-        const rows = byAccount.filter((row) => balanceTypes.has(row.type));
-        return { name: 'Balance sheet', rows, totals: { assetsMinor: rows.filter((row) => row.type === AccountType.ASSET).reduce((sum, row) => sum + row.balanceMinor, 0n), liabilitiesMinor: -rows.filter((row) => row.type === AccountType.LIABILITY).reduce((sum, row) => sum + row.balanceMinor, 0n), equityMinor: -rows.filter((row) => row.type === AccountType.EQUITY).reduce((sum, row) => sum + row.balanceMinor, 0n) } };
-      }
       if (name === 'ar-aging') {
         const rows = await this.receivables.ageing(tx, { branchIds: scopedBranchIds, documentScope: receivableReportScope });
         return { name: 'Accounts receivable aging', rows, totals: { outstandingMinor: rows.reduce((sum, row) => sum + row.outstandingMinor, 0n) } };
@@ -2982,14 +3413,14 @@ export class ErpService {
     });
   }
 
-  async reportOutput(actor: Actor, name: string, action: 'export' | 'print') {
+  async reportOutput(actor: Actor, name: string, action: 'export' | 'print', query: any = {}) {
     const resource = ['income-statement', 'balance-sheet', 'sales-profitability'].includes(name) ? 'profitability' : 'standard';
     const permissions = [`reports.${resource}.view`, `reports.${resource}.${action}`];
     if (!can(actor, 'system.super_admin') && !this.companiesForAllPermissions(actor, permissions).length) {
       throw new ForbiddenException('Report view and output permissions must be effective in the same company.');
     }
     if (this.scope(actor, action) === 'NONE') throw new ForbiddenException(`${action} is outside your access scope`);
-    return this.report(actor, name, action);
+    return this.report(actor, name, action, query);
   }
 
   async documentOutput(actor: Actor, id: bigint, action: 'print' | 'export') {

@@ -44,6 +44,8 @@ export function apiDateTime(value: Date | string, language: ApiLanguage) {
 }
 
 const ar: Record<string, string> = {
+  'ASSET': 'الأصول', 'LIABILITY': 'الالتزامات', 'EQUITY': 'حقوق الملكية', 'REVENUE': 'الإيرادات',
+  'COGS': 'تكلفة المبيعات', 'EXPENSE': 'المصروفات', 'OTHER_INCOME': 'الإيرادات الأخرى', 'OTHER_EXPENSE': 'المصروفات الأخرى',
   'POS RECEIPT': 'إيصال نقطة البيع', 'Walk-in customer': 'عميل نقدي', 'Internal': 'داخلي', 'Generated': 'تاريخ الإصدار', 'SUMMARY': 'الملخص',
   'Trial balance': 'ميزان المراجعة', 'General ledger': 'دفتر الأستاذ العام', 'Account ledger': 'كشف حساب الأستاذ', 'Income statement': 'قائمة الدخل', 'Balance sheet': 'قائمة المركز المالي',
   'Accounts receivable aging': 'أعمار ديون العملاء', 'Accounts payable aging': 'أعمار ديون الموردين', 'Customer statement': 'كشف حساب عميل', 'Supplier statement': 'كشف حساب مورد',
@@ -68,7 +70,7 @@ const ar: Record<string, string> = {
   'Main Cash Drawer': 'خزينة النقدية الرئيسية', 'CIB Current Account': 'الحساب الجاري - البنك التجاري الدولي', 'Card Settlement Clearing': 'حساب تسوية البطاقات',
   'Cash on Hand': 'النقدية بالصندوق', 'Bank Current Account': 'الحساب البنكي الجاري', 'Card Clearing': 'تسوية البطاقات', 'Accounts Receivable Control': 'حساب مراقبة العملاء',
   'Inventory Control': 'حساب مراقبة المخزون', 'Accounts Payable Control': 'حساب مراقبة الموردين', 'Goods Received Not Invoiced': 'بضاعة مستلمة غير مفوترة',
-  'Output VAT Payable': 'ضريبة قيمة مضافة مستحقة', 'Input VAT Recoverable': 'ضريبة قيمة مضافة قابلة للاسترداد', 'Owner Capital': 'رأس المال', 'Retained Earnings': 'الأرباح المحتجزة',
+  'Output VAT Payable': 'ضريبة قيمة مضافة مستحقة', 'Input VAT Recoverable': 'ضريبة قيمة مضافة قابلة للاسترداد', 'Recoverable Input VAT': 'ضريبة القيمة المضافة القابلة للاسترداد', 'Owner Capital': 'رأس المال', 'Retained Earnings': 'الأرباح المحتجزة',
   'Sales Revenue': 'إيرادات المبيعات', 'Cost of Goods Sold': 'تكلفة البضاعة المباعة', 'Inventory Gain or Loss': 'أرباح أو خسائر المخزون', 'Cash Over or Short': 'زيادة أو عجز النقدية', 'Operating Expenses': 'مصروفات التشغيل',
 };
 

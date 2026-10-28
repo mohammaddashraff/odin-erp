@@ -1,35 +1,35 @@
-import type { Metadata, Viewport } from 'next';
-import './globals.css';
-import { getRequestLanguage } from './i18n-server';
-import { SessionProvider } from './session-provider';
-
+import type { Metadata, Viewport } from "next";
+import { SessionProvider } from "../core/session-provider";
+import { ERPProvider } from "../core/erp-context";
+import { getRequestLanguage } from "../core/i18n-server";
+import "./workspace.css";
+import "./av8.css";
+import "./accounting.css";
+import "./accounting-reports.css";
+import "./interface-polish.css";
+import "./administration.css";
 export const metadata: Metadata = {
-  title: 'Odin ERP',
-  description: 'Auditable accounting, distribution and POS platform',
-  applicationName: 'Odin ERP',
-  manifest: '/manifest.webmanifest',
-  icons: {
-    icon: [
-      { url: '/brand/odin-logo.png', type: 'image/png', sizes: '64x64' },
-      { url: '/favicon.ico', type: 'image/x-icon' },
-    ],
-    apple: [{ url: '/brand/odin-logo.png', type: 'image/png', sizes: '64x64' }],
-  },
+  title: "AV8 ERP · ODIN Software Solutions",
+  description: "Student operations for AV8, by ODIN Software Solutions",
+  icons: { icon: "/brand/oss-geometric-eye-transparent.png" },
 };
-
 export const viewport: Viewport = {
-  colorScheme: 'light dark',
-  themeColor: [
-    { media: '(prefers-color-scheme: light)', color: '#eef3ff' },
-    { media: '(prefers-color-scheme: dark)', color: '#0d1524' },
-  ],
+  colorScheme: "light",
+  themeColor: "#102747",
 };
-
-export default async function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
+export default async function Layout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   const language = await getRequestLanguage();
   return (
-    <html lang={language} dir={language === 'ar' ? 'rtl' : 'ltr'} data-theme="light" suppressHydrationWarning>
-      <body><SessionProvider>{children}</SessionProvider></body>
+    <html lang={language} dir={language === "ar" ? "rtl" : "ltr"}>
+      <body>
+        <SessionProvider>
+          <ERPProvider initialLanguage={language}>{children}</ERPProvider>
+        </SessionProvider>
+      </body>
     </html>
   );
 }

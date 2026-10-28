@@ -1,3 +1,4 @@
+import { assertAv8Isolation } from '../src/av8-isolation';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '@prisma/client';
 import { hash } from 'bcryptjs';
@@ -18,6 +19,7 @@ if (!databaseUrl) throw new Error('A PostgreSQL connection URL is required to pr
 const bootstrapUrl: string = normalizeDatabaseUrl(databaseUrl);
 
 async function main() {
+  assertAv8Isolation();
   const email = required('ODIN_INITIAL_ADMIN_EMAIL').toLowerCase();
   const password = required('ODIN_INITIAL_ADMIN_PASSWORD');
   const name = process.env.ODIN_INITIAL_ADMIN_NAME?.trim() || 'Odin Administrator';

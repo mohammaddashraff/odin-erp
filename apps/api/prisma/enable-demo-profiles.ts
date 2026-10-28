@@ -1,3 +1,4 @@
+import { assertAv8Isolation } from '../src/av8-isolation';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { DataScopeType, FieldAccessLevel, PrismaClient } from '@prisma/client';
 import { hash } from 'bcryptjs';
@@ -73,6 +74,7 @@ function fieldAccessFor(roleName: string, permissions: string[], resource: strin
 }
 
 async function main() {
+  assertAv8Isolation();
   const db = new PrismaClient({ adapter: new PrismaPg(normalizeDatabaseUrl(databaseUrl!)) });
   try {
     const tenants = await db.tenant.findMany({ select: { id: true } });

@@ -1,0 +1,41 @@
+{
+  "passed": true,
+  "checks": [
+    "trial exact API totals",
+    "filter URL persistence",
+    "account drill-through",
+    "ledger exact API totals",
+    "CSV export",
+    "English and Arabic PDF export",
+    "company branch filtering",
+    "invalid date validation",
+    "pagination",
+    "search preserves balance scope",
+    "journal drill-through",
+    "income statement",
+    "balance sheet",
+    "embedded library uses financial renderer",
+    "Arabic RTL",
+    "mobile overflow"
+  ],
+  "screenshots": [
+    "balance-sheet-en.png",
+    "income-statement-en.png",
+    "ledger-ar-mobile-table.png",
+    "ledger-ar-mobile-viewport.png",
+    "ledger-ar-mobile.png",
+    "ledger-en-viewport.png",
+    "ledger-en.png",
+    "trial-balance-ar-mobile.png",
+    "trial-balance-ar-pdf.png",
+    "trial-balance-ar.png",
+    "trial-balance-en-pdf.png",
+    "trial-balance-en.png"
+  ],
+  "browserErrors": [],
+  "baseURL": "http://127.0.0.1:8185",
+  "pdfPages": {
+    "englishTrialBalance": 1,
+    "arabicTrialBalance": 1
+  }
+}

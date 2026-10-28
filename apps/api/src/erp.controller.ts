@@ -1,16 +1,23 @@
-import { Body, Controller, Get, Param, Patch, Post, Query, Req, Res, ServiceUnavailableException } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Get, Param, Patch, Post, Query, Req, Res, ServiceUnavailableException } from '@nestjs/common';
 import type { Request, Response } from 'express';
 import PDFDocument from 'pdfkit';
+import { AccountingPdfReport, createAccountingPdf } from './accounting-pdf';
 import { existsSync } from 'node:fs';
 import { Actor, AuthService, publicActor } from './auth';
 import { RequireAnyPermission, RequirePermissions } from './authorization.guard';
 import { ErpService } from './erp.service';
 import { apiDateTime, apiLabel, ApiLanguage, apiMinorCurrency, apiQuantity, apiText, requestLanguage } from './i18n';
 import { RequireStepUp } from './step-up.guard';
+import { accountingCsv } from './accounting-csv';
+import { accountingReportNames } from './accounting-workspace';
 
 type AuthRequest = Request & { actor: Actor };
 const id = (value: string) => BigInt(value);
-const refreshCookieName = 'odin_refresh';
+const accountingId = (value: string) => {
+  if (!/^[1-9]\d*$/.test(value)) throw new BadRequestException('Accounting identifier is invalid.');
+  return BigInt(value);
+};
+const refreshCookieName = 'av8_refresh';
 const cookieValue = (request: Request, name: string) => String(request.headers.cookie || '').split(';').map((value) => value.trim()).find((value) => value.startsWith(`${name}=`))?.slice(name.length + 1) || '';
 const refreshCookieOptions = (expiresAt?: Date) => ({
   httpOnly: true,
@@ -153,6 +160,50 @@ export class ErpController {
   @RequireAnyPermission('sales.quotation.view', 'sales.quotation.create', 'sales.order.view')
   salesEmployees(@Req() request: AuthRequest, @Query('branchId') branchId?: string) { return this.erp.salesEmployees(request.actor, branchId); }
 
+  @Get('hr/employees/:id/profile')
+  @RequirePermissions('hr.employee.view')
+  hrProfile(@Req() request: AuthRequest, @Param('id') value: string, @Query('year') year?: string) { return this.erp.hrProfile(request.actor, accountingId(value), year); }
+
+  @Post('hr/leave/:id/cancel')
+  @RequirePermissions('hr.leave.cancel')
+  cancelHrLeave(@Req() request: AuthRequest, @Param('id') value: string, @Body() body: any) { return this.erp.cancelHrLeave(request.actor, accountingId(value), body); }
+
+  @Get('hr/departments')
+  @RequireAnyPermission('hr.employee.view', 'hr.department.view')
+  hrDepartments(@Req() request: AuthRequest) { return this.erp.hrDepartments(request.actor); }
+
+  @Post('hr/departments')
+  @RequirePermissions('hr.department.create')
+  createHrDepartment(@Req() request: AuthRequest, @Body() body: any) { return this.erp.saveHrDepartment(request.actor, body); }
+
+  @Patch('hr/departments/:id')
+  @RequirePermissions('hr.department.edit')
+  updateHrDepartment(@Req() request: AuthRequest, @Param('id') value: string, @Body() body: any) { return this.erp.saveHrDepartment(request.actor, body, accountingId(value)); }
+
+  @Post('hr/employees')
+  @RequirePermissions('hr.employee.create')
+  createHrEmployee(@Req() request: AuthRequest, @Body() body: any) { return this.erp.saveHrEmployee(request.actor, body); }
+
+  @Patch('hr/employees/:id')
+  @RequirePermissions('hr.employee.edit')
+  updateHrEmployee(@Req() request: AuthRequest, @Param('id') value: string, @Body() body: any) { return this.erp.saveHrEmployee(request.actor, body, accountingId(value)); }
+
+  @Get('hr/records/:kind')
+  @RequireAnyPermission('hr.attendance.view', 'hr.leave.view', 'hr.payroll.view')
+  hrRecords(@Req() request: AuthRequest, @Param('kind') kind: string) { return this.erp.hrRecords(request.actor, kind); }
+
+  @Post('hr/records/:kind')
+  @RequireAnyPermission('hr.attendance.create', 'hr.leave.create', 'hr.payroll.create')
+  createHrRecord(@Req() request: AuthRequest, @Param('kind') kind: string, @Body() body: any) { return this.erp.saveHrRecord(request.actor, kind, body); }
+
+  @Patch('hr/records/:id/review')
+  @RequireAnyPermission('hr.leave.approve', 'hr.leave.reject', 'hr.payroll.approve', 'hr.payroll.reject')
+  reviewHrRecord(@Req() request: AuthRequest, @Param('id') value: string, @Body() body: any) { return this.erp.reviewHrRecord(request.actor, accountingId(value), body); }
+
+  @Patch('hr/records/:kind/:id')
+  @RequireAnyPermission('hr.attendance.edit', 'hr.leave.edit', 'hr.payroll.edit')
+  editHrRecord(@Req() request: AuthRequest, @Param('kind') kind: string, @Param('id') value: string, @Body() body: any) { return this.erp.saveHrRecord(request.actor, kind, body, accountingId(value)); }
+
   @Get('hr/employees')
   @RequirePermissions('hr.employee.view')
   employees(@Req() request: AuthRequest, @Query() query: any) { return this.erp.employees(request.actor, query); }
@@ -213,6 +264,38 @@ export class ErpController {
   rejectPayment(@Req() request: AuthRequest, @Param('id') paymentId: string, @Body() body: any) {
     return this.erp.paymentWorkflow(request.actor, id(paymentId), 'reject', body);
   }
+
+  @Get('accounting/accounts/next-code')
+  @RequirePermissions('accounting.account.create')
+  suggestedAccountingAccountCode(@Req() request: AuthRequest, @Query() query: any) { return this.erp.suggestedAccountingAccountCode(request.actor, query); }
+
+  @Get('accounting/accounts')
+  @RequirePermissions('accounting.account.view')
+  accountingAccounts(@Req() request: AuthRequest, @Query() query: any) { return this.erp.accountingAccounts(request.actor, query); }
+
+  @Post('accounting/accounts')
+  @RequirePermissions('accounting.account.create')
+  createAccountingAccount(@Req() request: AuthRequest, @Body() body: any) { return this.erp.saveAccountingAccount(request.actor, null, body); }
+
+  @Patch('accounting/accounts/:id')
+  @RequirePermissions('accounting.account.edit')
+  updateAccountingAccount(@Req() request: AuthRequest, @Param('id') accountId: string, @Body() body: any) { return this.erp.saveAccountingAccount(request.actor, accountingId(accountId), body); }
+
+  @Get('accounting/ledger')
+  @RequirePermissions('accounting.journal.view')
+  accountingLedger(@Req() request: AuthRequest, @Query() query: any) { return this.erp.accountingLedger(request.actor, query); }
+
+  @Get('accounting/journals')
+  @RequirePermissions('accounting.journal.view')
+  accountingJournals(@Req() request: AuthRequest, @Query() query: any) { return this.erp.accountingJournals(request.actor, query); }
+
+  @Get('accounting/journals/:id')
+  @RequirePermissions('accounting.journal.view')
+  accountingJournalDetail(@Req() request: AuthRequest, @Param('id') journalId: string) { return this.erp.journalDetail(request.actor, accountingId(journalId)); }
+
+  @Get('journals/:id')
+  @RequirePermissions('accounting.journal.view')
+  journalDetail(@Req() request: AuthRequest, @Param('id') journalId: string) { return this.erp.journalDetail(request.actor, accountingId(journalId)); }
 
   @Get('journals')
   @RequirePermissions('accounting.journal.view')
@@ -306,12 +389,13 @@ export class ErpController {
 
   @Get('reports/:name')
   @RequireAnyPermission('reports.standard.view', 'reports.profitability.view')
-  report(@Req() request: AuthRequest, @Param('name') name: string) { return this.erp.report(request.actor, name); }
+  report(@Req() request: AuthRequest, @Param('name') name: string, @Query() query: any) { return this.erp.report(request.actor, name, undefined, query); }
 
   @Get('reports/:name/csv')
   @RequireAnyPermission('reports.standard.export', 'reports.profitability.export')
-  async reportCsv(@Req() request: AuthRequest, @Param('name') name: string, @Res() response: Response) {
-    const report: any = await this.erp.reportOutput(request.actor, name, 'export');
+  async reportCsv(@Req() request: AuthRequest, @Param('name') name: string, @Res() response: Response, @Query() query: any) {
+    const report: any = await this.erp.reportOutput(request.actor, name, 'export', query);
+    if (accountingReportNames.has(name)) { response.type('text/csv').setHeader('Content-Disposition', `attachment; filename="${name}.csv"`).send(accountingCsv(report, requestLanguage(request))); return; }
     const rows = report.rows || [];
     const headers: string[] = [...new Set<string>(rows.flatMap((row: any) => Object.keys(row)).filter((key: string) => typeof rows.find((row: any) => row[key] !== undefined)?.[key] !== 'object'))];
     const language = requestLanguage(request);
@@ -322,9 +406,9 @@ export class ErpController {
 
   @Get('reports/:name/pdf')
   @RequireAnyPermission('reports.standard.print', 'reports.profitability.print')
-  async reportPdf(@Req() request: AuthRequest, @Param('name') name: string, @Res() response: Response) {
-    const report: any = await this.erp.reportOutput(request.actor, name, 'print');
-    this.writePdf(response, report.name, report.rows || [], report.totals || {}, `${name}.pdf`, requestLanguage(request));
+  async reportPdf(@Req() request: AuthRequest, @Param('name') name: string, @Res() response: Response, @Query() query: any) {
+    const report: any = await this.erp.reportOutput(request.actor, name, 'print', query);
+    this.writePdf(response, report.name, report.rows || [], report.totals || {}, `${name}.pdf`, requestLanguage(request), report);
   }
 
   @Get('documents/:id/pdf')
@@ -340,7 +424,14 @@ export class ErpController {
   @RequireStepUp()
   reset(@Req() request: AuthRequest, @Body() body: any) { return this.erp.reset(request.actor, body); }
 
-  private writePdf(response: Response, title: string, rows: any[], totals: any, filename: string, language: ApiLanguage = 'en') {
+  private writePdf(response: Response, title: string, rows: any[], totals: any, filename: string, language: ApiLanguage = 'en', report?: AccountingPdfReport) {
+    if (report && ['Trial balance', 'General ledger', 'Account ledger', 'Income statement', 'Balance sheet'].includes(report.name)) {
+      const document = createAccountingPdf(report, language);
+      response.type('application/pdf').setHeader('Content-Disposition', `inline; filename="${filename}"`);
+      document.pipe(response);
+      document.end();
+      return;
+    }
     response.type('application/pdf').setHeader('Content-Disposition', `inline; filename="${filename}"`);
     const localizedTitle = apiText(title, language);
     const doc = new PDFDocument({ margin: 42, size: 'A4', info: { Title: localizedTitle, Author: 'Odin ERP' } });
@@ -358,8 +449,7 @@ export class ErpController {
     };
     const label = (key: string) => apiLabel(key, language);
     const rowKeys = [...new Set<string>(rows.flatMap((row) => Object.keys(row)))]
-      .filter((key) => key !== 'id' && rows.some((row) => row[key] !== undefined && typeof row[key] !== 'object'))
-      .slice(0, 6);
+      .filter((key) => key !== 'id' && rows.some((row) => row[key] !== undefined && typeof row[key] !== 'object'));
     const drawPageHeader = () => {
       doc.fillColor('#2b6cff').fontSize(10).text('ODIN ERP', 42, 42, { width: 511, characterSpacing: 2 });
       doc.fillColor('#101828').fontSize(21).text(localizedTitle, 42, 62, { width: 511, align, ellipsis: true, lineBreak: false });
@@ -374,7 +464,7 @@ export class ErpController {
     };
     drawPageHeader();
     let y = drawTableHeader(128);
-    rows.slice(0, 84).forEach((row, index) => {
+    rows.forEach((row, index) => {
       if (y > 742) { doc.addPage(); drawPageHeader(); y = drawTableHeader(128); }
       if (index % 2) doc.save().fillColor('#f8fafc').rect(42, y, 511, 24).fill().restore();
       rowKeys.forEach((key, column) => doc.fillColor('#101828').fontSize(7.5).text(display(key, row[key]), 47 + column * columnWidth, y + 8, { width: columnWidth - 10, align, ellipsis: true, lineBreak: false }));

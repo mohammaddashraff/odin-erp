@@ -1,3 +1,39 @@
+# AV8 ERP
+
+AV8 adapts the existing ERP into a student recruitment, admissions and academy operations workspace. Work stays in the existing `odin-erp` directory; the displayed product is AV8 ERP.
+
+## Edit the project
+
+Source: [mohammaddashraff/odin-erp](https://github.com/mohammaddashraff/odin-erp) (private repository).
+
+Open the repository and press `.` to edit in GitHub's browser editor, or clone it locally:
+
+```bash
+git clone https://github.com/mohammaddashraff/odin-erp.git
+cd odin-erp
+```
+
+The frontend is in `apps/web/src`; the backend is in `apps/api/src`; database schemas and migrations are in `apps/api/prisma`. Follow the [AV8 operating instructions](docs/av8/OPERATIONS.md) to install dependencies and run the application with Node.js 24+ and Docker. Private environment files, databases, dependencies and build outputs are excluded from Git.
+
+GitHub stores the editable source. Running and deploying the application also requires its backend, database and private environment configuration.
+
+Production: [AV8 ERP](https://av8-erp.vercel.app). See [Vercel deployment and private login instructions](docs/av8/VERCEL.md).
+
+Start with [AV8 operating instructions](docs/av8/OPERATIONS.md), [implementation and verification](docs/av8/IMPLEMENTATION.md), and [pending business decisions](docs/av8/BUSINESS_DECISIONS.md). The local preview is `http://127.0.0.1:8180` (SSH-forward port 8180).
+
+```bash
+export PATH="$PWD/.av8/bin:$PATH"
+node scripts/av8/init-local.mjs
+npm run av8:start
+```
+
+Private local credentials are in ignored `.av8/dev.env`; separate production credentials are in `.av8/production.env`. AV8 uses separate dev/test/production databases and generated secrets; the original `.env` is not loaded. Only clearly synthetic review records have been created locally; production starts with configuration and private staff accounts.
+
+The inherited instructions below are historical reference. Use the AV8 operating instructions for startup, migrations and recovery; inherited Compose/deployment/reset commands are not the AV8 workflow.
+
+<details>
+<summary>Inherited ERP documentation (historical reference)</summary>
+
 # Odin ERP
 
 Odin ERP is a client-demonstration accounting and distribution system. It has executable,
@@ -71,7 +107,7 @@ Every account uses the password `password`.
 | Role | Email |
 |---|---|
 | Super Admin | `admin@odin.demo` |
-| CFO | `cfo@odin.demo` |
+| Finance Manager (CFO demo profile) | `cfo@odin.demo` |
 | Finance Manager | `finance@odin.demo` |
 | Accountant | `accountant@odin.demo` |
 | Auditor (read only) | `auditor@odin.demo` |
@@ -164,3 +200,17 @@ Enterprise SSO, exchange-rate feeds and period-end currency revaluation, configu
 approval graphs, provider attachment object storage/scanning/recovery, FIFO/lot/serial costing, and
 external bank-feed connectors are production extensions. Provider IAM/KMS/PITR/cross-region evidence
 and production promotion/rollback evidence are also outside what this repository alone can establish.
+
+
+## ODIN frontend replacement (26 September 2026)
+
+The active `apps/web` application now contains the complete source-verified OSS. / ERP frontend replacement: 61 retained ERP routes, English/Arabic, local Manrope/Noto Sans Arabic fonts and the original corporate mark. The prior visual implementation is retained in the recoverable Git checkpoint, not imported by the active application.
+
+See [brand and screenshots](docs/ui-v2-brand.md), [route/workflow parity](docs/ui-v2-parity.md), and [local QA, migration and rollback](docs/ui-v2-migration.md). `npm run test:e2e` runs the replacement acceptance suite against an isolated QA preview (default loopback port 8184). It creates and posts test transactions. The original nonvisual staging workflow is still available with `STAGING_BASE_URL=... npx playwright test --config playwright.staging.config.ts` for an explicitly authorized isolated environment.
+
+The replacement was deployed to https://demo.odin-ltd.com after explicit user authorization. Read-only public verification passed all 61 routes; release evidence and rollback are recorded in [migration notes](docs/ui-v2-migration.md).
+
+
+The accounting workspace has a dedicated rebuild covering the account hierarchy, manual journals, fiscal periods, transaction ledgers and financial statements. The authorized release is active at https://demo.odin-ltd.com. See [accounting implementation](docs/accounting-v3/implementation.md), [verification](docs/accounting-v3/verification.json) and [release/recovery](docs/accounting-v3/release.md).
+
+</details>

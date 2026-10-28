@@ -1,0 +1,5 @@
+Verified deployed routes: 15
+Verified deployed routes: 30
+Verified deployed routes: 45
+Verified deployed routes: 60
+Public deployment smoke passed: 61 English routes; five Arabic routes; mobile keyboard navigation; login/logout. No business writes.

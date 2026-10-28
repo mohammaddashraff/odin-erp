@@ -1,3 +1,8 @@
+import { AdministrationService } from './administration.service';
+import { AdministrationController } from './administration.controller';
+import { Av8Service } from './av8.service';
+import { Av8FinanceService } from './av8-finance.service';
+import { Av8Controller } from './av8.controller';
 import { Module } from '@nestjs/common';
 import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { AccessControlController } from './access-control.controller';
@@ -16,9 +21,9 @@ import { RequestLoggingInterceptor } from './request-logging.interceptor';
 import { StepUpGuard } from './step-up.guard';
 
 @Module({
-  controllers: [ErpController, AccessControlController, PrivateAttachmentsController],
+  controllers: [AdministrationController, Av8Controller, ErpController, AccessControlController, PrivateAttachmentsController],
   providers: [
-    PrismaService,
+    AdministrationService, PrismaService, Av8Service, Av8FinanceService,
     AuthService,
     AccessControlService,
     AccessGovernanceService,

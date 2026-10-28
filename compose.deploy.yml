@@ -1,0 +1,35 @@
+name: odin-demo
+services:
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: odin_erp
+      POSTGRES_USER: odin
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - odin_data:/var/lib/postgresql/data
+    healthcheck:
+      test: [CMD-SHELL, pg_isready -U odin -d odin_erp]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+  app:
+    build: .
+    image: odin-demo:local
+    restart: unless-stopped
+    init: true
+    env_file: .env
+    ports:
+      - 127.0.0.1:8090:8080
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: [CMD, node, -e, "fetch('http://127.0.0.1:8080/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 10s
+      start_period: 40s
+      retries: 3
+volumes:
+  odin_data:

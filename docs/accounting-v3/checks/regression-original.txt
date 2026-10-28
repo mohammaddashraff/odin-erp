@@ -1,0 +1,157 @@
+
+Running 31 tests using 1 worker
+
+(node:791911) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓   1 tests/ui-v2/api-security.spec.ts:36:5 › login session restores through the rotated HttpOnly session and logout revokes it (4.0s)
+  ✓   2 tests/ui-v2/api-security.spec.ts:55:5 › branch, warehouse, auditor, accountant, sales and POS restrictions survive direct API requests (3.4s)
+  ✓   3 tests/ui-v2/api-security.spec.ts:192:5 › administrator policy enforces financial assignment, explicit DENY, field redaction, scoped output and approval scope (5.7s)
+  ✓   4 tests/ui-v2/api-security.spec.ts:405:5 › web and API responses emit the production security-header baseline (169ms)
+  ✓   5 tests/ui-v2/completion.spec.ts:4:5 › unsaved POS cart survives cancelled navigation, language change and sign out (19.9s)
+  ✓   6 tests/ui-v2/completion.spec.ts:38:5 › mobile navigation contains keyboard focus, hides closed controls and restores focus in both languages (4.9s)
+  ✓   7 tests/ui-v2/completion.spec.ts:78:5 › 200 percent desktop zoom equivalent keeps English and Arabic workflows operable (5.6s)
+  ✓   8 tests/ui-v2/localization-contracts.spec.ts:23:5 › Arabic formatters enforce Western digits, separators, dates, currency and exact large values (70ms)
+  ✓   9 tests/ui-v2/localization-contracts.spec.ts:52:5 › display permissions include company-scoped grants while explicit denials still win (4ms)
+  ✓  10 tests/ui-v2/localization-contracts.spec.ts:77:5 › Arabic and English report/PDF export endpoints honor the requested locale (578ms)
+  ✓  11 tests/ui-v2/localization-contracts.spec.ts:140:5 › numeric API strings keep arbitrary precision and reject malformed display grouping (69ms)
+  ✓  12 tests/ui-v2/localized-workflows.spec.ts:5:5 › all Arabic routes, canonical bookmarks, Western input digits and guarded language switch (1.5m)
+  ✓  13 tests/ui-v2/localized-workflows.spec.ts:58:5 › password visibility, manual exchange-rate validation, foreign-currency draft and review decisions (15.4s)
+  ✘  14 tests/ui-v2/localized-workflows.spec.ts:124:5 › Arabic form defaults, persisted normalized input, dynamic messages and conversion dialog (21.1s)
+(node:797660) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  15 tests/ui-v2/localized-workflows.spec.ts:197:5 › redacted master prices remain restricted until an explicit known price is entered (4.6s)
+  ✓  16 tests/ui-v2/operations.spec.ts:9:5 › purchase request through RFQ, order, receipt, bill, payment and return (39.2s)
+  ✓  17 tests/ui-v2/operations.spec.ts:68:5 › inventory adjustment, transfer and physical stock count (1.1m)
+  ✓  18 tests/ui-v2/operations.spec.ts:102:5 › all supported master creation forms persist complete records (10.6s)
+  ✘  19 tests/ui-v2/routes.spec.ts:4:5 › every retained route loads real data without runtime errors (1.1m)
+(node:803041) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✘  20 tests/ui-v2/routes.spec.ts:26:5 › customer create, edit, search, required validation and unsaved navigation (38.5s)
+(node:804017) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  21 tests/ui-v2/security-reports.spec.ts:18:5 › all twelve seeded roles, denied navigation, invalid login, refresh and cross-tab logout (49.5s)
+  ✘  22 tests/ui-v2/security-reports.spec.ts:123:5 › all report choices, CSV/PDF download, ledger drillthrough and source evidence dialog (8.4m)
+(node:808225) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  23 tests/ui-v2/security-reports.spec.ts:170:5 › governance context, safe preview, review and role lifecycle (29.6s)
+  ✓  24 tests/ui-v2/security-reports.spec.ts:244:5 › user access editor persists MFA requirements and explicit permission overrides (10.6s)
+  ✓  25 tests/ui-v2/security-reports.spec.ts:302:5 › signing into another account clears the previous account notifications (31.0s)
+  ✓  26 tests/ui-v2/transactions.spec.ts:53:5 › quotation edit, independent approval, order, delivery, invoice, receipt, return and credit (34.8s)
+  ✓  27 tests/ui-v2/visual.spec.ts:11:5 › visual viewport and Arabic acceptance with real screenshots (16.4s)
+  ✓  28 tests/ui-v2/visual.spec.ts:86:5 › keyboard dialog focus, error/retry/loading states and reduced motion (5.0s)
+  ✓  29 tests/ui-v2/visual.spec.ts:138:5 › compact navigation persistence, mobile navigation and browser print (5.0s)
+(node:811726) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  30 tests/ui-v2/attachments-mfa.spec.ts:6:5 › private attachment type/signature disclosure and ticketed byte-identical download (3.7s)
+  ✓  31 tests/ui-v2/attachments-mfa.spec.ts:43:5 › MFA enrollment, authenticator login and single-use recovery preserve the auth contract (7.0s)
+
+
+  1) tests/ui-v2/localized-workflows.spec.ts:124:5 › Arabic form defaults, persisted normalized input, dynamic messages and conversion dialog
+
+    Error: expect(locator).toHaveValue(expected) failed
+
+    Locator: getByLabel('البيان', { exact: true })
+    Expected: ""
+    Timeout: 15000ms
+    Error: element(s) not found
+
+    Call log:
+      - Expect "toHaveValue" with timeout 15000ms
+      - waiting for getByLabel('البيان', { exact: true })
+
+
+      153 |     .click();
+      154 |   // A real manual journal starts empty; all controls and validation remain localized.
+    > 155 |   await expect(page.getByLabel("البيان", { exact: true })).toHaveValue("");
+          |                                                            ^
+      156 |   await expect(page.getByLabel("بيان البند 1", { exact: true })).toHaveValue("");
+      157 |   await expect(page.getByLabel("بيان البند 2", { exact: true })).toHaveValue("");
+      158 |   await expect(page.getByLabel("حساب الترحيل 1", { exact: true })).toHaveValue("");
+        at /srv/demo/odin-erp/tests/ui-v2/localized-workflows.spec.ts:155:60
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    ../../../tmp/odin-accounting-v3/broad-ui-artifacts/localized-workflows-Arabic-18e32-sages-and-conversion-dialog/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: ../../../tmp/odin-accounting-v3/broad-ui-artifacts/localized-workflows-Arabic-18e32-sages-and-conversion-dialog/error-context.md
+
+  2) tests/ui-v2/routes.spec.ts:4:5 › every retained route loads real data without runtime errors › /inventory/counts
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator: locator('main h1')
+    Expected: visible
+    Timeout: 15000ms
+    Error: element(s) not found
+
+    Call log:
+      - Expect "toBeVisible" with timeout 15000ms
+      - waiting for locator('main h1')
+
+
+       at helpers.ts:22
+
+      20 | }
+      21 | export async function ready(page: Page) {
+    > 22 |   await expect(page.locator("main h1")).toBeVisible();
+         |                                         ^
+      23 |   await expect(page.locator(".loading")).toHaveCount(0);
+      24 |   await expect(page.locator(".error-notice")).toHaveCount(0);
+      25 | }
+        at ready (/srv/demo/odin-erp/tests/ui-v2/helpers.ts:22:41)
+        at /srv/demo/odin-erp/tests/ui-v2/routes.spec.ts:14:18
+        at /srv/demo/odin-erp/tests/ui-v2/routes.spec.ts:12:5
+
+    Error Context: ../../../tmp/odin-accounting-v3/broad-ui-artifacts/routes-every-retained-rout-e2095-data-without-runtime-errors/error-context.md
+
+  3) tests/ui-v2/routes.spec.ts:26:5 › customer create, edit, search, required validation and unsaved navigation
+
+    TimeoutError: locator.fill: Timeout 15000ms exceeded.
+    Call log:
+      - waiting for getByTestId('login-email')
+
+
+       at helpers.ts:15
+
+      13 |   });
+      14 |   await page.goto("/dashboard");
+    > 15 |   await page.getByTestId("login-email").fill(email);
+         |                                         ^
+      16 |   await page.getByTestId("login-password").fill("password");
+      17 |   await page.getByTestId("login-submit").click();
+      18 |   await expect(page.locator(".context-bar")).toBeVisible();
+        at login (/srv/demo/odin-erp/tests/ui-v2/helpers.ts:15:41)
+        at /srv/demo/odin-erp/tests/ui-v2/routes.spec.ts:29:3
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    ../../../tmp/odin-accounting-v3/broad-ui-artifacts/routes-customer-create-edi-a8ad3-tion-and-unsaved-navigation/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: ../../../tmp/odin-accounting-v3/broad-ui-artifacts/routes-customer-create-edi-a8ad3-tion-and-unsaved-navigation/error-context.md
+
+  4) tests/ui-v2/security-reports.spec.ts:123:5 › all report choices, CSV/PDF download, ledger drillthrough and source evidence dialog
+
+    TimeoutError: page.waitForEvent: Timeout 15000ms exceeded while waiting for event "download"
+    =========================== logs ===========================
+    waiting for event "download"
+    ============================================================
+
+      135 |     await ready(page);
+      136 |     for (const name of ["Export CSV", "Print PDF"]) {
+    > 137 |       const download = page.waitForEvent("download");
+          |                             ^
+      138 |       await page.getByRole("button", { name, exact: true }).click();
+      139 |       const file = await download;
+      140 |       expect(await file.failure()).toBeNull();
+        at /srv/demo/odin-erp/tests/ui-v2/security-reports.spec.ts:137:29
+
+    Test timeout of 180000ms exceeded.
+
+    Fixture "trace recording" timeout of 120000ms exceeded during teardown.
+
+  4 failed
+    tests/ui-v2/localized-workflows.spec.ts:124:5 › Arabic form defaults, persisted normalized input, dynamic messages and conversion dialog
+    tests/ui-v2/routes.spec.ts:4:5 › every retained route loads real data without runtime errors ───
+    tests/ui-v2/routes.spec.ts:26:5 › customer create, edit, search, required validation and unsaved navigation
+    tests/ui-v2/security-reports.spec.ts:123:5 › all report choices, CSV/PDF download, ledger drillthrough and source evidence dialog
+  27 passed (32.1m)

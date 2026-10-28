@@ -1,15 +1,13 @@
+import { assertAv8Isolation } from '../src/av8-isolation';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { AccountType, DataScopeType, DocumentType, FieldAccessLevel, JournalStatus, PrismaClient, SodEnforcement, WorkflowStatus } from '@prisma/client';
 import { hash } from 'bcryptjs';
 import { createHash } from 'node:crypto';
-import { config } from 'dotenv';
 import { resolve } from 'node:path';
 import { normalizeDatabaseUrl } from '../src/database-url';
 import { demoResetEnabled } from '../src/deployment-config';
 import { DATA_SCOPE_RESOURCES, FIELD_REGISTRY, PERMISSION_REGISTRY } from '../src/permissions';
 
-config({ path: resolve(process.cwd(), '.env'), quiet: true });
-config({ path: resolve(process.cwd(), '../../.env'), quiet: true });
 
 const d = (value: string) => new Date(`${value}T00:00:00.000Z`);
 
@@ -96,6 +94,7 @@ const accountData: Array<[string, string, AccountType, string?]> = [
 ];
 
 export async function seed(initiatedBy = 'CLI', targetTenantId?: bigint) {
+  assertAv8Isolation();
   if (!demoResetEnabled()) throw new Error('Demo seed is disabled for production deployments.');
   const adminUrl = process.env.DATABASE_URL_UNPOOLED
     || process.env.POSTGRES_URL_NON_POOLING
@@ -117,7 +116,7 @@ export async function seed(initiatedBy = 'CLI', targetTenantId?: bigint) {
         'private_attachments', 'access_review_records', 'delegations', 'temporary_access_grants', 'financial_resource_assignments',
         'authority_limit_policies', 'company_memberships',
         'access_audit_logs', 'user_permission_overrides', 'user_roles', 'role_limits', 'role_data_scopes', 'role_field_permissions', 'role_permissions',
-        'refresh_sessions', 'currency_rates', 'currencies', 'employees', 'departments', 'master_sequences',
+        'hr_records', 'refresh_sessions', 'currency_rates', 'currencies', 'employees', 'departments', 'master_sequences',
         'bank_statement_lines', 'bank_statements', 'bank_transactions', 'bank_accounts', 'pos_tenders', 'pos_sale_lines', 'pos_sales', 'pos_shifts',
         'payment_allocations', 'payments', 'journal_lines', 'journal_entries', 'document_lines', 'documents', 'stock_movements', 'stock_balances',
         'items', 'units_of_measure', 'item_categories', 'suppliers', 'customers', 'document_sequences', 'financial_resources', 'accounts', 'fiscal_periods',
