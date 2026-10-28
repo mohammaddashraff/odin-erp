@@ -18,8 +18,8 @@ async function login(page:Page){
 
 test('AV8 one-save receipt, Arabic actions, identity and spacing',async({page})=>{
  await login(page);
- const nav=page.locator('.navigation'),navWidth=()=>nav.evaluate(element=>Math.round(element.getBoundingClientRect().width));
- expect(await navWidth()).toBe(72);await nav.hover();await expect.poll(navWidth).toBeGreaterThan(250);expect(await page.locator('.loading').count()).toBe(0);await page.mouse.move(900,500);await expect.poll(navWidth).toBe(72);
+ const nav=page.locator('.glass-navigation');
+ await expect(nav).toBeVisible();await page.getByTestId('nav-av8').click();await expect(page.locator('#glass-module-pages')).toBeVisible();await page.keyboard.press('Escape');await expect(page.locator('#glass-module-pages')).toHaveCount(0);expect(await page.locator('.loading').count()).toBe(0);
  const token=await page.evaluate(()=>localStorage.getItem('av8_token'));
  const headers={Authorization:`Bearer ${token}`,'Content-Type':'application/json','Idempotency-Key':randomUUID()};
  const refs=await (await page.request.get('/api/av8/refs',{headers})).json();

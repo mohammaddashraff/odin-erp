@@ -1,6 +1,17 @@
 "use client";
 import Link from "next/link";
-import { ArrowRight } from "lucide-react";
+import {
+  ArrowRight,
+  Coins,
+  Wallet,
+  Package,
+  ReceiptText,
+  ArrowRightLeft,
+  ChevronRight,
+} from "lucide-react";
+import { GlassMetric } from "../components/glass-dashboard";
+import { RevenueChart } from "../components/revenue-chart";
+import { useRouter } from "next/navigation";
 import { useERP, useResource } from "../core/erp-context";
 import { modules, routeEntry, routeForDocumentType } from "../core/navigation";
 import {
@@ -13,6 +24,7 @@ import {
   Details,
 } from "../components/ui";
 export function Dashboard() {
+  const router = useRouter();
   const { tr, money, quantity, name, dateTime, allowed, field, refs } =
     useERP();
   const state = useResource("/dashboard");
@@ -105,26 +117,94 @@ export function Dashboard() {
   ];
   return (
     <>
-      <PageHeader
-        title="Executive Dashboard"
-        subtitle={tr(
-          "Latest 200 accessible documents · posted amounts by currency",
-        )}
-      />
+      <h1 className="sr-only">{tr("Executive Dashboard")}</h1>
       <Resource state={state}>
         {data ? (
           <>
-            <Stats
-              items={metrics.map(([label, key, href]) => ({
-                label,
-                value: grouped(key),
-                href:
-                  visible[key] && allowed(routeEntry(href).child.permission)
-                    ? href
-                    : undefined,
-              }))}
-            />
-            <div className="dashboard-columns">
+            <div className="glass-metrics">
+              {metrics
+                .filter(([, key]) =>
+                  [
+                    "salesMinor",
+                    "cashMinor",
+                    "receivablesMinor",
+                    "inventoryMinor",
+                  ].includes(key),
+                )
+                .map(([label, key, href], i) => {
+                  const Icon = [Coins, Wallet, ReceiptText, Package][i];
+                  return (
+                    <GlassMetric
+                      key={key}
+                      label={label}
+                      value={grouped(key)}
+                      icon={<Icon size={25} />}
+                      detail={tr(routeEntry(href).child.label)}
+                      onClick={
+                        visible[key] &&
+                        allowed(routeEntry(href).child.permission)
+                          ? () => router.push(href)
+                          : undefined
+                      }
+                    />
+                  );
+                })}
+            </div>
+            <div className="glass-dashboard-grid">
+              {visible.salesMinor && summaries.data ? (
+                <RevenueChart documents={summaries.data} />
+              ) : (
+                <Panel title="Revenue Analytics">
+                  <p className="surface-body">
+                    {tr(summaries.error ? "Unavailable" : "Restricted")}
+                  </p>
+                </Panel>
+              )}
+              <Panel
+                title="Recent Transactions"
+                actions={
+                  <ArrowRightLeft className="glass-section-icon" size={23} />
+                }
+              >
+                <div className="glass-transaction-list">
+                  {(summaries.data || []).slice(0, 5).map((d: any) => (
+                    <Link
+                      className="glass-transaction"
+                      key={d.id}
+                      href={routeForDocumentType(d.type) + "?document=" + d.id}
+                    >
+                      <span className="glass-avatar">
+                        <ReceiptText size={22} />
+                      </span>
+                      <span className="glass-transaction-name">
+                        <strong>
+                          {name(d.customer || d.supplier) || tr(d.type)}
+                        </strong>
+                        <small>
+                          {tr(d.type)} · {d.number}
+                        </small>
+                      </span>
+                      <span className="glass-transaction-date">
+                        {dateTime(d.documentDate || d.createdAt)}
+                      </span>
+                      <strong>
+                        {d.totalMinor == null
+                          ? tr("Restricted")
+                          : money(d.totalMinor, d.currency)}
+                      </strong>
+                      <Status value={d.status} />
+                      <ChevronRight size={16} />
+                    </Link>
+                  ))}
+                </div>
+                {!summaries.data?.length ? (
+                  <p className="surface-body">
+                    {tr(summaries.error ? "Unavailable" : "Nothing here yet")}
+                  </p>
+                ) : null}
+              </Panel>
+            </div>
+            <div className="glass-dashboard-grid">
               <Panel
                 title="Inventory attention"
                 actions={
@@ -183,6 +263,25 @@ export function Dashboard() {
                   />
                 )}
               </Panel>
+              <Panel title="Financial Overview">
+                <Stats
+                  items={metrics
+                    .filter(([, key]) =>
+                      ["payablesMinor", "purchasesMinor"].includes(key),
+                    )
+                    .map(([label, key, href]) => ({
+                      label,
+                      value: grouped(key),
+                      href:
+                        visible[key] &&
+                        allowed(routeEntry(href).child.permission)
+                          ? href
+                          : undefined,
+                    }))}
+                />
+              </Panel>
+            </div>
+            <div className="glass-dashboard-grid">
               <Panel title="Pending approvals">
                 <div className="surface-body">
                   <div className="attention-count">
@@ -220,37 +319,37 @@ export function Dashboard() {
                   </div>
                 </div>
               </Panel>
+              <Panel title="Recent business activity">
+                <Table
+                  rows={data.activity || []}
+                  columns={[
+                    {
+                      key: "createdAt",
+                      label: "Date",
+                      render: (r) => <bdi>{dateTime(r.createdAt)}</bdi>,
+                    },
+                    {
+                      key: "action",
+                      label: "Action",
+                      render: (r) => tr(r.action),
+                    },
+                    { key: "entityType", label: "Entity" },
+                    {
+                      key: "actor",
+                      label: "Actor",
+                      render: (r) => tr(r.user?.name || r.actor?.name || "—"),
+                    },
+                    {
+                      key: "reference",
+                      label: "Reference",
+                      render: (r) => (
+                        <bdi>{r.postingReference || r.entityId}</bdi>
+                      ),
+                    },
+                  ]}
+                />
+              </Panel>
             </div>
-            <Panel title="Recent business activity">
-              <Table
-                rows={data.activity || []}
-                columns={[
-                  {
-                    key: "createdAt",
-                    label: "Date",
-                    render: (r) => <bdi>{dateTime(r.createdAt)}</bdi>,
-                  },
-                  {
-                    key: "action",
-                    label: "Action",
-                    render: (r) => tr(r.action),
-                  },
-                  { key: "entityType", label: "Entity" },
-                  {
-                    key: "actor",
-                    label: "Actor",
-                    render: (r) => tr(r.user?.name || r.actor?.name || "—"),
-                  },
-                  {
-                    key: "reference",
-                    label: "Reference",
-                    render: (r) => (
-                      <bdi>{r.postingReference || r.entityId}</bdi>
-                    ),
-                  },
-                ]}
-              />
-            </Panel>
           </>
         ) : null}
       </Resource>
@@ -397,7 +496,33 @@ export function Overview({ moduleId }: { moduleId: string }) {
   );
 }
 export function Health() {
-  const {tr,dateTime,language}=useERP();
+  const { tr, dateTime, language } = useERP();
   const state = useResource("/administration/diagnostics");
-  return <><PageHeader title="System diagnostics" subtitle="Technical diagnostics are restricted to administrators."/><Resource state={state}><Panel title="Application services"><Details values={[["API",state.data?.api?.[language]||tr('Not available')],["Database",state.data?.database?.[language]||tr('Not available')],["Last checked",state.data?.checkedAt?dateTime(state.data.checkedAt):tr('Not available')]]}/></Panel></Resource></>;
+  return (
+    <>
+      <PageHeader
+        title="System diagnostics"
+        subtitle="Technical diagnostics are restricted to administrators."
+      />
+      <Resource state={state}>
+        <Panel title="Application services">
+          <Details
+            values={[
+              ["API", state.data?.api?.[language] || tr("Not available")],
+              [
+                "Database",
+                state.data?.database?.[language] || tr("Not available"),
+              ],
+              [
+                "Last checked",
+                state.data?.checkedAt
+                  ? dateTime(state.data.checkedAt)
+                  : tr("Not available"),
+              ],
+            ]}
+          />
+        </Panel>
+      </Resource>
+    </>
+  );
 }

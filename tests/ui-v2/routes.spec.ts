@@ -39,7 +39,7 @@ test("customer create, edit, search, required validation and unsaved navigation"
   const name = "UI replacement QA " + Date.now();
   await page.getByTestId("master-customer-name").fill(name);
   page.once("dialog", (d) => d.dismiss());
-  await page.locator(".nav-brand").click();
+  await page.locator(".glass-brand-link").click();
   await expect(page.getByTestId("master-customer-name")).toHaveValue(name);
   await page.getByTestId("save-customer").click();
   await expect(page.locator("main h1")).toHaveText(name);

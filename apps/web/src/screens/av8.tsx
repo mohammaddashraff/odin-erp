@@ -7,6 +7,7 @@ import { useERP, useResource } from '../core/erp-context';
 import { Button, PageHeader, Panel, Table, Pagination, SearchField, Status, Loading, ErrorNotice, Fields } from '../components/ui';
 import { Form, cash, Download, f, option, reason, time, useAv8Actions } from './av8-ui';
 import Student from './av8-student';
+import { QueueDashboard } from '../components/glass-dashboard';
 import Policies from './av8-policies';
 import Funds from './av8-funds';
 const crm=['NEW','CONTACTED','NURTURING','APPOINTMENT_BOOKED','ATTENDED','DEFERRED','NOT_PROCEEDING','CONVERTED'];
@@ -34,14 +35,14 @@ export default function AV8({section}:{section:string}) {
   {key:'reference',label:'Application',render:(r:any)=><Link href={'/av8/students?student='+r.applicationId}>{r.reference}</Link>},{key:'name',label:'Name'},{key:'issue',label:'Outstanding requirements',render:(r:any)=>tr(r.issue)},{key:'date',label:'Date',render:(r:any)=>r.date?.slice(0,10)||'—'},{key:'status',label:rowData.some((r:any)=>r.amountMinor!=null)?'Amount':'Status',render:(r:any)=>r.amountMinor!=null?cash(r.amountMinor):r.status?<Status value={r.status}/>:'—'}
  ];
  return <div className="av8-workspace">
-  <PageHeader title={names[section]} subtitle={section==='dashboard'?'Student recruitment & admissions':undefined}>
+  {section !== 'dashboard' ? <PageHeader title={names[section]} subtitle={section==='dashboard'?'Student recruitment & admissions':undefined}>
    {section==='leads'&&allowed('av8.leads.create')?<Button primary onClick={()=>setEdit({title:'Capture lead',fields:captureFields,initial:{program:'Flight training',branchId:reference.branches?.[0]?.id,ownerId:reference.users?.[0]?.id},save:(v:any)=>act('/leads',v)})}>{tr('Capture lead')}</Button>:null}
    {section==='leads'&&allowed('av8.leads.import')?<Button onClick={()=>setEdit({import:true})}>{tr('Import leads')}</Button>:null}
    {section==='reports'&&allowed('av8.reports.export')?<Download path={`/reports/${report}/csv?page=${page}&search=${encodeURIComponent(query)}`} label="Export current page" filename={`av8-${report}-${page}.csv`}/>:null}
-  </PageHeader>
-  {section==='dashboard'?<><div className="av8-welcome"><div><p className="av8-eyebrow">AV8 · {new Intl.DateTimeFormat(language==='ar'?'ar-EG':'en-GB',{timeZone:'Africa/Cairo',dateStyle:'full'}).format(new Date())}</p><h2>{tr('Every student. Every next step.')}</h2><p>{tr('Follow the journey from first inquiry to arrival and beyond.')}</p></div><Plane size={58} strokeWidth={1.2}/></div><div className="av8-metrics">{[['uncontacted','Uncontacted leads',Users],['applications','Applications & students',FileCheck2],['visa','Visa follow-up',Clock3],['academy','Awaiting academy transfer',Wallet]].filter(([key])=>data?.counts?.[String(key)]!=null).map(([key,label,Icon]:any)=><button key={key} className="av8-metric" onClick={()=>key==='uncontacted'?router.push('/av8/leads?queue=uncontacted'):key==='applications'?router.push('/av8/students'):setFilter(key)}><Icon size={22}/><strong>{data?.counts?.[key]??'—'}</strong><span>{tr(label)}</span><ArrowUpRight size={16}/></button>)}</div></>:null}
+  </PageHeader> : null}
+  {section==='dashboard' && data ? <QueueDashboard data={data} navigate={path=>router.push(path)} select={key=>{setFilter(key);setPage(1);document.getElementById('av8-queue')?.scrollIntoView({block:'start'});}}/> : null}
   {section==='finance'?<Funds refs={refs.data}/>:null}
-  <Panel>
+  <div id="av8-queue"/><Panel>
    <div className="av8-toolbar"><SearchField value={search} label={section==='leads'?'Search student inquiries':section==='appointments'?'Search appointments':section==='reports'?'Search report':section==='affairs'?'Search follow-up queue':'Search students'} onChange={(v:string)=>{setSearch(v);setPage(1);}}/>
    {section==='leads'?<select aria-label={tr('Status')} value={filter} onChange={e=>{setFilter(e.target.value);setPage(1);}}>{['','uncontacted','overdue',...crm].map(s=><option key={s} value={s}>{tr(s||'All')}</option>)}</select>:null}
    {['dashboard','affairs'].includes(section)?<select aria-label={tr('Queue')} value={filter} onChange={e=>{setFilter(e.target.value);setPage(1);}}>{['','documents','visa','departures','progress',...(allowed('av8.finance.view')?['arrears','academy']:[])].map(s=><option key={s} value={s}>{tr(s||'All')}</option>)}</select>:null}

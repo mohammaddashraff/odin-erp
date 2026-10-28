@@ -28,11 +28,11 @@ export function Brand() {
   return (
     <span className="brand av8-brand" dir="ltr">
       <span className="brand-mark">
-        <Image className="brand-artwork" src="/brand/oss-geometric-eye-transparent.png" width={40} height={40} alt="" loading="eager" />
+        <Image className="brand-artwork" src="/brand/oss-geometric-eye-transparent.png" width={64} height={48} alt="" loading="eager" />
       </span>
       <span className="brand-copy">
-        <strong>OSS<span className="brand-dot">.</span><span className="brand-product"> / ERP</span></strong>
-        <small dir="auto">{tr("Built for AV8")}</small>
+        <strong>OSS<span className="brand-dot">.</span></strong>
+        <span className="brand-product"><b>ODIN ERP</b><small>Odin Software Solutions</small></span>
       </span>
     </span>
   );

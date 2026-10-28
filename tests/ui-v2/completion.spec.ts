@@ -12,7 +12,10 @@ test("unsaved POS cart survives cancelled navigation, language change and sign o
   await expect(page.locator(".cart-line")).toHaveCount(1);
   for (const action of [
     () => page.getByTestId("language-toggle").click(),
-    () => page.getByRole("button", { name: "Sign out", exact: true }).click(),
+    async () => {
+      await page.locator(".account-menu summary").click();
+      await page.getByRole("button", { name: "Sign out", exact: true }).click();
+    },
     async () => {
       await page.getByTestId("nav-sales").click();
       await page.getByTestId("nav-customers").click();
@@ -26,11 +29,13 @@ test("unsaved POS cart survives cancelled navigation, language change and sign o
     await expect(page.locator("html")).toHaveAttribute("lang", "en");
     await expect(page.locator(".cart-line")).toHaveCount(1);
   }
+  await page.getByTestId("nav-sales").click();
   page.once("dialog", (dialog) => dialog.accept());
   await page.getByTestId("nav-customers").click();
   await ready(page);
   await expect(page).toHaveURL(/sales\/customers$/);
-  await page.getByTestId("nav-pos").click();
+  await page.locator(".glass-more").click();
+  await page.getByTestId("nav-pos-workspace").click();
   await ready(page);
   await expect(page.locator(".cart-line")).toHaveCount(0);
 });
@@ -45,20 +50,21 @@ test("mobile navigation contains keyboard focus, hides closed controls and resto
       await page.getByTestId("language-toggle").click();
       await ready(page);
     }
-    const navigation = page.locator(".navigation");
-    await expect(navigation).toHaveAttribute("inert", "");
-    const menu = page.locator(".mobile-menu");
+    const navigation = page.locator(".glass-navigation");
+    await expect(navigation).toBeHidden();
+    const menu = page.locator(".glass-menu-toggle");
     await menu.click();
     await expect(navigation).toHaveAttribute("role", "dialog");
     await expect(navigation).toHaveAttribute("aria-modal", "true");
-    await expect(page.locator(".workspace")).toHaveAttribute("inert", "");
-    await expect(page.getByTestId("nav-command")).toBeFocused();
+    await expect(page.locator(".glass-workspace")).toHaveAttribute("inert", "");
+    const close = page.locator(".glass-mobile-title button");
+    await expect(close).toBeFocused();
     await page.getByTestId("nav-admin").focus();
     await page.keyboard.press("Tab");
-    await expect(page.locator(".nav-brand")).toBeFocused();
+    await expect(close).toBeFocused();
     await page.keyboard.press("Shift+Tab");
     await expect(page.getByTestId("nav-admin")).toBeFocused();
-    await expect(navigation).toHaveCSS("inset-inline-start", "0px");
+    await expect(navigation).toHaveCSS("inset-inline-start", "12px");
     const bounds = await navigation.boundingBox();
     expect(bounds!.x).toBeGreaterThanOrEqual(0);
     expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(390);
@@ -66,13 +72,13 @@ test("mobile navigation contains keyboard focus, hides closed controls and resto
       path: `docs/ui-v2/screenshots/navigation-${lang}-390.png`,
     });
     await page.keyboard.press("Escape");
-    await expect(navigation).not.toHaveClass(/mobile-open/);
+    await expect(navigation).not.toHaveClass(/is-open/);
     await expect(menu).toBeFocused();
-    await expect(navigation).toHaveAttribute("inert", "");
-    await expect(page.locator(".workspace")).not.toHaveAttribute("inert", "");
+    await expect(navigation).toBeHidden();
+    await expect(page.locator(".glass-workspace")).not.toHaveAttribute("inert", "");
   }
   await page.setViewportSize({ width: 1440, height: 900 });
-  await expect(page.locator(".navigation")).not.toHaveAttribute("inert", "");
+  await expect(page.locator(".glass-navigation")).toBeVisible();
 });
 
 test("200 percent desktop zoom equivalent keeps English and Arabic workflows operable", async ({

@@ -8,14 +8,15 @@ import "./accounting.css";
 import "./accounting-reports.css";
 import "./interface-polish.css";
 import "./administration.css";
+import "./glass.css";
 export const metadata: Metadata = {
   title: "AV8 ERP · ODIN Software Solutions",
   description: "Student operations for AV8, by ODIN Software Solutions",
   icons: { icon: "/brand/oss-geometric-eye-transparent.png" },
 };
 export const viewport: Viewport = {
-  colorScheme: "light",
-  themeColor: "#102747",
+  colorScheme: "dark",
+  themeColor: "#030c1d",
 };
 export default async function Layout({
   children,

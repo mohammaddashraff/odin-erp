@@ -2,6 +2,8 @@
 import AccountingNavigation from "../components/accounting-navigation";
 import { routeEntry } from "../core/navigation";
 import dynamic from "next/dynamic";
+import { useSearchParams } from "next/navigation";
+import { useERP } from "../core/erp-context";
 import { Loading } from "../components/ui";
 const AV8 = dynamic(() => import("./av8"), { loading: () => <Loading /> });
 const loading = () => <Loading />;
@@ -52,7 +54,10 @@ const Pos = dynamic(() => import("./pos"), { loading });
 const Administration = dynamic(() => import("./administration"), { loading });
 const Access = dynamic(() => import("./access"), { loading });
 export default function Screens({ route }: { route: string }) {
+  const { allowed } = useERP();
+  const daily = useSearchParams().get('view') === 'daily';
   const { child, module } = routeEntry(route);
+  if (route === '/dashboard' && allowed('dashboard.overview.view')) return daily ? <AV8 section="dashboard"/> : <Dashboard/>;
   if (module.id === "accounting") {
     const content =
       child.id === "accounting-overview" ? (
