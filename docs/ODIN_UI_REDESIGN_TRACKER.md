@@ -18,7 +18,8 @@ Shared components: permission-filtered horizontal AppShell and module disclosure
 - [x] ERP dashboard uses existing scoped document/KPI APIs; AV8 daily workspace retains its queue data and actions. No invented revenue or growth.
 - [x] Browser route sweep, representative nested interactions, RTL/mobile and visual refinement (fixture-backed; see verification limitations).
 - [x] Frontend production build and TypeScript; browser, formatting, permission, date and exact-money checks. Repository-wide checks remain blocked as documented.
-- [ ] Commit, push branch, open pull request. Never merge/deploy.
+- [x] Commit implementation (`1d5aae4`) and push `feature/odin-erp-glass-redesign` to GitHub.
+- [ ] Open pull request: `gh pr create --draft` was blocked by `Post https://api.github.com/graphql: Forbidden`. [Prepared PR description](ui-dark/PULL_REQUEST.md). No merge/deploy.
 
 ## Per-route inventory
 
