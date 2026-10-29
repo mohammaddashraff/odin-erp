@@ -127,6 +127,8 @@ export default function ThemeToggle({
             <Button
               key={option.value}
               className="theme-option"
+              aria-label={tr(option.label)}
+              title={tr(option.label)}
               aria-pressed={preference === option.value}
               onClick={() => setPreference(option.value)}
             >
