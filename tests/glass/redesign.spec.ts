@@ -1,7 +1,10 @@
 import { test, expect } from "@playwright/test";
+import { mkdirSync } from "node:fs";
 import { allRoutes, legacyRedirects } from "../../apps/web/src/core/navigation";
 import { fixture } from "./fixtures";
-const evidenceDir=process.env.ODIN_UI_EVIDENCE_DIR||"/tmp/odin-glass-evidence";
+const evidenceDir =
+  process.env.ODIN_UI_EVIDENCE_DIR || "test-results/glass/screenshots";
+mkdirSync(evidenceDir, { recursive: true });
 test("populated dashboard, navigation, filters, dialogs, RTL and responsive layout", async ({
   page,
 }) => {
@@ -175,7 +178,11 @@ test("permission-filtered menus and denied routes", async ({ page }) => {
   ).toHaveCount(0);
 });
 test("login validation and unknown route", async ({ page }) => {
-  await page.context().addCookies([{name:"av8_language",value:"en",url:"http://127.0.0.1:8180"}]);
+  await page
+    .context()
+    .addCookies([
+      { name: "av8_language", value: "en", url: "http://127.0.0.1:8180" },
+    ]);
   await page.goto("/login");
   await expect(page.getByTestId("login-email")).toBeVisible();
   await page.getByTestId("login-submit").click();
@@ -189,9 +196,15 @@ test("login validation and unknown route", async ({ page }) => {
   await expect(
     page.getByRole("heading", { name: /Page not found/ }),
   ).toBeVisible();
-  await page.context().addCookies([{name:"av8_language",value:"ar",url:"http://127.0.0.1:8180"}]);
+  await page
+    .context()
+    .addCookies([
+      { name: "av8_language", value: "ar", url: "http://127.0.0.1:8180" },
+    ]);
   await page.reload();
-  await expect(page.getByRole("heading", {name:"الصفحة غير موجودة"})).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "الصفحة غير موجودة" }),
+  ).toBeVisible();
 });
 test("student nested tabs, compact desktop, tablet and mobile remain usable", async ({
   page,

@@ -21,6 +21,7 @@
     "test:db": "npm exec --workspace @odin/api -- jest --runInBand --testPathPatterns=\"(?:database-controls|\\.database)\\.spec\\.ts$\"",
     "test:security": "npm exec --workspace @odin/api -- jest --runInBand --testPathPatterns=\"(?:permissions|authorization-denial\\.filter|mfa-security|deployment-config|request-logging\\.interceptor|access-governance|private-attachments(?:\\.database)?|company-governance\\.database|erp-authorization\\.database|payment-approval\\.database|database-controls|sales-workflow\\.database)\\.spec\\.ts$\"",
     "test:e2e": "playwright test",
+    "test:remediation": "playwright test -c playwright.remediation.config.ts",
     "db:generate": "npm run db:generate -w @odin/api",
     "db:validate": "prisma validate --schema apps/api/prisma/schema.prisma",
     "db:migrate": "npm run db:migrate -w @odin/api",
