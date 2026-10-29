@@ -24,17 +24,20 @@ import { useERP } from "../core/erp-context";
 import { cairoDateTime, cairoInstant } from '../core/cairo-time';
 import {statusTone} from '../core/ui-presentation';
 
-export function Brand() {
-  const { tr } = useERP();
+export function Brand({ compact = false }: { compact?: boolean }) {
   return (
-    <span className="brand av8-brand" dir="ltr">
+    <span className={`brand av8-brand ${compact ? "brand-compact" : ""}`} dir="ltr">
       <span className="brand-mark">
         <Image className="brand-artwork" src="/brand/oss-geometric-eye-transparent.png" width={64} height={48} alt="" loading="eager" />
       </span>
-      <span className="brand-copy">
-        <strong>OSS<span className="brand-dot">.</span></strong>
-        <span className="brand-product"><b>ODIN ERP</b><small>Odin Software Solutions</small></span>
-      </span>
+      {compact ? (
+        <strong className="brand-compact-name">ODIN ERP</strong>
+      ) : (
+        <span className="brand-copy">
+          <strong>OSS<span className="brand-dot">.</span></strong>
+          <span className="brand-product"><b>ODIN ERP</b><small>Odin Software Solutions</small></span>
+        </span>
+      )}
     </span>
   );
 }
@@ -68,12 +71,14 @@ export function PageHeader({
   children,
   back,
   literal = false,
+  showGuide = true,
 }: {
   title: string;
   subtitle?: string;
   children?: ReactNode;
   back?: () => void;
   literal?: boolean;
+  showGuide?: boolean;
 }) {
   const { tr } = useERP();
   const pathname = usePathname();
@@ -94,7 +99,7 @@ export function PageHeader({
       </div>
       <div className="actions">{children}</div>
     </header>
-    {guide ? <details className="page-guide"><summary>{tr("How to use this page")}</summary><p>{tr(guide)}</p></details> : null}
+    {showGuide && guide ? <details className="page-guide"><summary>{tr("How to use this page")}</summary><p>{tr(guide)}</p></details> : null}
     </>
   );
 }
@@ -160,16 +165,18 @@ export function Empty({
   filtered = false,
   children,
   description,
+  title,
 }: {
   filtered?: boolean;
   children?: ReactNode;
   description?: string;
+  title?: string;
 }) {
   const { tr } = useERP();
   return (
     <div className="empty">
       <strong>
-        {tr(filtered ? "No matching records" : "Nothing here yet")}
+        {tr(title || (filtered ? "No matching records" : "Nothing here yet"))}
       </strong>
       <p>
         {tr(

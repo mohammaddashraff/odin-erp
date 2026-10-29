@@ -15,7 +15,7 @@ const sizes = [
   [360, 800],
 ];
 async function settled(page: any) {
-  await expect(page.locator(".glass-header")).toBeVisible();
+  await expect(page.locator(".classic-toolbar")).toBeVisible();
   await expect(page.locator(".loading")).toHaveCount(0);
   await expect(page.locator("main")).not.toBeEmpty();
 }
@@ -158,9 +158,9 @@ for (const language of ["en", "ar"] as const) {
         await page
           .getByRole("button", { name: t("Menu", language), exact: true })
           .click();
-        await expect(page.locator(".glass-navigation")).toBeVisible();
+        await expect(page.locator(".classic-sidebar")).toBeVisible();
         await page.keyboard.press("Escape");
-        await expect(page.locator(".glass-menu-toggle")).toBeFocused();
+        await expect(page.locator(".classic-menu-control")).toBeFocused();
       }
       writeFileSync(
         evidencePath(`matrix-${language}-${width}.json`),

@@ -36,7 +36,7 @@ test("queue semantics, filtered-empty reset, exact sizes and count chart", async
   const heights = await page
     .locator(".av8-toolbar .search-field,.av8-toolbar select,.av8-toolbar .btn")
     .evaluateAll((es) => es.map((e) => e.getBoundingClientRect().height));
-  expect(heights.every((h) => h === 44)).toBe(true);
+  expect(heights.every((h) => h === 40)).toBe(true);
   await page.getByRole("searchbox").fill("no result");
   await expect(page.getByText("No matching records")).toBeVisible();
   await page.getByRole("button", { name: "Reset filters" }).first().click();
@@ -46,7 +46,7 @@ test("queue semantics, filtered-empty reset, exact sizes and count chart", async
   const sizes = await page
     .locator(".glass-metric")
     .evaluateAll((es) => es.map((e) => e.getBoundingClientRect().height));
-  expect(sizes.every((h) => h >= 145 && h <= 180)).toBe(true);
+  expect(sizes.every((h) => h >= 118 && h <= 150)).toBe(true);
   expect(
     await page.locator(".glass-chart-grid span").allTextContents(),
   ).toEqual(["3", "2", "1", "0"]);
@@ -334,15 +334,13 @@ test("bilingual page search, no results, keyboard navigation, bounded menus and 
   await page.keyboard.press("Enter");
   await expect(page).toHaveURL(/av8\/leads/);
   await page.setViewportSize({ width: 1024, height: 768 });
-  await page.getByRole("button", { name: "More", exact: true }).click();
-  const menu = page.locator("#glass-more-pages");
+  await page.getByTestId("nav-sales").click();
+  const menu = page.locator("#classic-pages-sales");
   await expect(menu).toBeVisible();
   const box = await menu.boundingBox();
   expect(box!.y + box!.height).toBeLessThanOrEqual(768);
   await page.keyboard.press("Escape");
-  await expect(
-    page.getByRole("button", { name: "More", exact: true }),
-  ).toBeFocused();
+  await expect(page.getByTestId("nav-sales")).toBeFocused();
 });
 test("pure display semantics and form snapshots retain unknown and missing information", () => {
   expect(statusTone("CLOSED")).toBe("neutral");
@@ -398,7 +396,7 @@ test("session restoration, refresh expiry and language switching use existing au
   await expect(page.locator("html")).toHaveAttribute("lang", "ar");
   await expect(page.locator(".loading")).toHaveCount(0);
   await page.reload();
-  await expect(page.locator(".glass-header")).toBeVisible();
+  await expect(page.locator(".classic-toolbar")).toBeVisible();
   await expect(page.locator("html")).toHaveAttribute("lang", "ar");
   await page.route("**/api/auth/me", (r) =>
     r.fulfill({ status: 401, json: { message: "Invalid session" } }),
@@ -407,6 +405,6 @@ test("session restoration, refresh expiry and language switching use existing au
     r.fulfill({ status: 401, json: { message: "Session expired" } }),
   );
   await page.reload();
-  await expect(page.locator(".glass-header")).toHaveCount(0);
+  await expect(page.locator(".classic-toolbar")).toHaveCount(0);
   await expect(page.locator("input[type=password]").first()).toBeVisible();
 });

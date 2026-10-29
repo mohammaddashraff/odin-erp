@@ -8,6 +8,10 @@ for (const language of ["en", "ar"] as const)
     context,
   }) => {
     await reviewFixture(page, language);
+    await page.addInitScript(() => {
+      if (!localStorage.getItem("odin-theme"))
+        localStorage.setItem("odin-theme", "dark");
+    });
     const writes: string[] = [];
     page.on("request", (r) => {
       if (r.url().includes("/api/") && r.method() !== "GET")
@@ -30,7 +34,7 @@ for (const language of ["en", "ar"] as const)
     await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
     expect(
       await page.evaluate(() => getComputedStyle(document.body).color),
-    ).toBe("rgb(21, 43, 73)");
+    ).toBe("rgb(23, 36, 58)");
     await page.screenshot({
       path: evidencePath("themes", `dashboard-light-${language}.png`),
     });
@@ -70,3 +74,30 @@ for (const language of ["en", "ar"] as const)
     await page.getByTestId("theme-toggle").click();
     await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
   });
+
+test("system theme follows live operating-system changes", async ({ page }) => {
+  await page.emulateMedia({ colorScheme: "dark" });
+  await reviewFixture(page);
+  await page.addInitScript(() => localStorage.setItem("odin-theme", "system"));
+  await page.goto("/dashboard");
+  await expect(page.locator("html")).toHaveAttribute(
+    "data-theme-preference",
+    "system",
+  );
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+  await page.emulateMedia({ colorScheme: "light" });
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
+  await page.getByLabel("Account menu").click();
+  await expect(
+    page.getByTestId("theme-selector").getByRole("button", { name: "System" }),
+  ).toHaveAttribute("aria-pressed", "true");
+  await page
+    .getByTestId("theme-selector")
+    .getByRole("button", { name: "Dark" })
+    .click();
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+  await expect(page.locator("html")).toHaveAttribute(
+    "data-theme-preference",
+    "dark",
+  );
+});
