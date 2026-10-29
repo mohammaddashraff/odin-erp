@@ -62,7 +62,7 @@ export function RevenueChart({ documents }: { documents: any[] }) {
   return (
     <Panel
       className="glass-revenue"
-      title="Revenue Analytics"
+      title="Revenue overview"
       actions={
         <div className="actions">
           <ChartNoAxesCombined className="glass-section-icon" size={21} />
@@ -158,7 +158,17 @@ export function RevenueChart({ documents }: { documents: any[] }) {
           <details className="chart-data"><summary>{tr('View monthly values')}</summary><dl>{totals.map((value,index)=><div key={index}><dt>{new Intl.DateTimeFormat(language==='ar'?'ar-EG':'en-GB',{month:'long',timeZone:'UTC'}).format(new Date(Date.UTC(Number(year),index,1)))}</dt><dd><bdi>{money(value,currency)}</bdi></dd></div>)}</dl></details>
         </div>
       ) : (
-        <Empty />
+        <div className="classic-dashboard-empty">
+          <div>
+            <span className="classic-dashboard-empty-icon">
+              <ChartNoAxesCombined size={21} />
+            </span>
+            <Empty
+              title="No posted sales yet"
+              description="Invoices and sales will appear here when you start recording transactions."
+            />
+          </div>
+        </div>
       )}
       <p className="glass-chart-caption">
         {tr("Latest 200 accessible documents · posted amounts by currency")}

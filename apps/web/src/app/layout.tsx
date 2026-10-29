@@ -10,14 +10,15 @@ import "./interface-polish.css";
 import "./administration.css";
 import "./glass.css";
 import "./themes.css";
+import "./classic-shell.css";
 export const metadata: Metadata = {
   title: "AV8 ERP · ODIN Software Solutions",
   description: "Student operations for AV8, by ODIN Software Solutions",
   icons: { icon: "/brand/oss-geometric-eye-transparent.png" },
 };
 export const viewport: Viewport = {
-  colorScheme: "dark light",
-  themeColor: "#030c1d",
+  colorScheme: "light dark",
+  themeColor: "#f5f7fb",
 };
 export default async function Layout({
   children,
@@ -26,8 +27,21 @@ export default async function Layout({
 }) {
   const language = await getRequestLanguage();
   return (
-    <html lang={language} dir={language === "ar" ? "rtl" : "ltr"} data-theme="dark" suppressHydrationWarning>
-      <head><script dangerouslySetInnerHTML={{__html:"try{document.documentElement.dataset.theme=localStorage.getItem('odin-theme')==='light'?'light':'dark'}catch{}"}}/></head>
+    <html
+      lang={language}
+      dir={language === "ar" ? "rtl" : "ltr"}
+      data-theme="light"
+      data-theme-preference="system"
+      suppressHydrationWarning
+    >
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html:
+              "try{var r=document.documentElement,p=localStorage.getItem('odin-theme');p=p==='light'||p==='dark'||p==='system'?p:'system';var d=p==='system'?(matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light'):p;r.dataset.theme=d;r.dataset.themePreference=p;r.style.colorScheme=d;var m=document.querySelector('meta[name=theme-color]');if(m)m.content=d==='dark'?'#0b1220':'#f5f7fb'}catch(e){}",
+          }}
+        />
+      </head>
       <body>
         <SessionProvider>
           <ERPProvider initialLanguage={language}>{children}</ERPProvider>

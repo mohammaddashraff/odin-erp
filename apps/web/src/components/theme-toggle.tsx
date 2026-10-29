@@ -1,74 +1,156 @@
 "use client";
+
 import { useEffect, useState } from "react";
-import { Moon, Sun } from "lucide-react";
+import { Laptop, Moon, Sun } from "lucide-react";
 import { useERP } from "../core/erp-context";
 import { Button } from "./ui";
 
-type Theme = "dark" | "light";
+export type ThemePreference = "light" | "dark" | "system";
+type ResolvedTheme = "light" | "dark";
 
 const storageKey = "odin-theme";
-const themeColors: Record<Theme, string> = {
-  dark: "#030c1d",
-  light: "#edf3fb",
+const themeColors: Record<ResolvedTheme, string> = {
+  dark: "#0b1220",
+  light: "#f5f7fb",
 };
 
-function currentTheme(): Theme {
-  return document.documentElement.dataset.theme === "light" ? "light" : "dark";
+function validPreference(value: string | null): ThemePreference {
+  return value === "light" || value === "dark" || value === "system"
+    ? value
+    : "system";
 }
 
-function applyTheme(theme: Theme) {
-  document.documentElement.dataset.theme = theme;
+function resolvedTheme(preference: ThemePreference): ResolvedTheme {
+  if (preference !== "system") return preference;
+  return window.matchMedia("(prefers-color-scheme: dark)").matches
+    ? "dark"
+    : "light";
+}
+
+export function applyThemePreference(preference: ThemePreference) {
+  const resolved = resolvedTheme(preference);
+  const root = document.documentElement;
+  root.dataset.theme = resolved;
+  root.dataset.themePreference = preference;
+  root.style.colorScheme = resolved;
   document
     .querySelector('meta[name="theme-color"]')
-    ?.setAttribute("content", themeColors[theme]);
+    ?.setAttribute("content", themeColors[resolved]);
+  return resolved;
 }
 
-export default function ThemeToggle() {
-  const { tr } = useERP();
-  const [theme, setTheme] = useState<Theme>("dark");
+function storedPreference() {
+  try {
+    return validPreference(localStorage.getItem(storageKey));
+  } catch {
+    return "system" as const;
+  }
+}
+
+function setStoredPreference(preference: ThemePreference) {
+  try {
+    localStorage.setItem(storageKey, preference);
+  } catch {
+    /* The preference still applies for this page when storage is unavailable. */
+  }
+  applyThemePreference(preference);
+  window.dispatchEvent(
+    new CustomEvent<ThemePreference>("odin:theme-change", {
+      detail: preference,
+    }),
+  );
+}
+
+function useThemePreference() {
+  const [preference, setPreference] = useState<ThemePreference>("system");
+  const [resolved, setResolved] = useState<ResolvedTheme>("light");
+
   useEffect(() => {
-    const sync = () => {
-      const next = currentTheme();
-      applyTheme(next);
-      setTheme(next);
+    const media = window.matchMedia("(prefers-color-scheme: dark)");
+    const sync = (next = storedPreference()) => {
+      setPreference(next);
+      setResolved(applyThemePreference(next));
     };
+    const systemChanged = () => {
+      if (storedPreference() === "system") sync("system");
+    };
+    const themeChanged = (event: Event) =>
+      sync((event as CustomEvent<ThemePreference>).detail || storedPreference());
+    const storageChanged = (event: StorageEvent) => {
+      if (event.key === storageKey) sync(validPreference(event.newValue));
+    };
+
     sync();
-    const stored = (event: StorageEvent) => {
-      if (event.key === storageKey) {
-        const next = event.newValue === "light" ? "light" : "dark";
-        applyTheme(next);
-        setTheme(next);
-      }
-    };
-    window.addEventListener("odin:theme-change", sync);
-    window.addEventListener("storage", stored);
+    media.addEventListener("change", systemChanged);
+    window.addEventListener("odin:theme-change", themeChanged);
+    window.addEventListener("storage", storageChanged);
     return () => {
-      window.removeEventListener("odin:theme-change", sync);
-      window.removeEventListener("storage", stored);
+      media.removeEventListener("change", systemChanged);
+      window.removeEventListener("odin:theme-change", themeChanged);
+      window.removeEventListener("storage", storageChanged);
     };
   }, []);
+
+  return { preference, resolved, setPreference: setStoredPreference };
+}
+
+export default function ThemeToggle({
+  variant = "quick",
+  compact = false,
+}: {
+  variant?: "quick" | "selector";
+  compact?: boolean;
+}) {
+  const { tr } = useERP();
+  const { preference, resolved, setPreference } = useThemePreference();
+
+  if (variant === "selector") {
+    const options: Array<{
+      value: ThemePreference;
+      label: string;
+      icon: typeof Sun;
+    }> = [
+      { value: "light", label: "Light", icon: Sun },
+      { value: "dark", label: "Dark", icon: Moon },
+      { value: "system", label: "System", icon: Laptop },
+    ];
+    return (
+      <div
+        className="theme-selector"
+        data-testid="theme-selector"
+        role="group"
+        aria-label={tr("Appearance")}
+      >
+        {options.map((option) => {
+          const Icon = option.icon;
+          return (
+            <Button
+              key={option.value}
+              className="theme-option"
+              aria-pressed={preference === option.value}
+              onClick={() => setPreference(option.value)}
+            >
+              <Icon size={16} />
+              <span>{tr(option.label)}</span>
+            </Button>
+          );
+        })}
+      </div>
+    );
+  }
+
   const label =
-    theme === "dark" ? "Switch to light mode" : "Switch to dark mode";
+    resolved === "dark" ? "Switch to light mode" : "Switch to dark mode";
   return (
     <Button
-      className="theme-toggle"
+      className={`theme-toggle ${compact ? "theme-toggle-compact" : ""}`}
       data-testid="theme-toggle"
       title={tr(label)}
       aria-label={tr(label)}
-      onClick={() => {
-        const next = theme === "dark" ? "light" : "dark";
-        applyTheme(next);
-        setTheme(next);
-        try {
-          localStorage.setItem(storageKey, next);
-        } catch {
-          /* The control still works when browser storage is disabled. */
-        }
-        window.dispatchEvent(new Event("odin:theme-change"));
-      }}
+      onClick={() => setPreference(resolved === "dark" ? "light" : "dark")}
     >
-      {theme === "dark" ? <Sun size={18} /> : <Moon size={18} />}
-      <span>{tr(label)}</span>
+      {resolved === "dark" ? <Sun size={18} /> : <Moon size={18} />}
+      {compact ? null : <span>{tr(label)}</span>}
     </Button>
   );
 }

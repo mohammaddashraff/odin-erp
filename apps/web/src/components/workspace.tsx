@@ -1,37 +1,61 @@
 "use client";
+
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import {
-  LayoutDashboard,
-  ShoppingCart,
-  Package,
-  Users,
-  Store,
-  Landmark,
-  WalletCards,
-  ReceiptText,
-  ShieldCheck,
-  ChartNoAxesCombined,
-  Settings,
-  ClipboardCheck,
-  Menu,
-  ChevronDown,
-  LogOut,
-  Globe,
-  X,
-  Search,
   ArrowRight,
+  Box,
+  Building2,
+  ChartNoAxesCombined,
+  ChevronDown,
+  ChevronRight,
+  ClipboardCheck,
+  Globe,
+  Landmark,
+  LayoutDashboard,
+  LogOut,
+  Menu,
+  Package,
+  PanelLeftClose,
+  PanelLeftOpen,
+  ReceiptText,
+  Search,
+  Settings,
+  ShoppingCart,
+  Store,
+  Users,
+  WalletCards,
+  X,
+  type LucideIcon,
 } from "lucide-react";
-import { modules, allRoutes, routeEntry } from "../core/navigation";
+import {
+  allRoutes,
+  modules,
+  routeEntry,
+  type ModuleDefinition,
+  type ModuleId,
+  type RouteDefinition,
+} from "../core/navigation";
 import { useERP } from "../core/erp-context";
-import { Brand, Button, Dialog, SearchField, ErrorNotice, Loading, Empty } from "./ui";
-import { t } from '../core/i18n';
+import {
+  Brand,
+  Button,
+  Dialog,
+  Empty,
+  ErrorNotice,
+  Loading,
+  SearchField,
+} from "./ui";
+import { t } from "../core/i18n";
 import Login from "./login";
-import ThemeToggle from './theme-toggle';
+import ThemeToggle from "./theme-toggle";
 import Screens from "../screens";
 import { PasswordChange } from "../screens/administration";
-const icons = {
-  av8: Users,
+
+const sidebarStorageKey = "odin-sidebar-collapsed";
+
+const icons: Record<ModuleId, LucideIcon> = {
+  av8: Box,
   command: LayoutDashboard,
   sales: ReceiptText,
   purchasing: ShoppingCart,
@@ -44,6 +68,41 @@ const icons = {
   reports: ChartNoAxesCombined,
   admin: Settings,
 };
+
+const sidebarLabels: Partial<Record<ModuleId, string>> = {
+  command: "Dashboard",
+  purchasing: "Purchasing",
+  inventory: "Inventory",
+  accounting: "Finance",
+  banking: "Cash & Bank",
+  approvals: "Approvals",
+  reports: "Reports",
+  pos: "POS",
+  admin: "Users & settings",
+};
+
+const navigationGroups: Array<{
+  label: string;
+  modules: ModuleId[];
+}> = [
+  { label: "WORKSPACE", modules: ["command", "av8"] },
+  {
+    label: "BUSINESS",
+    modules: [
+      "sales",
+      "inventory",
+      "purchasing",
+      "accounting",
+      "banking",
+      "approvals",
+      "reports",
+      "hr",
+      "pos",
+    ],
+  },
+  { label: "SYSTEM", modules: ["admin"] },
+];
+
 export default function Workspace({ route }: { route: string }) {
   const {
     status,
@@ -59,38 +118,28 @@ export default function Workspace({ route }: { route: string }) {
     notices,
   } = useERP();
   const current = routeEntry(route);
-  const [expanded, setExpanded] = useState("");
+  const [expanded, setExpanded] = useState<string>(current.module.id);
+  const [collapsed, setCollapsed] = useState(false);
   const [mobile, setMobile] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [query, setQuery] = useState("");
   const navigation = useRef<HTMLElement>(null);
-  const measurements = useRef<HTMLDivElement>(null);
-  const [fitCount, setFitCount] = useState(2);
   const menuButton = useRef<HTMLButtonElement>(null);
+
   useEffect(() => {
-    const nav = navigation.current, measure = measurements.current;
-    if (!nav || !measure) return;
-    const fit = () => {
-      const widths = Array.from(measure.children, e => e.getBoundingClientRect().width);
-      const more = widths.pop() || 110;
-      const available = nav.clientWidth;
-      let used = 0, count = 0;
-      for (const width of widths) {
-        const reserve = count === widths.length - 1 ? 0 : more + 6;
-        if (used + width + reserve > available) break;
-        used += width + 6; count++;
-      }
-      setFitCount(Math.max(1, count));
-    };
-    const observer = new ResizeObserver(fit);
-    observer.observe(nav); observer.observe(measure); fit();
-    return () => observer.disconnect();
-  }, [status, user, language]);
+    try {
+      setCollapsed(localStorage.getItem(sidebarStorageKey) === "true");
+    } catch {
+      /* Keep the expanded default when browser storage is unavailable. */
+    }
+  }, []);
+
   useEffect(() => {
-    setExpanded("");
+    setExpanded(current.module.id);
     setMobile(false);
     setSearchOpen(false);
-  }, [route]);
+  }, [current.module.id, route]);
+
   useEffect(() => {
     const desktop = window.matchMedia("(min-width: 801px)");
     const closeDrawer = () => {
@@ -99,32 +148,29 @@ export default function Workspace({ route }: { route: string }) {
     desktop.addEventListener("change", closeDrawer);
     return () => desktop.removeEventListener("change", closeDrawer);
   }, []);
-  useEffect(() => {
-    const close = (event: PointerEvent) => {
-      if (!navigation.current?.contains(event.target as Node)) setExpanded("");
-    };
-    document.addEventListener("pointerdown", close);
-    return () => document.removeEventListener("pointerdown", close);
-  }, []);
+
   useEffect(() => {
     if (!mobile) return;
-    const previous = document.activeElement as HTMLElement;
+    const previous = document.activeElement as HTMLElement | null;
     const overflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
-    navigation.current?.querySelector<HTMLElement>("button, a")?.focus();
+    navigation.current
+      ?.querySelector<HTMLElement>("button:not([disabled]),a[href]")
+      ?.focus();
     const trap = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
+        event.preventDefault();
         setMobile(false);
         return;
       }
       if (event.key !== "Tab") return;
       const controls = [
         ...(navigation.current?.querySelectorAll<HTMLElement>(
-          "a[href],button",
+          "a[href],button:not([disabled])",
         ) || []),
-      ].filter((e) => e.getClientRects().length);
-      const first = controls[0],
-        last = controls.at(-1);
+      ].filter((element) => element.getClientRects().length > 0);
+      const first = controls[0];
+      const last = controls.at(-1);
       if (event.shiftKey && document.activeElement === first) {
         event.preventDefault();
         last?.focus();
@@ -137,20 +183,21 @@ export default function Workspace({ route }: { route: string }) {
     return () => {
       document.body.style.overflow = overflow;
       document.removeEventListener("keydown", trap);
-      if (menuButton.current?.getClientRects().length)
-        menuButton.current.focus();
-      else if (previous.isConnected) previous.focus();
+      if (menuButton.current?.getClientRects().length) menuButton.current.focus();
+      else if (previous?.isConnected) previous.focus();
     };
   }, [mobile]);
-  if (status === "restoring")
+
+  if (status === "restoring") {
     return (
       <div className="session-loading">
         <Brand />
         <Loading label="Restoring your session…" />
       </div>
     );
+  }
   if (!user) return <Login />;
-  if (user.passwordChangeRequired)
+  if (user.passwordChangeRequired) {
     return (
       <div className="temporary-password-page">
         <Brand />
@@ -158,289 +205,355 @@ export default function Workspace({ route }: { route: string }) {
         <Button onClick={endSession}>{tr("Sign out")}</Button>
       </div>
     );
-  const order = [
-    "command",
-    "av8",
-    "sales",
-    "inventory",
-    "purchasing",
-    "accounting",
-    "banking",
-    "approvals",
-    "reports",
-    "hr",
-    "pos",
-    "admin",
-  ];
-  const visible = [...modules]
-    .sort((a, b) => order.indexOf(a.id) - order.indexOf(b.id))
-    .filter((m) => m.children.some((c) => allowed(c.permission)));
-  const activeModule = visible.find((m) => m.id === expanded);
+  }
+
+  const moduleChildren = (module: ModuleDefinition) => {
+    const children = allRoutes
+      .filter(
+        (entry) =>
+          entry.module.id === module.id && allowed(entry.child.permission),
+      )
+      .map((entry) => entry.child);
+    if (module.id === "av8" && allowed("av8.workspace.view")) {
+      return [
+        {
+          id: "av8-daily",
+          label: "Daily workspace",
+          route: "/dashboard?view=daily",
+          permission: "av8.workspace.view",
+          namespace: "av8",
+          screen: "av8",
+        } as RouteDefinition,
+        ...children,
+      ];
+    }
+    return children;
+  };
+
+  const visible = modules.filter((module) => moduleChildren(module).length > 0);
+  const visibleById = new Map(visible.map((module) => [module.id, module]));
+  const normalizedQuery = query
+    .trim()
+    .normalize("NFKC")
+    .toLocaleLowerCase();
   const destinations = allRoutes.filter(
     ({ child }) =>
       allowed(child.permission) &&
-      [t(child.label,'en'), t(child.label,'ar'), child.route.replaceAll('/',' ')].some(label => label.normalize('NFKC').toLocaleLowerCase().includes(query.trim().normalize('NFKC').toLocaleLowerCase())),
+      [t(child.label, "en"), t(child.label, "ar"), child.route.replaceAll("/", " ")].some(
+        (label) =>
+          label.normalize("NFKC").toLocaleLowerCase().includes(normalizedQuery),
+      ),
   );
+
+  const setSidebarCollapsed = (next: boolean) => {
+    setCollapsed(next);
+    try {
+      localStorage.setItem(sidebarStorageKey, String(next));
+    } catch {
+      /* Collapsing still works for this page when storage is unavailable. */
+    }
+  };
+
+  const closeAfterNavigation = () => setMobile(false);
+
   return (
-    <div className="glass-shell">
+    <div
+      className={`classic-shell ${collapsed ? "sidebar-collapsed" : ""} ${mobile ? "drawer-open" : ""}`}
+    >
       <a className="skip" href="#main">
         {tr("Skip to content")}
       </a>
-      <header className="glass-header context-bar" inert={mobile}>
-        <Link
-          href="/dashboard"
-          className="glass-brand-link"
-          aria-label="ODIN ERP"
-        >
-          <Brand />
-        </Link>
-        <div className="company-context">
-          <span>{tr("Current company")}</span>
-          <strong>
-            {tr(
-              (refs?.tenant?.name || "—").replace(
-                /\s*·?\s*isolated workspace/i,
-                "",
-              ),
-            )}
-          </strong>
-        </div>
-        <div className="context-actions">
+
+      <aside
+        ref={navigation}
+        id="workspace-navigation"
+        className="classic-sidebar"
+        role={mobile ? "dialog" : undefined}
+        aria-modal={mobile || undefined}
+        aria-label={tr("ERP modules")}
+        onKeyDown={(event) => {
+          if (event.key !== "Escape" || mobile || !expanded) return;
+          const trigger = navigation.current?.querySelector<HTMLElement>(
+            `[data-testid="nav-${expanded}"]`,
+          );
+          setExpanded("");
+          trigger?.focus();
+        }}
+      >
+        <div className="classic-sidebar-brand">
+          <Link href="/dashboard" aria-label="ODIN ERP" onClick={closeAfterNavigation}>
+            <Brand compact />
+          </Link>
           <Button
-            className="round-control"
-            aria-label={tr("Search pages")}
-            onClick={() => setSearchOpen(true)}
+            className="classic-drawer-close"
+            aria-label={tr("Close navigation")}
+            onClick={() => setMobile(false)}
           >
-            <Search size={19} />
+            <X size={19} />
           </Button>
-          <Button data-testid="language-toggle" aria-label={tr(language === 'en' ? 'Switch to Arabic' : 'Switch to English')} title={tr(language === 'en' ? 'Switch to Arabic' : 'Switch to English')} onClick={changeLanguage}>
-            <Globe size={18} />
-            <span>{language === "en" ? "العربية" : "English"}</span>
-          </Button>
-          <details className="account-menu">
-            <summary aria-label={tr("Account menu")}>
-              <span className="initials">{user.name.slice(0, 2)}</span>
-              <span className="account-name">{user.name}</span>
-              <ChevronDown size={14} />
-            </summary>
-            <div className="account-menu-panel">
-              <Link href="/my-profile">{tr("My Profile")}</Link>
-              <ThemeToggle/>
-              <Button onClick={endSession}>
-                <LogOut size={16} />
-                {tr("Sign out")}
-              </Button>
-            </div>
-          </details>
-          <button
-            ref={menuButton}
-            className="btn glass-menu-toggle"
-            aria-label={tr("Menu")}
-            aria-expanded={mobile}
-            aria-controls="workspace-navigation"
-            onClick={() => setMobile(!mobile)}
-          >
-            <Menu size={20} />
-          </button>
         </div>
-      </header>
+
+        <div className="classic-workspace-context" title={refs?.tenant?.name || ""}>
+          <Building2 size={19} />
+          <span>
+            <small>{tr("Current company")}</small>
+            <strong>{refs?.tenant?.name || "—"}</strong>
+          </span>
+        </div>
+
+        <nav className="classic-nav-scroll" aria-label={tr("ERP modules")}>
+          {navigationGroups.map((group) => {
+            const groupModules = group.modules
+              .map((id) => visibleById.get(id))
+              .filter(Boolean) as ModuleDefinition[];
+            if (!groupModules.length) return null;
+            return (
+              <section className="classic-nav-group" key={group.label}>
+                <h2>{tr(group.label)}</h2>
+                <ul>
+                  {groupModules.map((module) => {
+                    const Icon = icons[module.id];
+                    const children = moduleChildren(module);
+                    const selected = current.module.id === module.id;
+                    const open = expanded === module.id;
+                    const label = tr(sidebarLabels[module.id] || module.label);
+                    return (
+                      <li
+                        className={`classic-nav-module ${selected ? "selected" : ""}`}
+                        key={module.id}
+                      >
+                        {children.length === 1 ? (
+                          <Link
+                            className="classic-nav-row"
+                            data-testid={`nav-${module.id}`}
+                            href={children[0].route}
+                            aria-current={selected ? "page" : undefined}
+                            aria-label={label}
+                            onClick={closeAfterNavigation}
+                          >
+                            <Icon size={19} />
+                            <span className="classic-nav-label">{label}</span>
+                            <span className="classic-tooltip" aria-hidden="true">
+                              {label}
+                            </span>
+                          </Link>
+                        ) : (
+                          <button
+                            type="button"
+                            className="classic-nav-row"
+                            data-testid={`nav-${module.id}`}
+                            aria-expanded={open}
+                            aria-controls={`classic-pages-${module.id}`}
+                            aria-label={label}
+                            onClick={() => setExpanded(open ? "" : module.id)}
+                          >
+                            <Icon size={19} />
+                            <span className="classic-nav-label">{label}</span>
+                            <ChevronDown size={15} />
+                            <span className="classic-tooltip" aria-hidden="true">
+                              {label}
+                            </span>
+                          </button>
+                        )}
+
+                        {children.length > 1 && open ? (
+                          <div
+                            className="classic-nav-children"
+                            id={`classic-pages-${module.id}`}
+                          >
+                            <strong>{label}</strong>
+                            {children.map((child) => {
+                              const childActive =
+                                current.child.id === child.id || route === child.route;
+                              return (
+                                <Link
+                                  href={child.route}
+                                  key={child.id}
+                                  data-testid={`nav-${child.id}`}
+                                  aria-current={childActive ? "page" : undefined}
+                                  onClick={closeAfterNavigation}
+                                >
+                                  <span>{tr(child.label)}</span>
+                                  <ChevronRight size={14} />
+                                </Link>
+                              );
+                            })}
+                          </div>
+                        ) : null}
+                      </li>
+                    );
+                  })}
+                </ul>
+              </section>
+            );
+          })}
+        </nav>
+
+        <div className="classic-sidebar-footer">
+          <Button
+            className="classic-collapse-control"
+            data-testid="sidebar-collapse"
+            aria-label={tr(collapsed ? "Expand sidebar" : "Collapse sidebar")}
+            aria-pressed={collapsed}
+            onClick={() => setSidebarCollapsed(!collapsed)}
+          >
+            {collapsed ? <PanelLeftOpen size={18} /> : <PanelLeftClose size={18} />}
+            <span>{tr(collapsed ? "Expand sidebar" : "Collapse sidebar")}</span>
+          </Button>
+        </div>
+      </aside>
+
       {mobile ? (
         <button
-          className="glass-nav-scrim"
-          aria-label={tr("Close")}
+          className="classic-sidebar-backdrop"
+          aria-label={tr("Close navigation")}
           tabIndex={-1}
           onClick={() => setMobile(false)}
         />
       ) : null}
-      <nav
-        ref={navigation}
-        id="workspace-navigation"
-        className={`glass-navigation ${mobile ? "is-open" : ""}`}
-        role={mobile ? "dialog" : undefined}
-        aria-modal={mobile ? true : undefined}
-        aria-label={tr("ERP modules")}
-        onKeyDown={(event) => {
-          if (event.key === "Escape") {
-            const trigger = navigation.current?.querySelector<HTMLElement>(
-              '[aria-expanded="true"]',
-            );
-            setExpanded("");
-            trigger?.focus();
-          }
-        }}
-      >
-        <div ref={measurements} className="glass-nav-measure" aria-hidden="true" inert>
-          {visible.map(m => {const Icon=icons[m.id];return <span key={m.id} className="glass-nav-item"><Icon size={19}/><span>{tr(m.id==='command'?'Dashboard Overview':m.label)}</span>{m.children.filter(c=>allowed(c.permission)).length>1?<ChevronDown size={14}/>:null}</span>;})}
-          <span className="glass-nav-item"><Menu size={19}/>{tr('More')}<ChevronDown size={14}/></span>
-        </div>
-        <div className="glass-mobile-title">
-          <Brand />
-          <Button
-            aria-label={tr("Close navigation")}
-            onClick={() => setMobile(false)}
+
+      <div className="classic-main" inert={mobile}>
+        <header className="classic-toolbar">
+          <button
+            ref={menuButton}
+            className="btn classic-menu-control"
+            aria-label={tr("Menu")}
+            aria-expanded={mobile}
+            aria-controls="workspace-navigation"
+            onClick={() => setMobile(true)}
           >
-            <X size={20} />
+            <Menu size={20} />
+          </button>
+          <Button
+            className="classic-toolbar-collapse"
+            data-testid="sidebar-toggle"
+            aria-label={tr(collapsed ? "Expand sidebar" : "Collapse sidebar")}
+            aria-pressed={collapsed}
+            onClick={() => setSidebarCollapsed(!collapsed)}
+          >
+            {collapsed ? <PanelLeftOpen size={18} /> : <PanelLeftClose size={18} />}
           </Button>
-        </div>
-        <div className="glass-nav-items">
-          {visible.map((m, index) => {
-            const Icon = icons[m.id],
-              children = m.children.filter((c) => allowed(c.permission)),
-              selected = m.id === current.module.id;
-            const label =
-              m.id === "command" ? tr("Dashboard Overview") : tr(m.label);
-            return children.length === 1 ? (
-              <Link
-                key={m.id}
-                className={`glass-nav-item ${selected ? "selected" : ""} ${index >= fitCount ? "glass-nav-overflow" : ""}`}
-                data-testid={`nav-${m.id}`}
-                href={children[0].route}
-                aria-current={selected ? "page" : undefined}
-                onClick={() => setMobile(false)}
-              >
-                <Icon size={19} />
-                <span>{label}</span>
-              </Link>
+
+          <nav className="classic-page-context" aria-label={tr("Breadcrumbs")}>
+            {route === "/dashboard" ? (
+              <strong>{tr("Dashboard")}</strong>
             ) : (
-              <button
-                key={m.id}
-                type="button"
-                className={`glass-nav-item ${selected ? "selected" : ""} ${index >= fitCount ? "glass-nav-overflow" : ""}`}
-                data-testid={`nav-${m.id}`}
-                aria-expanded={expanded === m.id}
-                aria-controls={
-                  expanded === m.id ? "glass-module-pages" : undefined
-                }
-                onClick={() => setExpanded(expanded === m.id ? "" : m.id)}
-              >
-                <Icon size={19} />
-                <span>{label}</span>
-                <ChevronDown size={14} />
-              </button>
-            );
-          })}
-          {visible.length > fitCount ? (
-            <button
-              className={`glass-nav-item glass-more ${visible.slice(fitCount).some((m) => m.id === current.module.id) ? "selected" : ""}`}
-              aria-expanded={expanded === "more"}
-              aria-controls={
-                expanded === "more" ? "glass-more-pages" : undefined
-              }
-              onClick={() => setExpanded(expanded === "more" ? "" : "more")}
-            >
-              <Menu size={19} />
-              {tr("More")}
-              <ChevronDown size={14} />
-            </button>
-          ) : null}
-        </div>
-        {expanded === "more" ? (
-          <div id="glass-more-pages" className="glass-module-pages">
-            <div>
-              {visible.slice(fitCount).map((m) => (
-                <section key={m.id}>
-                  <h2>{tr(m.label)}</h2>
-                  {m.children
-                    .filter((c) => allowed(c.permission))
-                    .map((c) => (
-                      <Link
-                        href={c.route}
-                        key={c.id}
-                        data-testid={`nav-${c.id}`}
-                        aria-current={route === c.route ? 'page' : undefined}
-                        onClick={() => setExpanded("")}
-                      >
-                        {tr(c.label)}
-                        <ArrowRight size={14} />
-                      </Link>
-                    ))}
-                </section>
-              ))}
-            </div>
-          </div>
-        ) : null}
-        {activeModule ? (
-          <div id="glass-module-pages" className="glass-module-pages">
-            <strong>{tr(activeModule.label)}</strong>
-            <div>
-              {activeModule.id === "av8" && allowed("av8.workspace.view") ? (
+              <>
                 <Link
-                  href="/dashboard?view=daily"
-                  onClick={() => {
-                    setExpanded("");
-                    setMobile(false);
-                  }}
+                  href={
+                    current.module.children.find((child) => allowed(child.permission))
+                      ?.route || "/dashboard"
+                  }
                 >
-                  {tr("Daily workspace")}
-                  <ArrowRight size={15} />
+                  {tr(sidebarLabels[current.module.id] || current.module.label)}
                 </Link>
-              ) : null}
-              {activeModule.children
-                .filter((c) => allowed(c.permission))
-                .map((c) => (
-                  <Link
-                    key={c.id}
-                    href={c.route}
-                    data-testid={`nav-${c.id}`}
-                    aria-current={route === c.route ? "page" : undefined}
-                    onClick={() => {
-                      setExpanded("");
-                      setMobile(false);
-                    }}
-                  >
-                    {tr(c.label)}
-                    <ArrowRight size={15} />
-                  </Link>
-                ))}
-            </div>
+                <ChevronRight size={13} />
+                <strong>{tr(current.child.label)}</strong>
+              </>
+            )}
+          </nav>
+
+          <div className="classic-toolbar-actions">
+            <Button
+              className="classic-search-trigger"
+              aria-label={tr("Search pages")}
+              onClick={() => setSearchOpen(true)}
+            >
+              <Search size={17} />
+              <span>{tr("Search anything…")}</span>
+            </Button>
+            <ThemeToggle compact />
+            <Button
+              className="classic-language-control"
+              data-testid="language-toggle"
+              aria-label={tr(
+                language === "en" ? "Switch to Arabic" : "Switch to English",
+              )}
+              title={tr(
+                language === "en" ? "Switch to Arabic" : "Switch to English",
+              )}
+              onClick={changeLanguage}
+            >
+              <Globe size={17} />
+              <span>{language === "en" ? "English" : "العربية"}</span>
+              <ChevronDown size={13} />
+            </Button>
+            <details className="account-menu classic-account-menu">
+              <summary aria-label={tr("Account menu")}>
+                <span className="initials">{user.name.slice(0, 2)}</span>
+                <span className="account-name">{user.name}</span>
+                <ChevronDown size={13} />
+              </summary>
+              <div className="account-menu-panel">
+                <div className="account-menu-identity">
+                  <strong>{user.name}</strong>
+                  <small>{user.email}</small>
+                </div>
+                <Link href="/my-profile">{tr("My Profile")}</Link>
+                <div className="account-appearance">
+                  <span>{tr("Appearance")}</span>
+                  <ThemeToggle variant="selector" />
+                </div>
+                <Button onClick={endSession}>
+                  <LogOut size={16} />
+                  {tr("Sign out")}
+                </Button>
+              </div>
+            </details>
           </div>
-        ) : null}
-      </nav>
-      <div className="glass-workspace" inert={mobile}>
-        <main id="main">
-          {route !== "/dashboard" ? (
-            <nav className="breadcrumbs" aria-label={tr("Breadcrumbs")}>
-              <Link href="/dashboard">{tr("Dashboard Overview")}</Link>
-              <span>/</span>
-              <Link
-                href={
-                  current.module.children.find((c) => allowed(c.permission))
-                    ?.route || "/dashboard"
-                }
-              >
-                {tr(current.module.label)}
-              </Link>
-              <span>/</span>
-              <strong>{tr(current.child.label)}</strong>
-            </nav>
-          ) : null}
-          {!allowed(current.child.permission) ? (
-            <div className="denied">
-              <ShieldCheck size={32} />
-              <h1>{tr("Access Denied")}</h1>
-              <p>
-                {tr(
-                  "Your role does not include the required permission. Contact your Super Admin if you need access.",
-                )}
-              </p>
-              <code>{route}</code>
-            </div>
-          ) : route === "/my-profile" ? (
-            <Screens route={route} />
-          ) : error ? (
-            <ErrorNotice message={error} retry={refreshRefs} />
-          ) : !refs ? (
-            <Loading label="Loading secured company data…" />
-          ) : (
-            <Screens key={`${route}-${user.userId || user.id}`} route={route} />
-          )}
-        </main>
+        </header>
+
+        <div className="classic-workspace">
+          <main id="main">
+            {!allowed(current.child.permission) ? (
+              <div className="denied">
+                <ClipboardCheck size={32} />
+                <h1>{tr("Access Denied")}</h1>
+                <p>
+                  {tr(
+                    "Your role does not include the required permission. Contact your Super Admin if you need access.",
+                  )}
+                </p>
+                <code>{route}</code>
+              </div>
+            ) : route === "/my-profile" ? (
+              <Screens route={route} />
+            ) : error ? (
+              <ErrorNotice message={error} retry={refreshRefs} />
+            ) : !refs ? (
+              <Loading label="Loading secured company data…" />
+            ) : (
+              <Screens key={`${route}-${user.userId || user.id}`} route={route} />
+            )}
+          </main>
+        </div>
       </div>
+
       {searchOpen ? (
         <Dialog title="Search pages" close={() => setSearchOpen(false)}>
-          <div onKeyDown={event=>{if(event.key==='ArrowDown'||event.key==='Enter'){event.preventDefault();const first=event.currentTarget.nextElementSibling?.querySelector<HTMLAnchorElement>('a');if(event.key==='Enter')first?.click();else first?.focus();}}}><SearchField label="Search pages" value={query} onChange={setQuery} /></div>
+          <div
+            onKeyDown={(event) => {
+              if (event.key !== "ArrowDown" && event.key !== "Enter") return;
+              event.preventDefault();
+              const first = event.currentTarget.nextElementSibling?.querySelector<HTMLAnchorElement>(
+                "a",
+              );
+              if (event.key === "Enter") first?.click();
+              else first?.focus();
+            }}
+          >
+            <SearchField label="Search pages" value={query} onChange={setQuery} />
+          </div>
           <div className="glass-search-results">
-            {!destinations.length?<><Empty filtered description="Try an English or Arabic page name."/><Button onClick={()=>setQuery('')}>{tr('Clear search')}</Button></>:null}
+            {!destinations.length ? (
+              <>
+                <Empty
+                  filtered
+                  description="Try an English or Arabic page name."
+                />
+                <Button onClick={() => setQuery("")}>{tr("Clear search")}</Button>
+              </>
+            ) : null}
             {destinations.map(({ module, child }) => (
               <Link
                 href={child.route}
@@ -457,14 +570,15 @@ export default function Workspace({ route }: { route: string }) {
           </div>
         </Dialog>
       ) : null}
+
       <div className="notices" aria-live="polite">
-        {notices.map((n: any) => (
+        {notices.map((notice: any) => (
           <div
-            key={n.id}
-            role={n.error ? "alert" : "status"}
-            className={n.error ? "notice error" : "notice"}
+            key={notice.id}
+            role={notice.error ? "alert" : "status"}
+            className={notice.error ? "notice error" : "notice"}
           >
-            {tr(n.message)}
+            {tr(notice.message)}
           </div>
         ))}
       </div>

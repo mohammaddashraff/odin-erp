@@ -8,6 +8,7 @@ import {
   ReceiptText,
   ArrowRightLeft,
   ChevronRight,
+  Users,
 } from "lucide-react";
 import { GlassMetric } from "../components/glass-dashboard";
 import { RevenueChart } from "../components/revenue-chart";
@@ -22,6 +23,7 @@ import {
   Resource,
   Status,
   Details,
+  Empty,
 } from "../components/ui";
 export function Dashboard() {
   const router = useRouter();
@@ -110,14 +112,38 @@ export function Dashboard() {
   const metrics = [
     ["Net sales", "salesMinor", "/sales/invoices"],
     ["Cash & Bank", "cashMinor", "/banking/overview"],
-    ["Receivables", "receivablesMinor", "/sales/customer-balances"],
+    ["Customer balances", "receivablesMinor", "/sales/customer-balances"],
     ["Payables", "payablesMinor", "/purchasing/supplier-balances"],
     ["Net purchases", "purchasesMinor", "/purchasing/bills"],
-    ["Inventory Valuation", "inventoryMinor", "/inventory/valuation"],
+    ["Inventory value", "inventoryMinor", "/inventory/valuation"],
   ];
+  const financialLinks = [
+    {
+      label: "Invoices",
+      description: "Create and manage sales invoices",
+      href: "/sales/invoices",
+      icon: ReceiptText,
+    },
+    {
+      label: "Cash & Bank",
+      description: "View bank accounts and transactions",
+      href: "/banking/overview",
+      icon: Wallet,
+    },
+    {
+      label: "Customer balances",
+      description: "View customer balances and statements",
+      href: "/sales/customer-balances",
+      icon: Users,
+    },
+  ].filter(({ href }) => allowed(routeEntry(href).child.permission));
   return (
     <>
-      <h1 className="sr-only">{tr("Executive Dashboard")}</h1>
+      <PageHeader
+        title="Dashboard"
+        subtitle="Overview of your business"
+        showGuide={false}
+      />
       <Resource state={state}>
         {data ? (
           <>
@@ -161,7 +187,7 @@ export function Dashboard() {
                 </Panel>
               )}
               <Panel
-                title="Recent Transactions"
+                title="Recent transactions"
                 actions={
                   <ArrowRightLeft className="glass-section-icon" size={23} />
                 }
@@ -198,12 +224,38 @@ export function Dashboard() {
                   ))}
                 </div>
                 {!summaries.data?.length ? (
-                  <p className="surface-body">
-                    {tr(summaries.error ? "Unavailable" : "Nothing here yet")}
-                  </p>
+                  <div className="classic-dashboard-empty">
+                    <div>
+                      <span className="classic-dashboard-empty-icon">
+                        <ReceiptText size={21} />
+                      </span>
+                      <Empty
+                        title={summaries.error ? "Unavailable" : "No transactions yet"}
+                        description="Your latest transactions will appear here when you start using the system."
+                      />
+                    </div>
+                  </div>
                 ) : null}
               </Panel>
             </div>
+            <Panel
+              className="classic-financial-overview"
+              title="Financial overview"
+              actions={<span className="classic-quick-actions">{tr("Quick actions")}</span>}
+            >
+              <div className="classic-financial-links">
+                {financialLinks.map(({ label, description, href, icon: Icon }) => (
+                  <Link href={href} key={href}>
+                    <span className="glass-icon"><Icon size={18} /></span>
+                    <span>
+                      <strong>{tr(label)}</strong>
+                      <small>{tr(description)}</small>
+                    </span>
+                    <ChevronRight size={15} />
+                  </Link>
+                ))}
+              </div>
+            </Panel>
             <div className="glass-dashboard-grid">
               <Panel
                 title="Inventory attention"
@@ -263,7 +315,7 @@ export function Dashboard() {
                   />
                 )}
               </Panel>
-              <Panel title="Financial Overview">
+              <Panel title="Working capital">
                 <Stats
                   items={metrics
                     .filter(([, key]) =>

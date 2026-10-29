@@ -1,15 +1,20 @@
 import { readFileSync, readdirSync } from 'node:fs';
 import { resolve, relative } from 'node:path';
-import { pathToFileURL } from 'node:url';
 import ts from 'typescript';
-import { tsImport } from 'tsx/esm/api';
+import { build } from 'esbuild';
 
 const root = resolve(import.meta.dirname, '..');
 const sourceRoot = resolve(root, process.env.ODIN_UI_SOURCE || 'apps/web/src');
-const { translationCatalog, enumLabel } = await tsImport(pathToFileURL(resolve(sourceRoot, 'core/i18n.ts')).href, import.meta.url);
-const { uiCopy } = await tsImport(pathToFileURL(resolve(sourceRoot, 'core/ui-copy.ts')).href, import.meta.url);
-const { adminCopy } = await tsImport(pathToFileURL(resolve(sourceRoot, 'core/admin-copy.ts')).href, import.meta.url);
-const { av8Copy } = await tsImport(pathToFileURL(resolve(sourceRoot, 'core/av8-copy.ts')).href, import.meta.url);
+// Bundle the small dictionary entry points in memory. This keeps extensionless
+// TypeScript imports portable across Windows and POSIX without temporary files.
+const loadTypescriptModule = async file => {
+  const output = await build({ entryPoints: [file], bundle: true, platform: 'node', format: 'esm', target: 'node24', write: false });
+  return import(`data:text/javascript;base64,${Buffer.from(output.outputFiles[0].contents).toString('base64')}`);
+};
+const { translationCatalog, enumLabel } = await loadTypescriptModule(resolve(sourceRoot, 'core/i18n.ts'));
+const { uiCopy } = await loadTypescriptModule(resolve(sourceRoot, 'core/ui-copy.ts'));
+const { adminCopy } = await loadTypescriptModule(resolve(sourceRoot, 'core/admin-copy.ts'));
+const { av8Copy } = await loadTypescriptModule(resolve(sourceRoot, 'core/av8-copy.ts'));
 const dictionaries = { ...translationCatalog, replacement: uiCopy, administration: adminCopy, av8: av8Copy };
 const entries = Object.entries(dictionaries).flatMap(([namespace, values]) => Object.entries(values).map(([key, value]) => ({namespace, key, value})));
 const issues = {missingKeys: [], missingValues: [], duplicateKeys: [], hardcodedVisibleEnglish: [], arabicOutsideDictionary: [], suspiciousArabicValues: []};
@@ -22,7 +27,8 @@ function check(text, file) {
   if (/[A-Za-z]/.test(text) && !technical.test(text) && !brandCopy.has(text) && enumLabel(text, 'ar') === text) issues.missingKeys.push(`${relative(root,file)}: ${text}`);
 }
 for (const file of sourceFiles(sourceRoot)) {
-  if (file.endsWith('/core/av8-copy.ts') || file.endsWith('/core/admin-copy.ts') || file.endsWith('/core/i18n.ts') || file.endsWith('/core/ui-copy.ts') || file.endsWith('/core/accounting-copy.ts') || file.endsWith('/core/accounting-report-copy.ts')) continue;
+  const normalizedFile = file.replaceAll('\\', '/');
+  if (normalizedFile.endsWith('/core/av8-copy.ts') || normalizedFile.endsWith('/core/admin-copy.ts') || normalizedFile.endsWith('/core/i18n.ts') || normalizedFile.endsWith('/core/ui-copy.ts') || normalizedFile.endsWith('/core/accounting-copy.ts') || normalizedFile.endsWith('/core/accounting-report-copy.ts')) continue;
   const source = readFileSync(file, 'utf8');
   const ast = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true, file.endsWith('tsx') ? ts.ScriptKind.TSX : ts.ScriptKind.TS);
   function visit(n) {
