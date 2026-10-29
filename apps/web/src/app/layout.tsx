@@ -11,6 +11,7 @@ import "./administration.css";
 import "./glass.css";
 import "./themes.css";
 import "./classic-shell.css";
+import "./login.css";
 export const metadata: Metadata = {
   title: "AV8 ERP · ODIN Software Solutions",
   description: "Student operations for AV8, by ODIN Software Solutions",

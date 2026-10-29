@@ -70,8 +70,11 @@ for (const language of ["en", "ar"] as const)
     );
     await page.reload();
     await expect(page.locator("input[type=password]").first()).toBeVisible();
-    await expect(page.getByTestId("theme-toggle")).toBeVisible();
-    await page.getByTestId("theme-toggle").click();
+    await expect(page.getByTestId("theme-selector")).toBeVisible();
+    await page
+      .getByTestId("theme-selector")
+      .getByRole("button", { name: t("Dark", language) })
+      .click();
     await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
   });
 
