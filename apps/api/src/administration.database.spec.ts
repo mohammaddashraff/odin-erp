@@ -194,6 +194,8 @@ describe('Administration account and authorization integration (isolated AV8 dat
         const appB = await db.admin.av8Application.create({ data: { tenantId, branchId: otherBranch.id, ownerId: personId, customerId: customerB.id, academyId: academyB.id, leadId: leadB.id, reference: 'QA-SENSITIVE-B', program: 'QA', medical: 'PASSED' } });
         expect((await av8.detail(a, appB.id)).medical).toBe('PASSED');
     });
+    // This lifecycle performs ~13 real cost-12 bcrypt operations plus database audits.
+    // Its integration budget is separate from the explicit search-performance SLA.
     it('deactivation blocks login and existing sessions; recovery is expiring and single use', async () => {
         const signed = await auth.login(employee.email, NEW_PASSWORD);
         await access.updateUser(adminActor, BigInt(employee.id), { active: false }, {});
@@ -214,7 +216,7 @@ describe('Administration account and authorization integration (isolated AV8 dat
         await admin.recover(adminActor, BigInt(employee.id), { temporaryPassword: PASSWORD });
         const recoverAgain = await auth.login(employee.email, PASSWORD);
         await auth.changePassword(await auth.verifyToken(recoverAgain.accessToken), PASSWORD, NEW_PASSWORD);
-    });
+    }, 15000);
     it('protects the final effective administrator even with a custom role key', async () => {
         await expect(access.updateUser(adminActor, adminUser.id, { primaryRoleId: role.id }, {})).rejects.toThrow('At least one');
         await expect(access.updateRole(adminActor, adminRole.id, { permissionKeys: [] }, {})).rejects.toThrow('At least one');
