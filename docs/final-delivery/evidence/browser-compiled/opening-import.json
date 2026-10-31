@@ -1,0 +1,16 @@
+{
+  "synthetic": true,
+  "sourceSystem": "SYNTHETIC-OPENING-UAT-a1d5aaf0-a591-4b88-b232-b61c22390e98",
+  "applicationCount": 1,
+  "totals": {
+    "studentContractMinor": "200000",
+    "studentPaidMinor": "100000",
+    "studentOutstandingMinor": "100000",
+    "academyEntitlementMinor": "50000",
+    "academyTransferredMinor": "50000"
+  },
+  "createdCashTransactions": 0,
+  "createdJournals": 0,
+  "originalSignedEvidencePreserved": true,
+  "sourceReplayPreservedMappings": true
+}

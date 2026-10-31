@@ -1,0 +1,191 @@
+{
+  "config": {
+    "argv": [
+      "/private/tmp/odin-erp-final-delivery-20261031/.av8/node/bin/node",
+      "/private/tmp/odin-erp-final-delivery-20261031/node_modules/@playwright/test/cli.js",
+      "test",
+      "--config=playwright.delivery.config.ts",
+      "--grep",
+      "treasury paired|opening import UI"
+    ],
+    "configFile": "/private/tmp/odin-erp-final-delivery-20261031/playwright.delivery.config.ts",
+    "rootDir": "/private/tmp/odin-erp-final-delivery-20261031/tests/final-delivery",
+    "failOnFlakyTests": false,
+    "forbidOnly": false,
+    "fullyParallel": false,
+    "globalSetup": null,
+    "globalTeardown": null,
+    "globalTimeout": 0,
+    "grep": {},
+    "grepInvert": null,
+    "maxFailures": 0,
+    "metadata": {
+      "actualWorkers": 1
+    },
+    "preserveOutput": "always",
+    "projects": [
+      {
+        "outputDir": "/private/tmp/odin-erp-final-delivery-20261031/output/playwright/final-delivery/artifacts",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "",
+        "name": "",
+        "testDir": "/private/tmp/odin-erp-final-delivery-20261031/tests/final-delivery",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 900000
+      }
+    ],
+    "quiet": false,
+    "reporter": [
+      [
+        "list",
+        null
+      ],
+      [
+        "json",
+        {
+          "outputFile": "output/playwright/final-delivery/results.json"
+        }
+      ]
+    ],
+    "reportSlowTests": {
+      "max": 5,
+      "threshold": 300000
+    },
+    "shard": null,
+    "tags": [],
+    "updateSnapshots": "missing",
+    "updateSourceMethod": "patch",
+    "version": "1.61.1",
+    "workers": 1,
+    "webServer": null
+  },
+  "suites": [
+    {
+      "title": "browser.spec.ts",
+      "file": "browser.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "treasury paired transfer UI posts one balanced journal and two actual resource movements despite a lost response",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 900000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 4664,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-31T19:33:42.948Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "fbeac1b2decfba2c3acd-6d8f0eb6bcb386ae83ca",
+          "file": "browser.spec.ts",
+          "line": 199,
+          "column": 5
+        },
+        {
+          "title": "opening import UI rejects malformed and unbalanced files, preserves original evidence, and replays without new cash or journals",
+          "ok": false,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 900000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "failed",
+                  "duration": 2532,
+                  "error": {
+                    "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32mundefined\u001b[39m\nReceived: \u001b[31m\"Original signed agreement controls; review conflicts explicitly\"\u001b[39m",
+                    "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32mundefined\u001b[39m\nReceived: \u001b[31m\"Original signed agreement controls; review conflicts explicitly\"\u001b[39m\n    at /private/tmp/odin-erp-final-delivery-20261031/tests/final-delivery/browser.spec.ts:208:795",
+                    "location": {
+                      "file": "/private/tmp/odin-erp-final-delivery-20261031/tests/final-delivery/browser.spec.ts",
+                      "column": 795,
+                      "line": 208
+                    },
+                    "snippet": "  206 |  await file.setInputFiles({name:'synthetic-malformed.json',mimeType:'application/json',buffer:Buffer.from('{invalid')});await expect(panel.locator('.error-notice')).toContainText('Choose a valid opening JSON file');await expect(panel.getByRole('button',{name:'Preview opening import',exact:true})).toBeDisabled();const preview=async(value:any,name:string)=>{await file.setInputFiles({name,mimeType:'application/json',buffer:Buffer.from(JSON.stringify(value))});const response=page.waitForResponse(response=>response.url().endsWith('/api/av8/opening/preview')&&response.request().method()==='POST');await panel.getByRole('button',{name:'Preview opening import',exact:true}).click();const result=await response;expect(result.ok(),await result.text()).toBe(true);return result.json();};\n  207 |  const bad=structuredClone(manifest);bad.expectedTotals.studentPaidMinor=String(BigInt(bad.expectedTotals.studentPaidMinor)+1n);const invalid=await preview(bad,'synthetic-unbalanced.json');expect(invalid.valid).toBe(false);expect(invalid.errors.length).toBeGreaterThan(0);await expect(panel.getByRole('button',{name:'Commit reviewed opening import',exact:true})).toBeDisabled();const reviewed=await preview(manifest,'synthetic-reviewed-opening.json');expect(reviewed.valid).toBe(true);expect(reviewed.totals).toEqual(manifest.expectedTotals);expect(reviewed.createsCashTransactions).toBe(false);const commit=async(reason:string)=>{await panel.getByRole('button',{name:'Commit reviewed opening import',exact:true}).click();await page.getByRole('dialog').getByLabel('Reason / notes').fill(reason);return saveModal(page,'/av8/opening/commit');};const imported=await commit('Synthetic reviewed opening cutover; original source and independently approved opening journal verified');expect(imported.createdCashTransactions).toBe(0);expect(imported.createdJournals).toBe(0);expect(imported.applications).toHaveLength(manifest.applications.length);await expect(panel.getByRole('status')).toContainText('Opening import recorded');await page.screenshot({path:`${out}/opening-import-committed.png`,fullPage:true});\n> 208 |  const originals:any[]=[];for(const mapping of imported.applications){const source=manifest.applications.find((row:any)=>row.sourceId===mapping.sourceId),app=await application(page,mapping.applicationId);expect(app.reference).toBe(source.reference);expect(app.finance.schedule).toHaveLength(source.schedule.length);for(const charge of source.schedule){const saved=app.finance.schedule.find((row:any)=>row.id===mapping.charges[charge.sourceId]);expect(saved.amountMinor).toBe(charge.amountMinor);expect(saved.paidMinor).toBe(charge.paidMinor||'0');}if(source.contract){const contract=app.records.find((row:any)=>row.id===mapping.contractId);expect(contract.status).toBe('SIGNED');expect(contract.data.originalReference).toBe(source.contract.reference);expect(contract.data.legalPolicyReference).toBe(source.contract.policyReference);expect(app.attachments.some((row:any)=>row.recordId===contract.id&&row.filename===source.contract.document.fileName)).toBe(true);await studentTab(page,mapping.applicationId,'Agreement');await expect(page.getByRole('heading',{name:`${source.contract.reference} · Signed`,exact:true})).toBeVisible();await expect(page.locator('article.av8-record tbody tr')).toHaveCount(source.schedule.length);await page.screenshot({path:`${out}/opening-original-agreement.png`,fullPage:true});}expect(app.finance.unappliedMinor).toBe(fixture.expectedBalances.unallocatedReceiptMinor);for(const pending of source.pendingRefunds||[]){const refund=app.records.find((record:any)=>record.kind==='refund'&&record.data.sourceId===pending.sourceId);expect(refund.status).toBe('DECISION_REQUIRED');expect(refund.data.deadline).toBe(pending.deadline);expect(refund.data.noAutomaticPayout).toBe(true);}originals.push({mapping,app});}\n      |                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           ^\n  209 |  await page.goto('/av8/settings');await ready(page);const repeatPreview=await preview(manifest,'synthetic-reviewed-opening.json');expect(repeatPreview.valid).toBe(true);expect(repeatPreview.existingRows.length).toBeGreaterThan(0);const repeated=await commit('Synthetic source replay verification under a distinct request identity');expect(repeated.applications).toEqual(imported.applications);expect((await get('/av8/opening')).filter((batch:any)=>batch.source_system===manifest.sourceSystem)).toHaveLength(1);for(const original of originals){const after=await application(page,original.mapping.applicationId);expect(after.finance.schedule).toEqual(original.app.finance.schedule);expect(after.attachments).toEqual(original.app.attachments);expect(after.finance.funds).toEqual(original.app.finance.funds);}const afterBank=await get(`/banking?bankAccountId=${fixture.bankAccountId}`);expect(afterBank.transactionPagination.total).toBe(beforeBank.transactionPagination.total);expect(afterBank.transactions).toEqual(beforeBank.transactions);expect(await get(`/journals/${manifest.openingJournalId}`)).toEqual(beforeJournal);const resources=await get(`/banking/resources?search=${encodeURIComponent(fixture.bankName)}`);const bank=resources.rows.find((row:any)=>row.id===fixture.bankAccountId);expect(bank.originalBalanceMinor).toBe(fixture.expectedBalances.originalMinor);expect(bank.bookBalanceMinor).toBe(fixture.expectedBalances.bookMinor);await writeFile(`${out}/opening-import.json`,JSON.stringify({synthetic:true,sourceSystem:manifest.sourceSystem,applicationCount:imported.applications.length,totals:imported.totals,createdCashTransactions:0,createdJournals:0,originalSignedEvidencePreserved:true,sourceReplayPreservedMappings:true},null,2));\n  210 | });\n  211 |"
+                  },
+                  "errors": [
+                    {
+                      "location": {
+                        "file": "/private/tmp/odin-erp-final-delivery-20261031/tests/final-delivery/browser.spec.ts",
+                        "column": 795,
+                        "line": 208
+                      },
+                      "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32mundefined\u001b[39m\nReceived: \u001b[31m\"Original signed agreement controls; review conflicts explicitly\"\u001b[39m\n\n  206 |  await file.setInputFiles({name:'synthetic-malformed.json',mimeType:'application/json',buffer:Buffer.from('{invalid')});await expect(panel.locator('.error-notice')).toContainText('Choose a valid opening JSON file');await expect(panel.getByRole('button',{name:'Preview opening import',exact:true})).toBeDisabled();const preview=async(value:any,name:string)=>{await file.setInputFiles({name,mimeType:'application/json',buffer:Buffer.from(JSON.stringify(value))});const response=page.waitForResponse(response=>response.url().endsWith('/api/av8/opening/preview')&&response.request().method()==='POST');await panel.getByRole('button',{name:'Preview opening import',exact:true}).click();const result=await response;expect(result.ok(),await result.text()).toBe(true);return result.json();};\n  207 |  const bad=structuredClone(manifest);bad.expectedTotals.studentPaidMinor=String(BigInt(bad.expectedTotals.studentPaidMinor)+1n);const invalid=await preview(bad,'synthetic-unbalanced.json');expect(invalid.valid).toBe(false);expect(invalid.errors.length).toBeGreaterThan(0);await expect(panel.getByRole('button',{name:'Commit reviewed opening import',exact:true})).toBeDisabled();const reviewed=await preview(manifest,'synthetic-reviewed-opening.json');expect(reviewed.valid).toBe(true);expect(reviewed.totals).toEqual(manifest.expectedTotals);expect(reviewed.createsCashTransactions).toBe(false);const commit=async(reason:string)=>{await panel.getByRole('button',{name:'Commit reviewed opening import',exact:true}).click();await page.getByRole('dialog').getByLabel('Reason / notes').fill(reason);return saveModal(page,'/av8/opening/commit');};const imported=await commit('Synthetic reviewed opening cutover; original source and independently approved opening journal verified');expect(imported.createdCashTransactions).toBe(0);expect(imported.createdJournals).toBe(0);expect(imported.applications).toHaveLength(manifest.applications.length);await expect(panel.getByRole('status')).toContainText('Opening import recorded');await page.screenshot({path:`${out}/opening-import-committed.png`,fullPage:true});\n> 208 |  const originals:any[]=[];for(const mapping of imported.applications){const source=manifest.applications.find((row:any)=>row.sourceId===mapping.sourceId),app=await application(page,mapping.applicationId);expect(app.reference).toBe(source.reference);expect(app.finance.schedule).toHaveLength(source.schedule.length);for(const charge of source.schedule){const saved=app.finance.schedule.find((row:any)=>row.id===mapping.charges[charge.sourceId]);expect(saved.amountMinor).toBe(charge.amountMinor);expect(saved.paidMinor).toBe(charge.paidMinor||'0');}if(source.contract){const contract=app.records.find((row:any)=>row.id===mapping.contractId);expect(contract.status).toBe('SIGNED');expect(contract.data.originalReference).toBe(source.contract.reference);expect(contract.data.legalPolicyReference).toBe(source.contract.policyReference);expect(app.attachments.some((row:any)=>row.recordId===contract.id&&row.filename===source.contract.document.fileName)).toBe(true);await studentTab(page,mapping.applicationId,'Agreement');await expect(page.getByRole('heading',{name:`${source.contract.reference} · Signed`,exact:true})).toBeVisible();await expect(page.locator('article.av8-record tbody tr')).toHaveCount(source.schedule.length);await page.screenshot({path:`${out}/opening-original-agreement.png`,fullPage:true});}expect(app.finance.unappliedMinor).toBe(fixture.expectedBalances.unallocatedReceiptMinor);for(const pending of source.pendingRefunds||[]){const refund=app.records.find((record:any)=>record.kind==='refund'&&record.data.sourceId===pending.sourceId);expect(refund.status).toBe('DECISION_REQUIRED');expect(refund.data.deadline).toBe(pending.deadline);expect(refund.data.noAutomaticPayout).toBe(true);}originals.push({mapping,app});}\n      |                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           ^\n  209 |  await page.goto('/av8/settings');await ready(page);const repeatPreview=await preview(manifest,'synthetic-reviewed-opening.json');expect(repeatPreview.valid).toBe(true);expect(repeatPreview.existingRows.length).toBeGreaterThan(0);const repeated=await commit('Synthetic source replay verification under a distinct request identity');expect(repeated.applications).toEqual(imported.applications);expect((await get('/av8/opening')).filter((batch:any)=>batch.source_system===manifest.sourceSystem)).toHaveLength(1);for(const original of originals){const after=await application(page,original.mapping.applicationId);expect(after.finance.schedule).toEqual(original.app.finance.schedule);expect(after.attachments).toEqual(original.app.attachments);expect(after.finance.funds).toEqual(original.app.finance.funds);}const afterBank=await get(`/banking?bankAccountId=${fixture.bankAccountId}`);expect(afterBank.transactionPagination.total).toBe(beforeBank.transactionPagination.total);expect(afterBank.transactions).toEqual(beforeBank.transactions);expect(await get(`/journals/${manifest.openingJournalId}`)).toEqual(beforeJournal);const resources=await get(`/banking/resources?search=${encodeURIComponent(fixture.bankName)}`);const bank=resources.rows.find((row:any)=>row.id===fixture.bankAccountId);expect(bank.originalBalanceMinor).toBe(fixture.expectedBalances.originalMinor);expect(bank.bookBalanceMinor).toBe(fixture.expectedBalances.bookMinor);await writeFile(`${out}/opening-import.json`,JSON.stringify({synthetic:true,sourceSystem:manifest.sourceSystem,applicationCount:imported.applications.length,totals:imported.totals,createdCashTransactions:0,createdJournals:0,originalSignedEvidencePreserved:true,sourceReplayPreservedMappings:true},null,2));\n  210 | });\n  211 |\n    at /private/tmp/odin-erp-final-delivery-20261031/tests/final-delivery/browser.spec.ts:208:795"
+                    }
+                  ],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-31T19:33:47.931Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "screenshot",
+                      "contentType": "image/png",
+                      "path": "/private/tmp/odin-erp-final-delivery-20261031/output/playwright/final-delivery/artifacts/browser-opening-import-UI--5b71e-ithout-new-cash-or-journals/test-failed-1.png"
+                    },
+                    {
+                      "name": "error-context",
+                      "contentType": "text/markdown",
+                      "path": "/private/tmp/odin-erp-final-delivery-20261031/output/playwright/final-delivery/artifacts/browser-opening-import-UI--5b71e-ithout-new-cash-or-journals/error-context.md"
+                    }
+                  ],
+                  "errorLocation": {
+                    "file": "/private/tmp/odin-erp-final-delivery-20261031/tests/final-delivery/browser.spec.ts",
+                    "column": 795,
+                    "line": 208
+                  }
+                }
+              ],
+              "status": "unexpected"
+            }
+          ],
+          "id": "fbeac1b2decfba2c3acd-8ca5777412e2e60e2914",
+          "file": "browser.spec.ts",
+          "line": 204,
+          "column": 5
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "stats": {
+    "startTime": "2026-10-31T19:33:42.479Z",
+    "duration": 8026.428000000001,
+    "expected": 1,
+    "skipped": 0,
+    "unexpected": 1,
+    "flaky": 0
+  }
+}

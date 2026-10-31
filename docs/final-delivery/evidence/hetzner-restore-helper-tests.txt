@@ -1,0 +1,18 @@
+✔ backup encryption round-trips exact dump bytes and rejects tampering before restore (1640.954417ms)
+✔ recovery rejects production, unquiesced writers, source restores and mixed project identities before orchestration (1.494167ms)
+✔ recovery rejects inherited database URLs, source credentials mixed with another host, or unsafe cleanup names (0.485542ms)
+✔ recovery directories and credentials cannot overlap backup storage or escape named private configuration (0.349292ms)
+✔ restored API gets independent identity and signing secret, all credential URL overrides retargeted, and delivery disabled without mutating source (1.225042ms)
+✔ actual container identity rejects another Compose project, stopped DB or published database ports (0.229125ms)
+✔ schema-scoped dump preparation drops only an empty generated target public schema and never cascades (0.423125ms)
+✔ private command failures publish only fixed classifications, without raw stderr or secret fragments (0.289292ms)
+✔ Compose configuration parsing rejects expansion, duplicate keys and shell-bearing input (0.202542ms)
+✔ CLI actual identity rejection issues no backup/create/drop commands and never prints private credentials (3325.502708ms)
+ℹ tests 10
+ℹ suites 0
+ℹ pass 10
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 3394.18525

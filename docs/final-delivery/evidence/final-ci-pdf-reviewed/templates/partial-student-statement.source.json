@@ -1,0 +1,78 @@
+{
+  "name": "partial-student-statement",
+  "applicationId": "4",
+  "value": {
+    "reference": "AV8-CAI-2026-00004",
+    "name": "SYNTHETIC main 9582f6",
+    "program": "Flight training",
+    "title": "Student statement — USD",
+    "rows": [
+      {
+        "label": "Application fee",
+        "dueDate": "2026-10-31",
+        "charge": "2000.00",
+        "paid": "2000.00",
+        "remaining": "0.00",
+        "status": "PAID"
+      },
+      {
+        "label": "Contract payment",
+        "dueDate": "2026-01-31",
+        "charge": "6000.00",
+        "paid": "6000.00",
+        "remaining": "0.00",
+        "status": "PAID"
+      },
+      {
+        "label": "After visa / before departure",
+        "dueDate": "2026-10-24",
+        "charge": "8000.00",
+        "paid": "8000.00",
+        "remaining": "0.00",
+        "status": "PAID"
+      },
+      {
+        "label": "Deferred installment 1",
+        "dueDate": "2026-04-30",
+        "charge": "9600.00",
+        "paid": "9600.00",
+        "remaining": "0.00",
+        "status": "PAID"
+      },
+      {
+        "label": "Deferred installment 2",
+        "dueDate": "2026-07-31",
+        "charge": "9600.00",
+        "paid": "6000.00",
+        "remaining": "3600.00",
+        "status": "OVERDUE"
+      },
+      {
+        "label": "Deferred installment 3",
+        "dueDate": "2026-10-31",
+        "charge": "9600.00",
+        "paid": "0.00",
+        "remaining": "9600.00",
+        "status": "DUE"
+      },
+      {
+        "label": "Deferred installment 4",
+        "dueDate": "2027-01-31",
+        "charge": "9600.00",
+        "paid": "0.00",
+        "remaining": "9600.00",
+        "status": "PENDING"
+      },
+      {
+        "label": "Deferred installment 5",
+        "dueDate": "2027-04-30",
+        "charge": "9600.00",
+        "paid": "0.00",
+        "remaining": "9600.00",
+        "status": "PENDING"
+      }
+    ],
+    "unappliedCredit": "4100.00",
+    "refunded": "0.00"
+  }
+}

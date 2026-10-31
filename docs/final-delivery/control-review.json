@@ -131,7 +131,7 @@
     {
       "id": "finance.tsx",
       "title": "Payments and treasury",
-      "review": "Document payment allocation and independent approval/rejection; actual resource movements; paired transfers with explicit source book rate/destination actual rate and evidence; statement preview/import and matching with no cash generation from statement import.",
+      "review": "Document payment allocation and independent approval/rejection; actual resource movements; paired transfers with explicit source book rate/destination actual rate and evidence; statement preview/import and matching with no cash generation from statement import. History extension: server-side number/reference/description search, authorized resource filter, bounded page size and stable pages; recent match selector checks direction; explicit original movement ID form handles older evidence with the same server reconciliation gate.",
       "testCandidates": [
         "apps/api/src/payment-approval.database.spec.ts",
         "apps/api/src/treasury-delivery.database.spec.ts"
@@ -256,7 +256,7 @@
     {
       "id": "av8-opening.tsx",
       "title": "Opening data and supplier settlement",
-      "review": "Manifest upload/preview/reconciled commit with immutable source identity and existing opening journal. Supplier links existing posted movement or approved manual journal; no new cash or journal.",
+      "review": "Manifest upload/preview/reconciled commit with immutable source identity and existing opening journal. Supplier links existing posted movement or approved manual journal; no new cash or journal. Older supplier settlement sources can be selected by explicit original bank/journal ID; selector-required validation adjusts only when the alternative ID is supplied, and the backend verifies identical scope/evidence controls.",
       "testCandidates": [
         "apps/api/src/av8-opening.database.spec.ts",
         "apps/api/src/av8-supplier-opening.database.spec.ts"
@@ -353,5 +353,7 @@
       ],
       "runtimeLimitation": "Individual control branches not listed in browser-action evidence remain NOT RUN at browser-action level."
     }
-  ]
+  ],
+  "applicationCommit": "170b929bd4749e3ae53c7dcb0155e90d617210d9",
+  "finalCiEvidence": "evidence/final-ci.json"
 }

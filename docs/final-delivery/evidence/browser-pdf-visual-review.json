@@ -1,0 +1,182 @@
+{
+  "status": "PASS",
+  "reviewedAt": "2026-10-31T19:44:06.541329+00:00",
+  "scope": "All seven final browser-downloaded synthetic PDFs, all seven pages rendered and individually visually inspected at 130 DPI. This is separate from the twelve bilingual saved-template specimens.",
+  "browserRun": {
+    "testsPassed": 21,
+    "routeVariantsPassed": 312,
+    "durationMinutesReported": 6.7,
+    "nodeEnv": "production",
+    "isolationEnvironment": "dev",
+    "compiledRuntime": true,
+    "exactTestedReleaseCommit": null,
+    "identityLimit": "Route agent confirms the compiled API contains the mixed-script PDF correction. A later inactive-cheque authorization change was not in this local API build; final CI and release image alignment remain separate."
+  },
+  "renderer": "apps/api/src/av8-print.ts",
+  "rendererSourceSha256AtReview": "38c1a5764fa34e05df8aec7f31d34891ef1c50609ceb0ceb60dccddae417e59d",
+  "tools": {
+    "pdfinfo": "Poppler 26.10.0",
+    "pdftoppm": "Poppler 26.10.0",
+    "dpi": 130
+  },
+  "checks": [
+    "Every row, currency, amount, schedule date, reference, footer and page count reviewed in the rendered page.",
+    "No clipping, overlap, missing glyph boxes or detached blank signature pages.",
+    "Signature/stamp spaces are blank, and recorded versus awaiting evidence states remain truthful."
+  ],
+  "documents": [
+    {
+      "artifact": "browser-compiled/synthetic-contract-planA.pdf",
+      "language": "en",
+      "sha256": "bbc06ff04234c6db57339b36f8e9d9923affca8f9b5b006fece1ae5434c805ec",
+      "bytes": 8576,
+      "pages": 1,
+      "reviewedPages": [
+        1
+      ],
+      "renderedPage": "pdf-browser-reviewed/synthetic-contract-planA-1.png",
+      "renderedPageSha256": "e2a9bfae2cdc45b1b90e0e9288fb431059e6b58bbb504a8038ce6b5921366c73",
+      "visualStatus": "PASS",
+      "rows": 8,
+      "totalMinor": "6400000",
+      "currency": "USD",
+      "reference": "CON-CAI-2026-00012",
+      "checks": [
+        "USD 2,000 + 6,000 + 8,000 + five 9,600 instalments = 64,000; application fee appears once.",
+        "Five calendar-quarter dates from 2026-10-31, including 2027-04-30 month end; visa milestone remains undated until its actual event."
+      ]
+    },
+    {
+      "artifact": "browser-compiled/synthetic-contract-planB.pdf",
+      "language": "en",
+      "sha256": "4635e33987e59df6856102c42caa23ab29582d820cbf210139fc851516e9e516",
+      "bytes": 8526,
+      "pages": 1,
+      "reviewedPages": [
+        1
+      ],
+      "renderedPage": "pdf-browser-reviewed/synthetic-contract-planB-1.png",
+      "renderedPageSha256": "a89f970a50210a807934e9641d046ada20877438a2a01c63ec51d62355dba914",
+      "visualStatus": "PASS",
+      "rows": 8,
+      "totalMinor": "6400000",
+      "currency": "USD",
+      "reference": "CON-CAI-2026-00013",
+      "checks": [
+        "USD 2,000 + 14,000 + six 8,000 instalments = 64,000; application fee appears once.",
+        "Six calendar-quarter dates from 2026-10-31 through 2028-04-30."
+      ]
+    },
+    {
+      "artifact": "browser-compiled/synthetic-contract-cash.pdf",
+      "language": "en",
+      "sha256": "ce7296a27df646c9fa3ffc56557843942b9302edf82593da507fa55aa3a02304",
+      "bytes": 8293,
+      "pages": 1,
+      "reviewedPages": [
+        1
+      ],
+      "renderedPage": "pdf-browser-reviewed/synthetic-contract-cash-1.png",
+      "renderedPageSha256": "a69f51a9458353c3895e7f8a94605f1da52d6aeae9f295f6fbe9ba752c68a72b",
+      "visualStatus": "PASS",
+      "rows": 2,
+      "totalMinor": "5400000",
+      "currency": "USD",
+      "reference": "CON-CAI-2026-00014",
+      "checks": [
+        "USD 2,000 + 52,000 = 54,000; application fee appears once.",
+        "Actual synthetic signed schedule and collection milestone shown; separate academy obligation is tested by browser/API, not printed on this contract."
+      ]
+    },
+    {
+      "artifact": "browser-compiled/synthetic-fee-reimbursement-certified.pdf",
+      "language": "en",
+      "sha256": "039a1154d5289d7a0c5d17938a3dd30502ad57da974ec0a3f382ffd8a3fe9ccd",
+      "bytes": 8949,
+      "pages": 1,
+      "reviewedPages": [
+        1
+      ],
+      "renderedPage": "pdf-browser-reviewed/synthetic-fee-reimbursement-certified-1.png",
+      "renderedPageSha256": "132532291c967d3de92c2d7bec74d743adb809977d5e2db611a131d2e63bc548",
+      "visualStatus": "PASS",
+      "rows": 20,
+      "totalMinor": "2000",
+      "currency": "USD",
+      "reference": "RC-CAI-2026-00038",
+      "checks": [
+        "Exact USD 20 fee reimbursement; gross/net 20.00, fee 0.00.",
+        "Stored synthetic signed-copy evidence and signatory/date shown; no fabricated image of a signature or stamp."
+      ]
+    },
+    {
+      "artifact": "browser-compiled/synthetic-replacement-cheque.pdf",
+      "language": "en",
+      "sha256": "f3cb7f1583cbe37aca2297fd738f892ed9f8b03125e26ba453906dd032ef3529",
+      "bytes": 8482,
+      "pages": 1,
+      "reviewedPages": [
+        1
+      ],
+      "renderedPage": "pdf-browser-reviewed/synthetic-replacement-cheque-1.png",
+      "renderedPageSha256": "93f6fb5ef07d74ef1b84790a82d79f6a8d258444047a6cbbb51738e9699f3789",
+      "visualStatus": "PASS",
+      "rows": 18,
+      "totalMinor": "100000",
+      "currency": "USD",
+      "reference": "CHE-CAI-2026-00006",
+      "checks": [
+        "Actual replacement status CLEARED; USD 1,000 gross/net/principal and rates 1/50.",
+        "Awaiting actual signed/stamped copy is shown; generic cheque-receipt caveat retained."
+      ]
+    },
+    {
+      "artifact": "browser-compiled/synthetic-student-receipt-ar.pdf",
+      "language": "ar",
+      "sha256": "4c8fdce26f30f2bae7ef321b9e3edcb3af91fbf22c006c8f80f79c248ae513cc",
+      "bytes": 17853,
+      "pages": 1,
+      "reviewedPages": [
+        1
+      ],
+      "renderedPage": "pdf-browser-reviewed/synthetic-student-receipt-ar-1.png",
+      "renderedPageSha256": "5eada524732fd15c00b22f9052a2b1004524f30f5fc7c9f16c1ab700f653de81",
+      "visualStatus": "PASS",
+      "rows": 18,
+      "totalMinor": "200000",
+      "currency": "USD",
+      "reference": "RC-CAI-2026-00034",
+      "checks": [
+        "USD 2,010 gross less 10 fee = 2,000 net/principal; rates 1/50 and original date 2026-10-30.",
+        "Joined legible Arabic, RTL table labels, intact Latin references and left-to-right amounts/dates."
+      ]
+    },
+    {
+      "artifact": "browser-compiled/synthetic-student-receipt-en.pdf",
+      "language": "en",
+      "sha256": "b9a3adb3d9fba362b687cb7cec08df8120e0df84319a53f620f6a6fe31cb21ea",
+      "bytes": 8813,
+      "pages": 1,
+      "reviewedPages": [
+        1
+      ],
+      "renderedPage": "pdf-browser-reviewed/synthetic-student-receipt-en-1.png",
+      "renderedPageSha256": "dcb4b3abaa462c982fe231dd6060d7cb3a29d9597594467b8b8ab09db55a238e",
+      "visualStatus": "PASS",
+      "rows": 18,
+      "totalMinor": "200000",
+      "currency": "USD",
+      "reference": "RC-CAI-2026-00034",
+      "checks": [
+        "USD 2,010 gross less 10 fee = 2,000 net/principal; rates 1/50 and original date 2026-10-30.",
+        "Same transaction reference and values as Arabic export; unsigned state remains explicit."
+      ]
+    }
+  ],
+  "limitations": [
+    "Synthetic local browser acceptance only; no real client signature, legal wording approval or production deployment is claimed.",
+    "Three actual contract downloads are English. Arabic is visually reviewed in the actual receipt here and in the separate twelve-document bilingual specimen bundle.",
+    "All seven actual exports are one page. Fifty-row bilingual multi-page pagination is covered by the separately recorded automated PDF tests, not by a multi-page visual claim here.",
+    "PDF accessibility tagging and perfect bidirectional text-copy extraction are not certified by this visual review."
+  ]
+}

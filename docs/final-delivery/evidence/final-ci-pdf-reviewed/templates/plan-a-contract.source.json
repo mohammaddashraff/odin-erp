@@ -1,0 +1,76 @@
+{
+  "name": "plan-a-contract",
+  "applicationId": "4",
+  "value": {
+    "reference": "AV8-CAI-2026-00004",
+    "name": "SYNTHETIC main 9582f6",
+    "program": "Flight training",
+    "title": "Agreement CON-CAI-2026-00001 — SIGNED",
+    "wording": "Operational agreement draft. Review the legal wording before signature.",
+    "rows": [
+      {
+        "label": "Application fee (existing charge)",
+        "amount": "2000.00",
+        "currency": "USD",
+        "milestone": "APPLICATION",
+        "dueDate": "2026-10-31"
+      },
+      {
+        "label": "Contract payment",
+        "amount": "6000.00",
+        "currency": "USD",
+        "milestone": "CONTRACT",
+        "dueDate": "2026-01-31"
+      },
+      {
+        "label": "After visa / before departure",
+        "amount": "8000.00",
+        "currency": "USD",
+        "milestone": "VISA",
+        "dueDate": null
+      },
+      {
+        "label": "Deferred installment 1",
+        "amount": "9600.00",
+        "currency": "USD",
+        "milestone": "CONTRACT",
+        "dueDate": "2026-04-30"
+      },
+      {
+        "label": "Deferred installment 2",
+        "amount": "9600.00",
+        "currency": "USD",
+        "milestone": "CONTRACT",
+        "dueDate": "2026-07-31"
+      },
+      {
+        "label": "Deferred installment 3",
+        "amount": "9600.00",
+        "currency": "USD",
+        "milestone": "CONTRACT",
+        "dueDate": "2026-10-31"
+      },
+      {
+        "label": "Deferred installment 4",
+        "amount": "9600.00",
+        "currency": "USD",
+        "milestone": "CONTRACT",
+        "dueDate": "2027-01-31"
+      },
+      {
+        "label": "Deferred installment 5",
+        "amount": "9600.00",
+        "currency": "USD",
+        "milestone": "CONTRACT",
+        "dueDate": "2027-04-30"
+      }
+    ],
+    "inclusions": [
+      "Study materials",
+      "Aviation headset",
+      "Theoretical study",
+      "Described training package"
+    ],
+    "disclaimer": "Operational wording pending AV8 approval; signed evidence stored separately"
+  }
+}

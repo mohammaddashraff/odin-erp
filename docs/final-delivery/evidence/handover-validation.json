@@ -1,0 +1,12 @@
+{
+  "applicationCommit": "170b929bd4749e3ae53c7dcb0155e90d617210d9",
+  "scope": "Final documentation and sanitized evidence; no application source changes after the tested release",
+  "gitDiffCheck": "PASS",
+  "securityScan": {"status": "PASS", "repositoryTextFiles": 532},
+  "additionalSensitivePatternScan": {"status": "PASS", "checks": ["Resend key patterns", "JWT patterns", "authorized personal recipient addresses", "credential-value JSON fields"], "secretValuesPrinted": false},
+  "localMarkdownLinks": {"status": "PASS", "missing": 0},
+  "jsonFilesBeforeThisRecord": {"status": "PASS", "count": 76},
+  "sourceMigrationHashes": {"status": "PASS", "count": 43},
+  "applicationSourceUnchanged": true,
+  "limits": ["Automated high-confidence scanning is not independent security certification", "Historical candidate evidence remains labelled separately from exact release evidence"]
+}

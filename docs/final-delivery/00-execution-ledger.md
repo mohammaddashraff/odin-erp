@@ -1,6 +1,6 @@
 # AV8 final delivery execution ledger
 
-Status: IN PROGRESS — implementation and release gates are not complete.
+Status: Authorized unblocked implementation, verification and technical deployment complete. Live-business activation remains conditional on the explicit owner/provider decisions below. Final application release170b929bd4749e3ae53c7dcb0155e90d617210d9. Earlier entries are chronological history, not current status.
 Business brief date: 2026-10-31 (Africa/Cairo).
 
 ## Source and preservation
@@ -17,10 +17,10 @@ Business brief date: 2026-10-31 (Africa/Cairo).
 
 | Owner | Area | State |
 |---|---|---|
-| Root | Test environment, receipt/cheque, treasury/import, CI, release/runbooks | In progress |
-| finance_delivery | Policy/contract/academy/refund behavior and financial tests | Implemented; integration and final verification underway |
-| operations_delivery | Admissions, reports/email, services, training/graduation | Implemented; integration and final verification underway |
-| route_coverage | Full route/action matrix and AV8 frontend wiring | Inventory refreshed; preliminary real-browser evidence captured |
+| Root | Test environment, receipt/cheque, treasury/import, CI, release/runbooks | Complete technical release; external activation items documented |
+| finance_delivery | Policy/contract/academy/refund behavior and financial tests | Complete; final428-test CI and19-page PDF evidence |
+| operations_delivery | Admissions, reports/email, services, training/graduation | Complete; final428-test CI and19-page PDF evidence |
+| route_coverage | Full route/action matrix and AV8 frontend wiring | Complete;21scenarios/312variants/590reviewed controls |
 
 ## Baseline findings and evidence
 
@@ -177,3 +177,43 @@ This item is non-blocking for the current delivery. External provisioning and cr
 
 - User replaced the private test key. Resend domain lookup now succeeds and confirms av8.odin-ltd.com verified. Actual application reconciliation changed both independent academic records to DELIVERED; each still has one attempt and original provider ID. No report was resent. Guardian inbox+PDF and owner-confirmed student receipt provide additional evidence.
 - Real controlled stage restart failure and recovery alerts both arrived in the authorized connected Gmail inbox, without student/financial payload. API health and authenticated scheduler returned healthy after recovery. `evidence/hosted-email.json` records exact boundaries; periodic timer and final-image alignment remain separate checks.
+
+### Staging restore helper preparation
+
+- Prepared a strict staging-only same-host restore helper with retained operational encrypted backup/key, independently named recovery database/marker, table/sequence/content-hash comparison, attachment byte verification, journal balance, restricted runtime RLS, temporary API health and real password/MFA/document acceptance. Only the restored copy can enroll MFA or change the temporary password. Providers/jobs remain disabled, no recovery ports are published, and cleanup is limited to generated resources with an ownership receipt.
+- Guard/encryption tests8/8 passed1.339s; read-only SQL validation passed71tables/57sequences/518attachments with zero bad hashes/unbalanced journals. No source database writes occurred during preparation. Actual Hetzner execution is assigned to the release owner and is not inferred from these tests. Procedure: `hetzner-local-restore-drill.md`; evidence: `evidence/hetzner-restore-helper-tests.txt` and `evidence/hetzner-restore-sql-readonly.json`.
+
+### Final history and hosted recovery checkpoint
+
+- Added scoped transaction/reference and statement-line search, stable date/ID pagination and filtered totals so older banking records remain reachable. Ordinary resource deactivation now preserves the independent governance grant for authorized history while rejecting new cash/bank postings; explicit access revocation still hides those records. Actual treasury regression9/9 passed2.098s, including assigned-user inactive history and revoked access. Typecheck and production build passed; browser acceptance is being repeated on that compiled source.
+- First actual Hetzner recovery attempt retained an AES-256-GCM backup559,101bytes but failed during database restoration. Its generated recovery database was removed; the source was not altered. The empty target already contains a public schema, conflicting with the archive's CREATE SCHEMA under exit-on-error. A narrow target-only correction and another actual drill are required; no hosted restore pass is claimed yet.
+- Separate production private configuration prepared without deployment. `/srv/av8-erp-final/production/private/provider.env` is UID1000:GID1000/mode0600 beneath root0700; it contains no staging credentials. Requested a separately scoped production provider key, preserving the owner's environment-separation requirement. Staging provider verification/delivery remains PASS.
+
+### Full opening-import browser setup
+
+- Added `scripts/av8/prepare-opening-uat.cjs`, guarded to the local dev/test URL identities and both database markers. Actual DEV setup passed and ordinary Finance preview was valid. The source remains uncommitted for browser acceptance. It contains an original synthetic signed PDF/schedule, historical receipt/allocation and settled academy transfer, provider service balance and unresolved original refund case. A distinct source journal was independently approved and posted before the preview; the importer setup created no bank transaction. Browser assertions will verify rejection, preview, commit and repeat through the actual UI.
+- Read-only inactive-bank audit confirmed all ordinary new collection/payment/fund/transfer posting paths require an active bank. Historical opening payments and supplier settlement links preserve access to existing evidence without creating cash. Reported the separate cheque-return reversal path to the release owner because it creates a new PAYMENT while previously checking resource authorization without bank operational status. No financial source edits were made by this audit.
+
+### Hosted recovery and periodic processing verified
+
+- Corrected the fresh-target schema collision only in the generated empty recovery database (`DROP SCHEMA public`, without CASCADE). Actual hosted drill now PASS15.317seconds:43migrations,71tables,57sequences,588rows, one1487-bytePDF, exact content/sequence hashes, zero unbalanced journals, restricted runtime RLS, actual restored API/password/MFA login and authenticated attachment download. Source unchanged at completion; temporary database/container removed. Encrypted559,313-byte archive and its original key retained. Evidence: `evidence/hosted-local-recovery.json`. Off-host DR and production RPO/RTO remain unverified.
+- Installed only the dedicated `av8-scheduler@staging` service/timer. Unit validation passed; actual scheduled invocations exit0 and report healthy with alert UNCHANGED, preserving separate durable monitor state. Final-image restart and delivery-attempt checks remain to be recorded. Existing host units and applications were not replaced.
+- Actual hosted read-only desktop/mobile English/Arabic login-shell smoke passed, including functional language switching, health200, anonymous auth401 and nonce/injected-script denial. Evidence: `evidence/hosted-browser/results.json`; authenticated business acceptance remains distinct.
+- Aggregate local backend428/54suites passed68.855seconds. Follow-up real cheque-return workflow34/34 passed11.42seconds after explicitly rejecting reversal bank movements while the original bank is inactive. Operational bank deactivation preserves historical evidence and independent reviewed GL corrections; it does not silently revoke access or disable the GL account.
+
+
+### Final tested release and technical production delivery
+
+- Exact application release170b929bd4749e3ae53c7dcb0155e90d617210d9; CI41235646385 PASS428/428 across54suites,21browser scenarios in7.2minutes, all quality/security/build/integrity/recovery gates. Failed58e3a48 CI is preserved; only the cost12-password lifecycle received a specific15second test budget. All19actual Linux CI PDFs/pages visually/numerically pass with hashes.
+- Matching immutable API/web/maintenance images deployed to separate staging/production Compose projects. All43migration checksums match. Final-image hosted restore15.535seconds passed full data/sequence/attachment/RLS/API/MFA checks, source unchanged and temporary resources removed. Operational encrypted archive/key retained. Final native recovery1.550seconds covers26,918rows/659attachments; no off-host or RPO/RTO verification claimed.
+- Publichttps://av8.odin-ltd.com DNSA2.28.75.201, trustedTLS, HTTP301, login/API200, anonymous401, no-store, actual nonce/injected-script denial and interactive EN/AR desktop/mobile smoke all pass. All6original nginx sites and21other existing container IDs remained unchanged.
+- Production initialized only one company/Cairo branch, the explicitly named administrator, a distinct scoped nonfinancial background account and12DRAFT policies. No synthetic student/customer/supplier/cash/journal was seeded. Actual owner login requires MFA enrollment, grants no access token and requires private generated temporary password change. Setup file is owner-only; no credential printed.
+- Separate environment maintenance/health and daily03:15UTC encrypted local-backup timers are installed and verified. Archives are retained without automatic deletion; owner retention/operational response responsibilities remain to be selected. Approximately2.43GBfree disk remained after rollout; only verified obsolete AV8 images and34explicitly identified AV8 cache records were retired, with current rollback images retained. No global or unrelated cache cleanup.
+- Staging updated-key loading is verified in the actual API process; both recipients remain DELIVERED with original IDs/one attempt through restart and scheduled runs. Production uses its own protected provider file and keeps email/academic sending/alerts disabled pending owner confirmation of its separate key. No secret or old testing credential was copied between environments.
+- Remaining external items: production provider-key confirmation/enable/recheck; owner's MFA/password setup; applicable D01–D11 finance/legal/privacy/document handling approvals and named human responsibilities; real source-opening data/clientUAT. They do not invalidate completed technical evidence or authorize invented policies. Off-host encrypted backups and recovery from an off-host destination: deferred by the project owner.
+
+### Handover closure
+
+- Rechecked the actual staging API child process at 20:40:36 UTC: it loads the current private replacement key, email is enabled, and the protected file is UID/GID 1000 with mode 0600. No secret was printed. The distinct production provider key remains unset.
+- Final disposition table, scope matrix, release manifest, deployment/restore procedures, bilingual guides and activation actions now describe the deployed exact application release. Historical failures/checkpoints remain labelled and preserved. No application source changed after the tested release.
+- Handover validation passed: documentation-only diff against the application release, all 43 source migration hashes, 76 existing JSON files, zero broken local Markdown links, `git diff --check`, and the 532-file repository security scan. Additional publishable-evidence checks found no provider key, JWT, private test address or credential-value pattern. The resulting handover is committed separately; operational archives/keys and private diagnostics are excluded.

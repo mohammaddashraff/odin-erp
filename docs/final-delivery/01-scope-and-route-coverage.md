@@ -2,17 +2,17 @@
 
 Baseline source: `828ae27bd17682739d192115ed163781f2388bea`; inventory date 31 October 2026. The authoritative IDE checkout was unavailable at discovery; source was cloned into an isolated temporary checkout. The user confirmed that main contains the latest work.
 
-This is a maintained inventory, not a completion certificate. Rows begin **required and still incomplete / NOT RUN**. Source review, rendered-route evidence, backend invariant checks and actual browser actions are recorded separately; one does not imply the others. Existing tests and historical release notes are candidates, not evidence of a current pass.
+This inventory began with required / NOT RUN dispositions and now records the verified results below. Source review, rendered-route evidence, backend invariant checks and actual browser actions are recorded separately; one does not imply the others. Existing tests and historical release notes are candidates, not evidence of a current pass.
 
 ## Current counts
 
 - 78 registered page routes across 12 module groups.
 - 10 legacy redirects and 4 special route families.
 - 180 controller endpoint declarations (refreshed after implementation).
-- 582 lexical control/component declarations, 127 literal client request expressions, 61 query-state references, 70 Prisma models.
-- Compiled local render acceptance passed 312/312 variants. Named action workflows have separate evidence; final exact-commit aggregate verification is recorded in the release evidence.
+- 590 lexical control/component declarations, 128 literal client request expressions, 61 query-state references, 70 Prisma models.
+- Exact-commit CI passed 21/21 browser scenarios and 312/312 rendered variants. Named action workflows and source-review-only declarations remain explicitly distinguished.
 
-[Machine-readable source inventory](source-coverage.json), [route matrix CSV](route-coverage.csv), [endpoint matrix CSV](endpoint-coverage.csv). The JSON retains a source location, request wiring, permissions and evidence/status fields. Lexical controls include shared component definitions and dynamic templates. All 582 current declarations and their shared workflow handlers have a semantic source-review group in [control-review.json](control-review.json). Decorative icon matches and demo-only controls are distinguished. Individual runtime branches remain NOT RUN unless actual action evidence is attached. Counts of control declarations are not counts of independently verified user actions.
+[Machine-readable source inventory](source-coverage.json), [route matrix CSV](route-coverage.csv), [endpoint matrix CSV](endpoint-coverage.csv). The JSON retains a source location, request wiring, permissions and evidence/status fields. Lexical controls include shared component definitions and dynamic templates. All 590 current declarations and their shared workflow handlers have a semantic source-review group in [control-review.json](control-review.json). Decorative icon matches and demo-only controls are distinguished. Individual runtime branches remain NOT RUN unless actual action evidence is attached. Counts of control declarations are not counts of independently verified user actions.
 
 ## Registered routes
 
@@ -112,7 +112,7 @@ Sales, purchasing, suppliers, inventory, HR (employees, departments, attendance,
 | Sales/purchase/inventory documents | All registered pages rendered; shared editor/actions reviewed and actual backend commercial cycles cover payloads, approval, postings and inventory. Individual conversion/return/attachment UI branches remain separately unexercised. |
 | Accounting | Real balanced journal creation/submission, independent approval/posting and linked reversal passed with zero combined account effect. Period/account-administration controls retain source/backend coverage; page render alone is not a lifecycle pass. |
 | Treasury/resources | Real edit/deactivate/filter/reactivate/restore, statement preview/import without posting cash, and paired transfer with fee/lost-response idempotent retry passed. FX alternatives have backend invariant evidence; this browser transfer is same currency. |
-| Opening import/supplier | Existing 400 EGP supplier payment linked against 1,000 EGP opening payable; 600 remains, no new cash/journals. Full preview/commit is the next focused browser check; manual journal settlement alternative has backend coverage. |
+| Opening import/supplier | Existing 400 EGP supplier payment linked against 1,000 EGP opening payable; 600 remains, no new cash/journals. Full preview/commit/source replay passed with ordinary Finance, original signed evidence and unchanged cash/journals; manual journal settlement alternative has backend coverage. |
 | HR | Every page rendered and employee/payroll/attendance/leave handlers reviewed; actual backend HR suite covers scoped records. Individual browser payroll/leave mutations are not claimed. |
 | Access/profile/administration | All pages rendered; role-entry/direct API denials and memory-only session restoration/logout tested. Access group, authority, employee-user/password/MFA administration payloads have source/backend coverage; no blanket browser administration claim. |
 | AV8 reports | Every permitted report choice loaded actual API; services search and filtered CSV downloaded. Report totals/precision/filter invariants are separately tested in backend suites. |
@@ -128,7 +128,7 @@ Sales, purchasing, suppliers, inventory, HR (employees, departments, attendance,
 | Paired treasury transfers and statements | Root implementation in `finance.tsx` and treasury service/import API | Paired transfer with fee, actual balanced journal/two movements and lost response retry passed; statement preview/import passed with unchanged cash count. |
 | Resource administration | Active/inactive resource listing and edit/deactivate/reactivate UI | Actual edit/deactivate/filter/reactivate/restore passed. |
 | Page search label and login redirect | Search now says Search pages; authenticated `/login` redirects to permitted destination without blank AV8 content | Login redirect exercised successfully with five named role templates |
-| Opening legacy data | File upload, dry-run errors/totals, preserved preview identity and explicit commit with opening-journal prerequisite | Importer backend acceptance and focused browser checks tracked separately |
+| Opening legacy data | File upload, dry-run errors/totals, preserved preview identity and explicit commit with opening-journal prerequisite | Actual malformed/unbalanced rejection, reviewed preview/commit, original signed source and idempotent source replay passed; resource original/book balances reconciled. |
 | POS retries and closed-shift operations | Stable checkout identity; explicit same-branch/warehouse register for held-sale resumption and refunds; original tender methods preserved by backend | Compiled local retry/split-tender/closed-shift recovery passed; exact-commit aggregate is a release check. |
 | Supplier opening settlement | Existing posted cash or approved manual journal linked to imported payable/credit, with immutable settlement history | Compiled local settlement passed: existing EGP 400 payment linked, EGP 600 remains, no new cash or journal. |
 | Memory-only browser sessions | HttpOnly cookie restoration, server-verified cross-tab synchronization, serialized login/refresh/logout and denial during restoration outage | Compiled production-runtime browser session/reload/two tab/outage-denial/logout checks passed. |
@@ -138,11 +138,11 @@ No route was removed. The retained sidebar architecture and styles were preserve
 
 ## Runtime evidence
 
-The original compiled local run passed 11/11 scenarios and 312/312 route variants: desktop English/light, desktop Arabic/dark, mobile English/dark and mobile Arabic/light. Further targeted tests exercised tablet layout and the named financial/academic/contract scenarios in [browser-action-coverage.json](browser-action-coverage.json). Source was still a working tree; [run metadata](evidence/browser-compiled/run-metadata.json) intentionally has no tested release commit. The release owner binds final verification to the final exact commit.
+The final local compiled run passed **21/21 scenarios and 312/312 route variants in 6.7 minutes**: desktop English/light, desktop Arabic/dark, mobile English/dark and mobile Arabic/light. The same aggregate exercised tablet layout and the named financial/academic/contract/opening scenarios in [browser-action-coverage.json](browser-action-coverage.json). Source was still a working tree; [run metadata](evidence/browser-compiled/run-metadata.json) intentionally has no tested release commit. The release owner binds final verification to the final exact commit.
 
 `tests/final-delivery/browser.spec.ts` uses the actual API and PostgreSQL. Negative probes inject one refresh 503, a nonce-less script, and loss of a transfer/POS response **after** actual server commit. Business responses are not replaced with fixtures. Isolated data and explicitly synthetic signature/stamp PDFs are used. No local academic email is sent; provider-disabled errors and recipient states are asserted.
 
-[Retained compiled evidence](evidence/browser-compiled/results.json) contains the original 11-pass run. Focused result files retain both successful scenarios and earlier failures from incorrect test labels/role assumptions; the action matrix identifies the final successful proof for each scenario. These files must not be misrepresented as one all-green aggregate. Earlier watch-server failures remain under `evidence/browser-preliminary/` and were superseded by the compiled rerun. Downloaded PDFs require separate rendered inspection; source-backed report/ledger assertions do not replace that review.
+[Canonical compiled evidence](evidence/browser-compiled/results.json) contains the complete 21-pass run. The earlier 11-pass baseline is retained in `initial11-results.json`. Focused result files retain both successful scenarios and earlier failures from incorrect test labels/role assumptions; the action matrix identifies the final successful proof for each scenario. Those historical focused files must not be mistaken for the canonical final local aggregate. Earlier watch-server failures remain under `evidence/browser-preliminary/` and were superseded by the compiled rerun. Downloaded PDFs require separate rendered inspection; source-backed report/ledger assertions do not replace that review.
 
 ## Evidence policy and acceptance
 
@@ -160,3 +160,13 @@ Backend workflow evidence is attached by the release verification owner for acco
 The named browser matrix includes those shared workflows plus actual partial refunds and academy recovery, cheque credit/return/replacement, exact fee reimbursement and signature evidence, policy approval, academic eligibility, immutable report corrections, blocked recipient recovery, suspension/resumption/graduation, signed 8/8/2 contract schedules, independently approved journal reversal, and paired treasury transfer retries. The policy modal check tests focus containment with Tab and Shift+Tab, field names and Escape. It is a focused accessibility check, not a WCAG certification.
 
 Hosted deployment, provider email delivery and approved client policy configuration have separate evidence gates. They are not silently reclassified as passed by local source inspection or route rendering. No registered ERP module or route has been declared outside scope.
+
+Current inventory contains 590 lexical controls and 128 client request expressions. Expanded transaction/statement history, pagination and older-source matching passed focused compiled browser checks. Original contract reference display and full opening preview/commit/replay passed. Friendly status labels and notification deduplication passed in the complete 21-case local aggregate.
+
+The actual GitHub Actions checkpoint [7a607d7 / run 41233623398](https://github.com/mohammaddashraff/odin-erp/actions/runs/41233623398) passed all 20 then-defined browser scenarios and 312 route variants. That exact checkpoint precedes the latest history expansion and opening-import scenario; it is not the final release commit. The complete 21-case local aggregate also passed; the final exact-commit CI is now PASS in the separate release record below.
+
+The read-only [hosted staging browser smoke](evidence/hosted-browser/results.json) passed desktop/mobile English/Arabic login interaction, anonymous authorization denial, API health and nonce/CSP enforcement through the approved SSH tunnel. It submits no credentials and does not claim authenticated hosted business acceptance or public-production-domain verification.
+
+## Final release alignment
+
+Application commit `170b929bd4749e3ae53c7dcb0155e90d617210d9` passed [CI 41235646385](https://github.com/mohammaddashraff/odin-erp/actions/runs/41235646385): 428 backend cases, 21 browser scenarios and 312 route variants. Both Hetzner environments run its exact images; public production and isolated staging browser checks passed. See [release evidence](14-release-verification.md). Production email activation, actual client policy approvals and real-data cutover remain documented external actions, not silently completed acceptance.

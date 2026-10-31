@@ -1,0 +1,55 @@
+{
+  "applicationCommit": "170b929bd4749e3ae53c7dcb0155e90d617210d9",
+  "runId": 41235646385,
+  "jobId": 124638749460,
+  "url": "https://github.com/mohammaddashraff/odin-erp/actions/runs/41235646385",
+  "status": "PASS",
+  "backend": {
+    "passed": 428,
+    "total": 428,
+    "suites": 54
+  },
+  "browser": {
+    "passed": 21,
+    "elapsed": "7.2m"
+  },
+  "recovery": {
+    "status": "PASS",
+    "startedAt": "2026-10-31T19:57:14.911Z",
+    "source": "isolated local av8_test",
+    "target": "av8_restore_1793476634911",
+    "scope": "same-server clean logical restore with original roles; not an off-host disaster recovery or production RTO/RPO claim",
+    "finishedAt": "2026-10-31T19:57:16.903Z",
+    "elapsedSeconds": 1.991,
+    "backupSha256": "3f741f5f619892a8943e91bbc14ab526297fd6455a1cc930c7df827b12ebf9dd",
+    "encryptedBytes": 827535,
+    "tableCount": 71,
+    "rowCount": 5569,
+    "manifestSha256": "3151bab9f504d7a3139095d7e7221ccde216c8f23210e6feaed43bfff9f4a389",
+    "attachments": [
+      {
+        "table": "private_attachments",
+        "count": 0,
+        "bytes": 0
+      },
+      {
+        "table": "av8_attachments",
+        "count": 115,
+        "bytes": 106670
+      }
+    ],
+    "unbalancedPostedJournals": 0,
+    "unscopedRuntimeTenants": 0,
+    "cleanRestore": true,
+    "documentsVerified": true,
+    "scopedDocumentReadVerified": true,
+    "crossTenantDocumentDenied": true,
+    "applicationRestartVerified": false,
+    "backupKey": "ephemeral drill key destroyed; this archive is not an operational backup"
+  },
+  "artifact": {
+    "url": "https://github.com/mohammaddashraff/odin-erp/actions/runs/41235646385/artifacts/13056031795",
+    "sha256": "99727f68aced314f0747876c34a95762c45bb966669576dda5a1211a1ab9bbaf"
+  },
+  "gates": "Fresh dependency installation,43 migrations,reference/demo fixture setup confined to CI,lint,typecheck,i18n,web/deployment tests,history/dependency/secret scans,backend,integrity,production build,21 actual browser workflows and encrypted isolated recovery all passed."
+}

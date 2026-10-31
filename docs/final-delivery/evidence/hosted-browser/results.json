@@ -1,0 +1,30 @@
+{
+  "capturedAt": "2026-10-31T19:57:50.657Z",
+  "origin": "http://127.0.0.1:18180",
+  "scope": "Read-only hosted staging login shell/API health/anonymous denial/CSP. Authenticated business workflows and final production domain are not inferred.",
+  "results": [
+    {
+      "viewport": "desktop",
+      "english": "PASS",
+      "arabic": "PASS",
+      "overflow": false,
+      "pageErrors": []
+    },
+    {
+      "healthStatus": 200,
+      "anonymousAuthStatus": 401,
+      "uniqueCspNonce": true,
+      "unsafeInlineProbeBlocked": true,
+      "credentialsSubmitted": false,
+      "mfaBypassed": false
+    },
+    {
+      "viewport": "mobile",
+      "english": "PASS",
+      "arabic": "PASS",
+      "overflow": false,
+      "pageErrors": []
+    }
+  ],
+  "sourceCommit": "170b929bd4749e3ae53c7dcb0155e90d617210d9"
+}

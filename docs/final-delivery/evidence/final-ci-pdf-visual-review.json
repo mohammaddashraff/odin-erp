@@ -1,0 +1,578 @@
+{
+  "status": "PASS",
+  "reviewedAt": "2026-10-31T20:33:25.586937+00:00",
+  "applicationCommit": "170b929bd4749e3ae53c7dcb0155e90d617210d9",
+  "ciRunId": 41235646385,
+  "ciRunUrl": "https://github.com/mohammaddashraff/odin-erp/actions/runs/41235646385",
+  "ciArtifact": {
+    "url": "https://github.com/mohammaddashraff/odin-erp/actions/runs/41235646385/artifacts/13056031795",
+    "sha256": "99727f68aced314f0747876c34a95762c45bb966669576dda5a1211a1ab9bbaf"
+  },
+  "scope": "All 19 PDFs in the successful Linux CI artifact: seven actual browser downloads plus twelve bilingual saved-template specimens. All 19 of 19 pages were rendered at 130 DPI and individually visually inspected.",
+  "pdfGenerationEnvironment": "Linux CI; compiled application uses NODE_ENV=production with isolated AV8_ENV=test for browser acceptance. PDFs were copied byte-for-byte from the downloaded CI artifact, not regenerated locally.",
+  "visualReviewEnvironment": "Local Poppler 26.10.0 pdfinfo/pdffonts/pdftoppm/pdftotext; manual inspection of every rendered page.",
+  "renderer": "apps/api/src/av8-print.ts",
+  "rendererSha256AtApplicationCommit": "38c1a5764fa34e05df8aec7f31d34891ef1c50609ceb0ceb60dccddae417e59d",
+  "totals": {
+    "pdfs": 19,
+    "pages": 19,
+    "browserDownloads": 7,
+    "bilingualTemplateSpecimens": 12,
+    "visuallyReviewedPages": 19
+  },
+  "checks": [
+    "Actual and template contract schedules contain 8/8/2 rows and exact USD 64,000/64,000/54,000 totals with the application fee once.",
+    "Calendar-quarter dates and January-31 to April-30 academy settlement remain intact. Visa-triggered rows remain explicitly undated until the event.",
+    "Template student statement USD 64,000 = 31,600 paid + 32,400 remaining, with USD 4,100 unapplied and zero refunds separate.",
+    "Academy cash-plan obligation USD 54,000, paid zero, remaining USD 54,000 due 2026-04-30.",
+    "Actual EN/AR receipt shows USD 2,010 gross less 10 fee = 2,000 net/principal; template receipt shows USD 2,000 less 20 = 1,980. Rates and transaction dates remain distinct.",
+    "Actual cleared replacement cheque shows USD 1,000; fee reimbursement shows exactly USD 20 and its actual synthetic recorded signed-copy evidence.",
+    "Arabic is joined and readable with RTL labels/columns and intact Latin identifiers, amounts, dates and punctuation.",
+    "All pages have readable references/page numbers and no clipped or overlapping rows, missing glyph boxes or detached blank signature pages. Blank signature/stamp spaces do not fabricate signatures.",
+    "PDF bytes match the downloaded artifact; exact per-file PDF and render hashes are recorded. Template JSON row arithmetic and English text checks match visible pages."
+  ],
+  "documents": [
+    {
+      "group": "browser",
+      "ciArtifactPath": "playwright/final-delivery/synthetic-contract-cash.pdf",
+      "artifact": "final-ci-pdf-reviewed/browser/synthetic-contract-cash.pdf",
+      "language": "en",
+      "sha256": "05dca841d193580c6a3b726f662012a82e7b57c39db0f1d8cd3df69fb113a3aa",
+      "bytes": 8190,
+      "pages": 1,
+      "reviewedPages": [
+        1
+      ],
+      "visualStatus": "PASS",
+      "renderedPages": [
+        {
+          "page": 1,
+          "artifact": "final-ci-pdf-reviewed/browser/synthetic-contract-cash-1.png",
+          "sha256": "a979cfcb432bdb4fffe730ea993b46d5d505677a5eb0336e6d6316a1176afd06",
+          "visuallyReviewed": true
+        }
+      ],
+      "embeddedFontInspection": "name                                 type              encoding         emb sub uni object ID\n------------------------------------ ----------------- ---------------- --- --- --- ---------\nCZZZZZ+Manrope-Regular               CID TrueType      Identity-H       yes yes yes      8  0\n"
+    },
+    {
+      "group": "browser",
+      "ciArtifactPath": "playwright/final-delivery/synthetic-contract-planA.pdf",
+      "artifact": "final-ci-pdf-reviewed/browser/synthetic-contract-planA.pdf",
+      "language": "en",
+      "sha256": "292a599b5fb3695786e363a193f3b3ba5c162f10f852dd0fd63c7fb27a9033f6",
+      "bytes": 8579,
+      "pages": 1,
+      "reviewedPages": [
+        1
+      ],
+      "visualStatus": "PASS",
+      "renderedPages": [
+        {
+          "page": 1,
+          "artifact": "final-ci-pdf-reviewed/browser/synthetic-contract-planA-1.png",
+          "sha256": "8e2f143c927b88eab8b7e665c65e4f3d741655238725a561f051b8986dd14ae6",
+          "visuallyReviewed": true
+        }
+      ],
+      "embeddedFontInspection": "name                                 type              encoding         emb sub uni object ID\n------------------------------------ ----------------- ---------------- --- --- --- ---------\nCZZZZZ+Manrope-Regular               CID TrueType      Identity-H       yes yes yes      8  0\n"
+    },
+    {
+      "group": "browser",
+      "ciArtifactPath": "playwright/final-delivery/synthetic-contract-planB.pdf",
+      "artifact": "final-ci-pdf-reviewed/browser/synthetic-contract-planB.pdf",
+      "language": "en",
+      "sha256": "078cae99cd6d9fb53c65b0fcf2f2fe4c5c0a1140fb46c1c4a7215b3ca50fb3fd",
+      "bytes": 8525,
+      "pages": 1,
+      "reviewedPages": [
+        1
+      ],
+      "visualStatus": "PASS",
+      "renderedPages": [
+        {
+          "page": 1,
+          "artifact": "final-ci-pdf-reviewed/browser/synthetic-contract-planB-1.png",
+          "sha256": "7ab11561b5ea668adf85b369bc47442a46ef57c1a056aadf92304a7fb96ed04b",
+          "visuallyReviewed": true
+        }
+      ],
+      "embeddedFontInspection": "name                                 type              encoding         emb sub uni object ID\n------------------------------------ ----------------- ---------------- --- --- --- ---------\nCZZZZZ+Manrope-Regular               CID TrueType      Identity-H       yes yes yes      8  0\n"
+    },
+    {
+      "group": "browser",
+      "ciArtifactPath": "playwright/final-delivery/synthetic-fee-reimbursement-certified.pdf",
+      "artifact": "final-ci-pdf-reviewed/browser/synthetic-fee-reimbursement-certified.pdf",
+      "language": "en",
+      "sha256": "d63d6c731b7f0f63cc6ed9405aaacc5d29585d7faa61dcec548c06fa734642c0",
+      "bytes": 8954,
+      "pages": 1,
+      "reviewedPages": [
+        1
+      ],
+      "visualStatus": "PASS",
+      "renderedPages": [
+        {
+          "page": 1,
+          "artifact": "final-ci-pdf-reviewed/browser/synthetic-fee-reimbursement-certified-1.png",
+          "sha256": "5a5129125953f5e49faf73b6e75fc656cd7f780322a9aa79d314c824c1080e1d",
+          "visuallyReviewed": true
+        }
+      ],
+      "embeddedFontInspection": "name                                 type              encoding         emb sub uni object ID\n------------------------------------ ----------------- ---------------- --- --- --- ---------\nCZZZZZ+Manrope-Regular               CID TrueType      Identity-H       yes yes yes      8  0\n"
+    },
+    {
+      "group": "browser",
+      "ciArtifactPath": "playwright/final-delivery/synthetic-replacement-cheque.pdf",
+      "artifact": "final-ci-pdf-reviewed/browser/synthetic-replacement-cheque.pdf",
+      "language": "en",
+      "sha256": "f9c59133def2ebd215ba5c50fe190d487d39ac0cd5b0b5ef3fe93be38494237d",
+      "bytes": 8482,
+      "pages": 1,
+      "reviewedPages": [
+        1
+      ],
+      "visualStatus": "PASS",
+      "renderedPages": [
+        {
+          "page": 1,
+          "artifact": "final-ci-pdf-reviewed/browser/synthetic-replacement-cheque-1.png",
+          "sha256": "5a701ec304e97c473a75d5c04074352bccbdc9f1c74179f68561c58763b2c2e9",
+          "visuallyReviewed": true
+        }
+      ],
+      "embeddedFontInspection": "name                                 type              encoding         emb sub uni object ID\n------------------------------------ ----------------- ---------------- --- --- --- ---------\nCZZZZZ+Manrope-Regular               CID TrueType      Identity-H       yes yes yes      8  0\n"
+    },
+    {
+      "group": "browser",
+      "ciArtifactPath": "playwright/final-delivery/synthetic-student-receipt-ar.pdf",
+      "artifact": "final-ci-pdf-reviewed/browser/synthetic-student-receipt-ar.pdf",
+      "language": "ar",
+      "sha256": "013a872c49e62c29109f5a805a7b9a8567ede304d7b775b7930d7924f57e5eb8",
+      "bytes": 17977,
+      "pages": 1,
+      "reviewedPages": [
+        1
+      ],
+      "visualStatus": "PASS",
+      "renderedPages": [
+        {
+          "page": 1,
+          "artifact": "final-ci-pdf-reviewed/browser/synthetic-student-receipt-ar-1.png",
+          "sha256": "83c8ce1b1a4397a7adc6c706694a4356a0b738ec861e6f15df29e5c138a4a6ed",
+          "visuallyReviewed": true
+        }
+      ],
+      "embeddedFontInspection": "name                                 type              encoding         emb sub uni object ID\n------------------------------------ ----------------- ---------------- --- --- --- ---------\nCZZZZZ+Manrope-Regular               CID TrueType      Identity-H       yes yes yes      8  0\nDZZZZZ+NotoSansArabic-Regular        CID TrueType      Identity-H       yes yes yes      9  0\n"
+    },
+    {
+      "group": "browser",
+      "ciArtifactPath": "playwright/final-delivery/synthetic-student-receipt-en.pdf",
+      "artifact": "final-ci-pdf-reviewed/browser/synthetic-student-receipt-en.pdf",
+      "language": "en",
+      "sha256": "2c649ac919d2fa358091d57ca42da25e87af0a9b00246bfaadfc85a452dd5d55",
+      "bytes": 8766,
+      "pages": 1,
+      "reviewedPages": [
+        1
+      ],
+      "visualStatus": "PASS",
+      "renderedPages": [
+        {
+          "page": 1,
+          "artifact": "final-ci-pdf-reviewed/browser/synthetic-student-receipt-en-1.png",
+          "sha256": "43656081dcacd05cd95dc6bfd1645b0214683496860de958fbde3d02efab0913",
+          "visuallyReviewed": true
+        }
+      ],
+      "embeddedFontInspection": "name                                 type              encoding         emb sub uni object ID\n------------------------------------ ----------------- ---------------- --- --- --- ---------\nCZZZZZ+Manrope-Regular               CID TrueType      Identity-H       yes yes yes      8  0\n"
+    },
+    {
+      "group": "templates",
+      "ciArtifactPath": "pdf/final-delivery/bank-fee-receipt-ar.pdf",
+      "artifact": "final-ci-pdf-reviewed/templates/bank-fee-receipt-ar.pdf",
+      "language": "ar",
+      "sha256": "506da5383b61fe162926aab13f2e09c0f82223aff71981d0dc826c498fd5fcad",
+      "bytes": 17782,
+      "pages": 1,
+      "reviewedPages": [
+        1
+      ],
+      "visualStatus": "PASS",
+      "renderedPages": [
+        {
+          "page": 1,
+          "artifact": "final-ci-pdf-reviewed/templates/bank-fee-receipt-ar-1.png",
+          "sha256": "1f48159f0040411392e9f973971f47829b63cf874081e5063be16d1803a2d547",
+          "visuallyReviewed": true
+        }
+      ],
+      "embeddedFontInspection": "name                                 type              encoding         emb sub uni object ID\n------------------------------------ ----------------- ---------------- --- --- --- ---------\nCZZZZZ+Manrope-Regular               CID TrueType      Identity-H       yes yes yes      8  0\nDZZZZZ+NotoSansArabic-Regular        CID TrueType      Identity-H       yes yes yes      9  0\n",
+      "source": "final-ci-pdf-reviewed/templates/bank-fee-receipt.source.json",
+      "sourceSha256": "b2224fd393ba0ff2d95a5dc80cd5e6d8f6eae3f556510110495473f431f47baf",
+      "financialChecks": {
+        "rows": 18,
+        "currency": "USD",
+        "grossMinor": "200000",
+        "feeMinor": "2000",
+        "netAndPrincipalMinor": "198000"
+      }
+    },
+    {
+      "group": "templates",
+      "ciArtifactPath": "pdf/final-delivery/bank-fee-receipt-en.pdf",
+      "artifact": "final-ci-pdf-reviewed/templates/bank-fee-receipt-en.pdf",
+      "language": "en",
+      "sha256": "8407d4e1a09bd80671d96eb054b0435601ed4ee5f5326c0b19c0257ce1cba14d",
+      "bytes": 8817,
+      "pages": 1,
+      "reviewedPages": [
+        1
+      ],
+      "visualStatus": "PASS",
+      "renderedPages": [
+        {
+          "page": 1,
+          "artifact": "final-ci-pdf-reviewed/templates/bank-fee-receipt-en-1.png",
+          "sha256": "4a40015cfe8ab6387d71b944988a0867d019e0cb0a5ebc439451fc2b99da0760",
+          "visuallyReviewed": true
+        }
+      ],
+      "embeddedFontInspection": "name                                 type              encoding         emb sub uni object ID\n------------------------------------ ----------------- ---------------- --- --- --- ---------\nCZZZZZ+Manrope-Regular               CID TrueType      Identity-H       yes yes yes      8  0\n",
+      "source": "final-ci-pdf-reviewed/templates/bank-fee-receipt.source.json",
+      "sourceSha256": "b2224fd393ba0ff2d95a5dc80cd5e6d8f6eae3f556510110495473f431f47baf",
+      "financialChecks": {
+        "rows": 18,
+        "currency": "USD",
+        "grossMinor": "200000",
+        "feeMinor": "2000",
+        "netAndPrincipalMinor": "198000"
+      }
+    },
+    {
+      "group": "templates",
+      "ciArtifactPath": "pdf/final-delivery/cash-academy-statement-ar.pdf",
+      "artifact": "final-ci-pdf-reviewed/templates/cash-academy-statement-ar.pdf",
+      "language": "ar",
+      "sha256": "04f28fe5d07531795833fd3774c1f5e06e15c585bec4fdc29911e49c902d70ba",
+      "bytes": 12141,
+      "pages": 1,
+      "reviewedPages": [
+        1
+      ],
+      "visualStatus": "PASS",
+      "renderedPages": [
+        {
+          "page": 1,
+          "artifact": "final-ci-pdf-reviewed/templates/cash-academy-statement-ar-1.png",
+          "sha256": "23d34152924b8e91d028562c5fcf322c43d67692e92c7fbc89b235b63442c5f9",
+          "visuallyReviewed": true
+        }
+      ],
+      "embeddedFontInspection": "name                                 type              encoding         emb sub uni object ID\n------------------------------------ ----------------- ---------------- --- --- --- ---------\nCZZZZZ+Manrope-Regular               CID TrueType      Identity-H       yes yes yes      8  0\nDZZZZZ+NotoSansArabic-Regular        CID TrueType      Identity-H       yes yes yes      9  0\n",
+      "source": "final-ci-pdf-reviewed/templates/cash-academy-statement.source.json",
+      "sourceSha256": "89a1642d0aa268a7f4711044302e3c8f8e30b65505a89b87b0f0deec1f2c7cb0",
+      "financialChecks": {
+        "rows": 1,
+        "currency": "USD",
+        "chargeMinor": "5400000",
+        "paidMinor": "0",
+        "remainingMinor": "5400000",
+        "dueDate": "2026-04-30",
+        "contractAnchor": "2026-01-31"
+      }
+    },
+    {
+      "group": "templates",
+      "ciArtifactPath": "pdf/final-delivery/cash-academy-statement-en.pdf",
+      "artifact": "final-ci-pdf-reviewed/templates/cash-academy-statement-en.pdf",
+      "language": "en",
+      "sha256": "c5efe899f6fe3228d694b0fbe827ee917fcab4a7e901ba96ef30b8d095a4f7dd",
+      "bytes": 6978,
+      "pages": 1,
+      "reviewedPages": [
+        1
+      ],
+      "visualStatus": "PASS",
+      "renderedPages": [
+        {
+          "page": 1,
+          "artifact": "final-ci-pdf-reviewed/templates/cash-academy-statement-en-1.png",
+          "sha256": "84089ee0f8068dd614969db09f23edb0410e3ad9aea4f0e3854ca46d2754d363",
+          "visuallyReviewed": true
+        }
+      ],
+      "embeddedFontInspection": "name                                 type              encoding         emb sub uni object ID\n------------------------------------ ----------------- ---------------- --- --- --- ---------\nCZZZZZ+Manrope-Regular               CID TrueType      Identity-H       yes yes yes      8  0\n",
+      "source": "final-ci-pdf-reviewed/templates/cash-academy-statement.source.json",
+      "sourceSha256": "89a1642d0aa268a7f4711044302e3c8f8e30b65505a89b87b0f0deec1f2c7cb0",
+      "financialChecks": {
+        "rows": 1,
+        "currency": "USD",
+        "chargeMinor": "5400000",
+        "paidMinor": "0",
+        "remainingMinor": "5400000",
+        "dueDate": "2026-04-30",
+        "contractAnchor": "2026-01-31"
+      }
+    },
+    {
+      "group": "templates",
+      "ciArtifactPath": "pdf/final-delivery/cash-contract-ar.pdf",
+      "artifact": "final-ci-pdf-reviewed/templates/cash-contract-ar.pdf",
+      "language": "ar",
+      "sha256": "e30d338ce8b59c73ef4de94c87064fdf15bb8a5611b396b9c46de4bfc44739d5",
+      "bytes": 15323,
+      "pages": 1,
+      "reviewedPages": [
+        1
+      ],
+      "visualStatus": "PASS",
+      "renderedPages": [
+        {
+          "page": 1,
+          "artifact": "final-ci-pdf-reviewed/templates/cash-contract-ar-1.png",
+          "sha256": "452661aacffbb4897d97d93132c842b79cdf275cbfdee614f631b71072abb191",
+          "visuallyReviewed": true
+        }
+      ],
+      "embeddedFontInspection": "name                                 type              encoding         emb sub uni object ID\n------------------------------------ ----------------- ---------------- --- --- --- ---------\nCZZZZZ+Manrope-Regular               CID TrueType      Identity-H       yes yes yes      8  0\nDZZZZZ+NotoSansArabic-Regular        CID TrueType      Identity-H       yes yes yes      9  0\n",
+      "source": "final-ci-pdf-reviewed/templates/cash-contract.source.json",
+      "sourceSha256": "e8f5e2a8b32e768438c96246b4bfb547bd7729ca1f9047235003938f38d059ec",
+      "financialChecks": {
+        "rows": 2,
+        "totalMinor": "5400000",
+        "currency": "USD",
+        "sourceReference": "AV8-CAI-2026-00006",
+        "applicationFeeCount": 1
+      }
+    },
+    {
+      "group": "templates",
+      "ciArtifactPath": "pdf/final-delivery/cash-contract-en.pdf",
+      "artifact": "final-ci-pdf-reviewed/templates/cash-contract-en.pdf",
+      "language": "en",
+      "sha256": "ec83f77799f9a077f917e6fced85ea86daf6334e5042fcae194a8be86c380572",
+      "bytes": 8196,
+      "pages": 1,
+      "reviewedPages": [
+        1
+      ],
+      "visualStatus": "PASS",
+      "renderedPages": [
+        {
+          "page": 1,
+          "artifact": "final-ci-pdf-reviewed/templates/cash-contract-en-1.png",
+          "sha256": "71e06ba1c0d025d4a6e88743e711c558bfa93197b5ac27108d6ab6d1b2d68417",
+          "visuallyReviewed": true
+        }
+      ],
+      "embeddedFontInspection": "name                                 type              encoding         emb sub uni object ID\n------------------------------------ ----------------- ---------------- --- --- --- ---------\nCZZZZZ+Manrope-Regular               CID TrueType      Identity-H       yes yes yes      8  0\n",
+      "source": "final-ci-pdf-reviewed/templates/cash-contract.source.json",
+      "sourceSha256": "e8f5e2a8b32e768438c96246b4bfb547bd7729ca1f9047235003938f38d059ec",
+      "financialChecks": {
+        "rows": 2,
+        "totalMinor": "5400000",
+        "currency": "USD",
+        "sourceReference": "AV8-CAI-2026-00006",
+        "applicationFeeCount": 1
+      }
+    },
+    {
+      "group": "templates",
+      "ciArtifactPath": "pdf/final-delivery/partial-student-statement-ar.pdf",
+      "artifact": "final-ci-pdf-reviewed/templates/partial-student-statement-ar.pdf",
+      "language": "ar",
+      "sha256": "4913c47f33b4bf0b156666f8a932df0815b714bacf746e9520f51abaa5c0ebd6",
+      "bytes": 14590,
+      "pages": 1,
+      "reviewedPages": [
+        1
+      ],
+      "visualStatus": "PASS",
+      "renderedPages": [
+        {
+          "page": 1,
+          "artifact": "final-ci-pdf-reviewed/templates/partial-student-statement-ar-1.png",
+          "sha256": "930c126b6abb841723e47c9dcc843bfbd0538c530ef5d1421e85c99c72de1f83",
+          "visuallyReviewed": true
+        }
+      ],
+      "embeddedFontInspection": "name                                 type              encoding         emb sub uni object ID\n------------------------------------ ----------------- ---------------- --- --- --- ---------\nCZZZZZ+Manrope-Regular               CID TrueType      Identity-H       yes yes yes      8  0\nDZZZZZ+NotoSansArabic-Regular        CID TrueType      Identity-H       yes yes yes      9  0\n",
+      "source": "final-ci-pdf-reviewed/templates/partial-student-statement.source.json",
+      "sourceSha256": "5a04538f84f11d2f39be0e3706b16a9a544d7b88c6bffd8cc7f162908ba06cb2",
+      "financialChecks": {
+        "rows": 8,
+        "currency": "USD",
+        "chargeMinor": "6400000",
+        "paidMinor": "3160000",
+        "remainingMinor": "3240000",
+        "unappliedMinor": "410000",
+        "refundedMinor": "0"
+      }
+    },
+    {
+      "group": "templates",
+      "ciArtifactPath": "pdf/final-delivery/partial-student-statement-en.pdf",
+      "artifact": "final-ci-pdf-reviewed/templates/partial-student-statement-en.pdf",
+      "language": "en",
+      "sha256": "9254af3cf1485ee43aba783dd098700b74600638ae76450b31882ce7c1a6d356",
+      "bytes": 7916,
+      "pages": 1,
+      "reviewedPages": [
+        1
+      ],
+      "visualStatus": "PASS",
+      "renderedPages": [
+        {
+          "page": 1,
+          "artifact": "final-ci-pdf-reviewed/templates/partial-student-statement-en-1.png",
+          "sha256": "fd8a751ea919072f67f4b8671e282d21277c4b66c1ae4b6416839ebee4816136",
+          "visuallyReviewed": true
+        }
+      ],
+      "embeddedFontInspection": "name                                 type              encoding         emb sub uni object ID\n------------------------------------ ----------------- ---------------- --- --- --- ---------\nCZZZZZ+Manrope-Regular               CID TrueType      Identity-H       yes yes yes      8  0\n",
+      "source": "final-ci-pdf-reviewed/templates/partial-student-statement.source.json",
+      "sourceSha256": "5a04538f84f11d2f39be0e3706b16a9a544d7b88c6bffd8cc7f162908ba06cb2",
+      "financialChecks": {
+        "rows": 8,
+        "currency": "USD",
+        "chargeMinor": "6400000",
+        "paidMinor": "3160000",
+        "remainingMinor": "3240000",
+        "unappliedMinor": "410000",
+        "refundedMinor": "0"
+      }
+    },
+    {
+      "group": "templates",
+      "ciArtifactPath": "pdf/final-delivery/plan-a-contract-ar.pdf",
+      "artifact": "final-ci-pdf-reviewed/templates/plan-a-contract-ar.pdf",
+      "language": "ar",
+      "sha256": "73d2b57b0a369cbfe0de83f64d78cf6c8366b08d61b991cac94a557451f977ff",
+      "bytes": 16510,
+      "pages": 1,
+      "reviewedPages": [
+        1
+      ],
+      "visualStatus": "PASS",
+      "renderedPages": [
+        {
+          "page": 1,
+          "artifact": "final-ci-pdf-reviewed/templates/plan-a-contract-ar-1.png",
+          "sha256": "0a9c84b208622fef8a5d2785f19a8b294b6cf89df14eeef3f3ca68cc3292f4af",
+          "visuallyReviewed": true
+        }
+      ],
+      "embeddedFontInspection": "name                                 type              encoding         emb sub uni object ID\n------------------------------------ ----------------- ---------------- --- --- --- ---------\nCZZZZZ+Manrope-Regular               CID TrueType      Identity-H       yes yes yes      8  0\nDZZZZZ+NotoSansArabic-Regular        CID TrueType      Identity-H       yes yes yes      9  0\n",
+      "source": "final-ci-pdf-reviewed/templates/plan-a-contract.source.json",
+      "sourceSha256": "f192fa274744a442bccda020f76e563a00db5cd441f4916d51fd72d150e9f1b8",
+      "financialChecks": {
+        "rows": 8,
+        "totalMinor": "6400000",
+        "currency": "USD",
+        "sourceReference": "AV8-CAI-2026-00004",
+        "applicationFeeCount": 1
+      }
+    },
+    {
+      "group": "templates",
+      "ciArtifactPath": "pdf/final-delivery/plan-a-contract-en.pdf",
+      "artifact": "final-ci-pdf-reviewed/templates/plan-a-contract-en.pdf",
+      "language": "en",
+      "sha256": "160aa512074c0b14c69e9c1b1a6e56b96e66689df3731ebbe483691ceedc8f35",
+      "bytes": 8571,
+      "pages": 1,
+      "reviewedPages": [
+        1
+      ],
+      "visualStatus": "PASS",
+      "renderedPages": [
+        {
+          "page": 1,
+          "artifact": "final-ci-pdf-reviewed/templates/plan-a-contract-en-1.png",
+          "sha256": "6e35b6d53f66ee08d15d2e84ea1af464e2ff3e7ae1c8151fe3e2e65d4da2e3cd",
+          "visuallyReviewed": true
+        }
+      ],
+      "embeddedFontInspection": "name                                 type              encoding         emb sub uni object ID\n------------------------------------ ----------------- ---------------- --- --- --- ---------\nCZZZZZ+Manrope-Regular               CID TrueType      Identity-H       yes yes yes      8  0\n",
+      "source": "final-ci-pdf-reviewed/templates/plan-a-contract.source.json",
+      "sourceSha256": "f192fa274744a442bccda020f76e563a00db5cd441f4916d51fd72d150e9f1b8",
+      "financialChecks": {
+        "rows": 8,
+        "totalMinor": "6400000",
+        "currency": "USD",
+        "sourceReference": "AV8-CAI-2026-00004",
+        "applicationFeeCount": 1
+      }
+    },
+    {
+      "group": "templates",
+      "ciArtifactPath": "pdf/final-delivery/plan-b-contract-ar.pdf",
+      "artifact": "final-ci-pdf-reviewed/templates/plan-b-contract-ar.pdf",
+      "language": "ar",
+      "sha256": "6e3c367ecaf60e044b697115505aa95e2680230622514d85f53d30e062887d7d",
+      "bytes": 16229,
+      "pages": 1,
+      "reviewedPages": [
+        1
+      ],
+      "visualStatus": "PASS",
+      "renderedPages": [
+        {
+          "page": 1,
+          "artifact": "final-ci-pdf-reviewed/templates/plan-b-contract-ar-1.png",
+          "sha256": "1bb5d1acc971288a7cd97bc39047b90d8eae7ec21ac5c175ac08cc96558185ea",
+          "visuallyReviewed": true
+        }
+      ],
+      "embeddedFontInspection": "name                                 type              encoding         emb sub uni object ID\n------------------------------------ ----------------- ---------------- --- --- --- ---------\nCZZZZZ+Manrope-Regular               CID TrueType      Identity-H       yes yes yes      8  0\nDZZZZZ+NotoSansArabic-Regular        CID TrueType      Identity-H       yes yes yes      9  0\n",
+      "source": "final-ci-pdf-reviewed/templates/plan-b-contract.source.json",
+      "sourceSha256": "c367bc172a28573d7cc2c4415ee4ba0196aa57f90371e04a480de7e72fc69cb1",
+      "financialChecks": {
+        "rows": 8,
+        "totalMinor": "6400000",
+        "currency": "USD",
+        "sourceReference": "AV8-CAI-2026-00007",
+        "applicationFeeCount": 1
+      }
+    },
+    {
+      "group": "templates",
+      "ciArtifactPath": "pdf/final-delivery/plan-b-contract-en.pdf",
+      "artifact": "final-ci-pdf-reviewed/templates/plan-b-contract-en.pdf",
+      "language": "en",
+      "sha256": "1f40b3be6d3073482ffda6ebcc9a035b3276bd66a47f8575a7a882832da50f1a",
+      "bytes": 8542,
+      "pages": 1,
+      "reviewedPages": [
+        1
+      ],
+      "visualStatus": "PASS",
+      "renderedPages": [
+        {
+          "page": 1,
+          "artifact": "final-ci-pdf-reviewed/templates/plan-b-contract-en-1.png",
+          "sha256": "938506852e1a576d0477e3988c690195e5bcf906902f6cbb3e3125d06053c5d1",
+          "visuallyReviewed": true
+        }
+      ],
+      "embeddedFontInspection": "name                                 type              encoding         emb sub uni object ID\n------------------------------------ ----------------- ---------------- --- --- --- ---------\nCZZZZZ+Manrope-Regular               CID TrueType      Identity-H       yes yes yes      8  0\n",
+      "source": "final-ci-pdf-reviewed/templates/plan-b-contract.source.json",
+      "sourceSha256": "c367bc172a28573d7cc2c4415ee4ba0196aa57f90371e04a480de7e72fc69cb1",
+      "financialChecks": {
+        "rows": 8,
+        "totalMinor": "6400000",
+        "currency": "USD",
+        "sourceReference": "AV8-CAI-2026-00007",
+        "applicationFeeCount": 1
+      }
+    }
+  ],
+  "limitations": [
+    "All data and signatures/evidence labels are synthetic acceptance fixtures; this review does not approve client legal wording or certify government receipt compliance.",
+    "All nineteen artifacts are single-page PDFs. Multi-page pagination is covered by the separate automated 50-row bilingual test; no multi-page visual claim is made here.",
+    "The template fixtures deliberately use historical January-end signing anchors that precede their October application-fee fixture date; this is date-arithmetic evidence, not certification of a real chronological student lifecycle.",
+    "Actual contract downloads are English; Arabic layout is reviewed in the actual receipt and six Arabic template specimens.",
+    "PDF accessibility tagging and perfect bidirectional copy/paste extraction are not certified.",
+    "The prior local browser/template review manifests remain historical evidence. Their hashes are not substituted for these Linux CI artifacts."
+  ]
+}

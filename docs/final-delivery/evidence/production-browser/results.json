@@ -1,0 +1,60 @@
+{
+  "status": "PASS",
+  "capturedAt": "2026-10-31T20:32:01.819Z",
+  "origin": "https://av8.odin-ltd.com",
+  "scope": "Read-only final HTTPS login shell, EN/AR desktop/mobile interactions, public API health, anonymous/forged-header denial, no-store responses and actual browser CSP enforcement. Authenticated business workflows, owner credentials, production money and provider delivery are not inferred.",
+  "credentialsSubmitted": false,
+  "formSubmitted": false,
+  "businessMutations": false,
+  "allowedRequestMethods": [
+    "GET",
+    "HEAD",
+    "POST /api/auth/refresh only, empty and without credentials"
+  ],
+  "anonymousRefreshChecks": [],
+  "results": [
+    {
+      "healthStatus": 200,
+      "anonymousAuthStatus": 401,
+      "forgedHeaderAuthStatus": 401,
+      "repeatedAnonymousAuthStatus": 401,
+      "apiResponsesNoStore": true,
+      "uniqueCspNonce": true,
+      "unsafeInlineProbeBlocked": true,
+      "forwardedHeaderClaim": "Forged forwarding/workload headers did not authenticate; internal IP forwarding and rate-limit attribution require server-side evidence."
+    },
+    {
+      "viewport": "desktop",
+      "english": "PASS",
+      "arabic": "PASS",
+      "interactiveEmptyForm": true,
+      "overflow": false,
+      "pageErrors": [],
+      "tls": {
+        "protocol": "TLS 1.3",
+        "issuer": "YE2",
+        "subjectName": "av8.odin-ltd.com",
+        "validFrom": "2026-10-31T17:36:18.000Z",
+        "validTo": "2027-01-29T17:36:17.000Z",
+        "browserCertificateValidation": true
+      }
+    },
+    {
+      "viewport": "mobile",
+      "english": "PASS",
+      "arabic": "PASS",
+      "interactiveEmptyForm": true,
+      "overflow": false,
+      "pageErrors": [],
+      "tls": {
+        "protocol": "TLS 1.3",
+        "issuer": "YE2",
+        "subjectName": "av8.odin-ltd.com",
+        "validFrom": "2026-10-31T17:36:18.000Z",
+        "validTo": "2027-01-29T17:36:17.000Z",
+        "browserCertificateValidation": true
+      }
+    }
+  ],
+  "sourceCommit": "170b929bd4749e3ae53c7dcb0155e90d617210d9"
+}

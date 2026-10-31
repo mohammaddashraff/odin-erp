@@ -1,17 +1,25 @@
 {
-  "scope": "Local compiled production-runtime browser acceptance; synthetic data; no external provider or hosted-deployment claim",
-  "completedAtUtc": "2026-10-31T18:43:10.664976+00:00",
-  "command": "node scripts/av8/run.mjs dev env AV8_BROWSER_PRODUCTION=1 node node_modules/@playwright/test/cli.js test --config=playwright.delivery.config.ts",
-  "testsPassed": 11,
-  "testsFailed": 0,
-  "registeredRoutes": 78,
+  "capturedAt": "2026-10-31T19:43:24.166728+00:00",
+  "runtime": "Compiled API and Next.js; NODE_ENV=production, AV8_ENV=dev",
+  "origin": "http://127.0.0.1:8180",
+  "database": "Verified isolated local av8_dev; synthetic fixtures only",
+  "scenariosPassed": 21,
+  "scenariosFailed": 0,
   "routeVariantsPassed": 312,
-  "frontendOrigin": "http://127.0.0.1:8180",
-  "apiOrigin": "http://127.0.0.1:8181",
-  "nodeEnv": "production",
-  "isolationEnvironment": "dev",
-  "gitHeadAtEvidenceCapture": "828ae27bd17682739d192115ed163781f2388bea",
-  "workingTreeHadChanges": true,
+  "duration": "6.7 minutes",
+  "sourceCheckpointAtCapture": "58e3a48fa708b477001aa52b495eff813d536d40",
   "testedReleaseCommit": null,
-  "commitNote": "Release owner must bind this evidence to the tested release commit; baseline HEAD is not asserted to contain the tested working-tree changes."
+  "workingTreeHadChanges": true,
+  "scope": "Current compiled local acceptance plus direct persisted-result assertions. The API inactive-cheque return gate added after this build is separately regression-tested and belongs to final exact-commit CI, not this local runtime claim.",
+  "canonicalResult": "results.json",
+  "browserTest": "tests/final-delivery/browser.spec.ts",
+  "fixtureOrder": [
+    "av8-pos-uat.js",
+    "av8-supplier-uat.js",
+    "prepare-finance-uat.mjs",
+    "operations-uat.cjs",
+    "prepare-opening-uat.cjs"
+  ],
+  "externalMessagesSent": 0,
+  "credentialPersistence": "No bearer in localStorage; actual captured responses held only in browser-test memory."
 }
