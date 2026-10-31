@@ -39,21 +39,49 @@ export function assertContainer(container,service){
   if(service==='av8-postgres'&&(Object.values(container.HostConfig?.PortBindings||{}).some(Boolean)||Object.values(container.NetworkSettings?.Ports||{}).some(Boolean)))throw new Error('Staging database must not publish a host port');
 }
 
+export function freshTargetProvisionSql(plan){
+  if(!/^av8_staging_restore_[a-f0-9]{24}$/.test(plan.target)||plan.target===plan.source||plan.resource!==`av8-erp-staging:av8-restore-${plan.target.slice('av8_staging_restore_'.length)}`)throw new Error('Schema preparation is restricted to the generated recovery database');
+  // template0 contains an empty public schema; the schema-scoped dump creates it itself.
+  // Deliberately no CASCADE: unexpected objects must stop this new-target preparation.
+  return `DROP SCHEMA public;REVOKE ALL ON DATABASE ${identifier(plan.target)} FROM PUBLIC;GRANT CONNECT ON DATABASE ${identifier(plan.target)} TO ${identifier(plan.owner)},av8_runtime;CREATE SCHEMA av8_guard;CREATE TABLE av8_guard.av8_environment_identity(resource text PRIMARY KEY);INSERT INTO av8_guard.av8_environment_identity VALUES(${literal(plan.resource)});GRANT USAGE ON SCHEMA av8_guard TO ${identifier(plan.owner)},av8_runtime;GRANT SELECT ON av8_guard.av8_environment_identity TO ${identifier(plan.owner)},av8_runtime;`;
+}
+
+export function failureClassification(stderr){
+  if(/schema ["']?public["']? already exists/i.test(stderr))return 'RESTORE_SCHEMA_ALREADY_EXISTS';
+  if(/row.level security|row-level security/i.test(stderr))return 'DATABASE_RLS_DENIED';
+  if(/permission denied|must be owner|must be member/i.test(stderr))return 'DATABASE_PERMISSION_DENIED';
+  if(/connection refused|could not connect|connection.*failed/i.test(stderr))return 'DATABASE_CONNECTION_FAILED';
+  if(/no space left|disk quota/i.test(stderr))return 'HOST_STORAGE_EXHAUSTED';
+  return 'CHILD_COMMAND_FAILED';
+}
+
 export const manifestSql=`BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY;
 SELECT format('SELECT json_build_object(''table'',%L,''rows'',count(*)::text,''checksum'',md5(coalesce(string_agg(md5(row_to_json(t)::text),'''' ORDER BY md5(row_to_json(t)::text)),''''))) FROM public.%I t',tablename,tablename) FROM pg_tables WHERE schemaname='public' ORDER BY tablename
-\gexec
+\\gexec
+COMMIT;`;
+export const sequenceSql=`BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY;
+SELECT format('SELECT json_build_object(''sequence'',%L,''lastValue'',last_value::text,''isCalled'',is_called) FROM public.%I',sequencename,sequencename) FROM pg_sequences WHERE schemaname='public' ORDER BY sequencename
+\\gexec
 COMMIT;`;
 
-const documentSql=`SELECT json_build_object('table',table_name,'count',n,'bytes',bytes,'invalid',invalid) FROM (
+export const documentSql=`SELECT json_build_object('table',table_name,'count',n,'bytes',bytes,'invalid',invalid) FROM (
  SELECT 'av8_attachments' AS table_name,count(*) AS n,coalesce(sum(octet_length(content)),0)::text AS bytes,count(*) FILTER(WHERE octet_length(content)<>size_bytes OR encode(sha256(content),'hex')<>sha256) AS invalid FROM public.av8_attachments
  UNION ALL SELECT 'private_attachments',count(*),coalesce(sum(octet_length(content)),0)::text,count(*) FILTER(WHERE octet_length(content)<>size_bytes OR encode(sha256(content),'hex')<>sha256) FROM public.private_attachments
 ) d ORDER BY table_name;`;
-const balanceSql=`SELECT json_build_object('unbalanced',count(*)) FROM (SELECT je.id FROM public.journal_entries je LEFT JOIN public.journal_lines jl ON jl.journal_entry_id=je.id WHERE je.status='POSTED' GROUP BY je.id HAVING coalesce(sum(jl.debit_minor-jl.credit_minor),0)<>0) q;`;
+export const balanceSql=`SELECT json_build_object('unbalanced',count(*)) FROM (SELECT je.id FROM public.journal_entries je LEFT JOIN public.journal_lines jl ON jl.journal_entry_id=je.id WHERE je.status='POSTED' GROUP BY je.id HAVING coalesce(sum(jl.debit_minor-jl.credit_minor),0)<>0) q;`;
 
 function privateFile(file){const stat=fs.lstatSync(file);if(!stat.isFile()||stat.isSymbolicLink()||(stat.mode&0o077)!==0)throw new Error('A regular owner-only private file is required');}
-function command(binary,args,{input,env,timeout=120000}={}){
+function command(binary,args,{input,env,timeout=120000,diagnosticsDirectory,diagnosticLabel='command'}={}){
   const result=spawnSync(binary,args,{cwd:repository,input,encoding:'utf8',env:{...process.env,...env},timeout,maxBuffer:16*1024*1024});
-  if(result.status!==0||result.error)throw new Error(`Recovery ${path.basename(binary)} command failed; no child output or credentials logged`);
+  if(result.status!==0||result.error){
+    const stderr=String(result.stderr||''),classification=failureClassification(stderr);let diagnosticFile;
+    if(diagnosticsDirectory){
+      fs.mkdirSync(diagnosticsDirectory,{recursive:true,mode:0o700});
+      diagnosticFile=path.join(diagnosticsDirectory,`${diagnosticLabel.replace(/[^a-z0-9-]/gi,'-')}-${randomBytes(4).toString('hex')}.stderr.txt`);
+      fs.writeFileSync(diagnosticFile,stderr,{flag:'wx',mode:0o600});
+    }
+    const error=new Error(`Recovery ${path.basename(binary)} command failed; raw output retained privately`);error.classification=classification;error.diagnosticFile=diagnosticFile;throw error;
+  }
   return result.stdout.trim();
 }
 const lines=output=>output.split('\n').filter(Boolean).map(line=>JSON.parse(line));
@@ -65,9 +93,11 @@ export async function runRestoreDrill(options){
   const key=fs.readFileSync(path.join(plan.privateDirectory,'backup-key'),'utf8').trim();if(!/^[a-f0-9]{64}$/i.test(key))throw new Error('Retained operational backup key is invalid');
   for(const directory of [plan.backupDirectory,plan.evidenceDirectory]){fs.mkdirSync(directory,{recursive:true,mode:0o700});if((fs.statSync(directory).mode&0o077)!==0)throw new Error('Backup/evidence directories must be owner-only');}
   const runDirectory=fs.mkdtempSync(path.join(plan.evidenceDirectory,'restore-')),privateDirectory=path.join(runDirectory,'private');fs.mkdirSync(privateDirectory,{mode:0o700});
+  fs.writeFileSync(path.join(runDirectory,'ownership.json'),JSON.stringify({kind:'AV8_STAGING_RESTORE',sourceDatabase:plan.source,targetDatabase:plan.target,targetResource:plan.resource,container:plan.container,createdAt:new Date().toISOString()},null,2)+'\n',{flag:'wx',mode:0o600});
   const evidence={status:'FAIL',startedAt:new Date().toISOString(),sourceResource:plan.sourceResource,sourceDatabase:plan.source,targetDatabase:plan.target,targetResource:plan.resource,scope:'Actual staging same-host encrypted logical recovery; off-host disaster recovery and production RPO/RTO are not claimed',phase:'identity'};
   const started=performance.now(),composeArgs=['compose','--env-file',path.join(plan.privateDirectory,'compose.env'),'-f',path.join(repository,'deploy/hetzner/compose.yaml')];
-  const docker=(args,settings)=>command('docker',args,settings);
+  const runCommand=(binary,args,settings={})=>command(binary,args,{...settings,diagnosticsDirectory:path.join(runDirectory,'diagnostics'),diagnosticLabel:evidence.phase});
+  const docker=(args,settings)=>runCommand('docker',args,settings);
   const serviceId=service=>{const ids=docker([...composeArgs,'ps','-q',service]).split('\n').filter(Boolean);if(ids.length!==1||!/^[a-f0-9]{12,64}$/.test(ids[0]))throw new Error('Expected one running staging service container');return ids[0];};
   let created=false,apiCreated=false,sourceBefore,archive;
   try{
@@ -83,34 +113,39 @@ export async function runRestoreDrill(options){
     const expectedMigrations=fs.readdirSync(path.join(repository,'apps/api/prisma/migrations')).filter(name=>fs.existsSync(path.join(repository,'apps/api/prisma/migrations',name,'migration.sql'))).length;
     if(sourceState.migrations!==expectedMigrations||sourceState.applications<1||sourceState.reports<1)throw new Error('Expected all source migrations and actual staging application/report evidence');
     const filesBefore=sql(plan.source,documentSql);if(filesBefore.some(file=>file.invalid!==0)||!filesBefore.some(file=>file.table==='av8_attachments'&&file.count>0))throw new Error('Source attachment content/hash acceptance failed');
-    sourceBefore=sql(plan.source,manifestSql);evidence.phase='backup';
-    const backup=JSON.parse(command(process.execPath,[path.join(repository,'deploy/hetzner/backup.mjs'),plan.privateDirectory,plan.backupDirectory]));archive=backup.archive;
+    sourceBefore=sql(plan.source,manifestSql);const sourceSequences=sql(plan.source,sequenceSql);evidence.phase='backup';
+    const backup=JSON.parse(runCommand(process.execPath,[path.join(repository,'deploy/hetzner/backup.mjs'),plan.privateDirectory,plan.backupDirectory]));archive=backup.archive;
     if(!backup.ok||!inside(plan.backupDirectory,path.resolve(archive))||!archive.endsWith('.dump.enc'))throw new Error('Backup archive escaped its dedicated directory');
     const backupMeta=JSON.parse(fs.readFileSync(archive+'.json','utf8'));if(backupMeta.sourceResource!==plan.sourceResource||backupMeta.encryption!=='AES-256-GCM')throw new Error('Encrypted archive source identity mismatch');
-    const plain=path.join(privateDirectory,'restore.dump');command(process.execPath,[path.join(repository,'deploy/hetzner/decrypt-backup.mjs'),archive,path.join(plan.privateDirectory,'backup-key'),plain]);
-    evidence.archive=archive;evidence.backupSha256=backupMeta.sha256Plaintext;evidence.encryptedSha256=digest(fs.readFileSync(archive));evidence.encryptedBytes=fs.statSync(archive).size;evidence.backupKeyRetained=true;evidence.phase='restore';
+    evidence.phase='decrypt-archive';
+    const plain=path.join(privateDirectory,'restore.dump');runCommand(process.execPath,[path.join(repository,'deploy/hetzner/decrypt-backup.mjs'),archive,path.join(plan.privateDirectory,'backup-key'),plain]);
+    evidence.archive=archive;evidence.backupSha256=backupMeta.sha256Plaintext;evidence.encryptedSha256=digest(fs.readFileSync(archive));evidence.encryptedBytes=fs.statSync(archive).size;evidence.backupKeyRetained=true;evidence.phase='create-recovery-database';
     // Identifiers are generated locally; no caller-supplied target or cleanup name is accepted.
     sql('postgres',`CREATE DATABASE ${identifier(plan.target)} OWNER ${identifier(plan.owner)} TEMPLATE template0;`);created=true;
-    sql(plan.target,`REVOKE ALL ON DATABASE ${identifier(plan.target)} FROM PUBLIC;GRANT CONNECT ON DATABASE ${identifier(plan.target)} TO ${identifier(plan.owner)},av8_runtime;CREATE SCHEMA av8_guard;CREATE TABLE av8_guard.av8_environment_identity(resource text PRIMARY KEY);INSERT INTO av8_guard.av8_environment_identity VALUES(${literal(plan.resource)});GRANT USAGE ON SCHEMA av8_guard TO ${identifier(plan.owner)},av8_runtime;GRANT SELECT ON av8_guard.av8_environment_identity TO ${identifier(plan.owner)},av8_runtime;`);
+    evidence.phase='provision-empty-recovery-schema';sql(plan.target,freshTargetProvisionSql(plan));
+    evidence.phase='restore-archive';
     docker(['exec','-i',pgId,'pg_restore','--exit-on-error','--no-owner',`--role=${plan.owner}`,'--username=av8_bootstrap',`--dbname=${plan.target}`],{input:fs.readFileSync(plain)});fs.unlinkSync(plain);
-    const restored=sql(plan.target,manifestSql),filesAfter=sql(plan.target,documentSql);
-    if(JSON.stringify(sourceBefore)!==JSON.stringify(restored)||JSON.stringify(filesBefore)!==JSON.stringify(filesAfter))throw new Error('Restored public table/attachment manifest differs from source');
+    evidence.phase='compare-restored-state';
+    const restored=sql(plan.target,manifestSql),filesAfter=sql(plan.target,documentSql),restoredSequences=sql(plan.target,sequenceSql);
+    if(JSON.stringify(sourceBefore)!==JSON.stringify(restored)||JSON.stringify(filesBefore)!==JSON.stringify(filesAfter)||JSON.stringify(sourceSequences)!==JSON.stringify(restoredSequences))throw new Error('Restored public table/sequence/attachment manifest differs from source');
     if(sql(plan.target,balanceSql)[0].unbalanced!==0)throw new Error('Restored posted journals do not balance');
-    if(JSON.stringify(sourceBefore)!==JSON.stringify(sql(plan.source,manifestSql)))throw new Error('Staging writers changed the source during backup; preserve evidence and repeat quiescent');
-    Object.assign(evidence,{migrations:sourceState.migrations,tableCount:restored.length,rowCount:restored.reduce((sum,row)=>sum+Number(row.rows),0),manifestSha256:digest(JSON.stringify(restored)),attachments:filesAfter,unbalancedPostedJournals:0,cleanRestore:true,sourceUnchangedAtRestore:true});
-    fs.writeFileSync(path.join(runDirectory,'public-manifest.json'),JSON.stringify(restored,null,2)+'\n',{flag:'wx',mode:0o600});
+    if(JSON.stringify(sourceBefore)!==JSON.stringify(sql(plan.source,manifestSql))||JSON.stringify(sourceSequences)!==JSON.stringify(sql(plan.source,sequenceSql)))throw new Error('Staging writers changed the source during backup; preserve evidence and repeat quiescent');
+    Object.assign(evidence,{migrations:sourceState.migrations,tableCount:restored.length,sequenceCount:restoredSequences.length,rowCount:restored.reduce((sum,row)=>sum+Number(row.rows),0),manifestSha256:digest(JSON.stringify({tables:restored,sequences:restoredSequences})),attachments:filesAfter,unbalancedPostedJournals:0,cleanRestore:true,sourceUnchangedAtRestore:true});
+    fs.writeFileSync(path.join(runDirectory,'public-manifest.json'),JSON.stringify({tables:restored,sequences:restoredSequences},null,2)+'\n',{flag:'wx',mode:0o600});
     const writePrivate=(name,value)=>{const file=path.join(privateDirectory,name);fs.writeFileSync(file,value,{flag:'wx',mode:0o600});if(process.getuid?.()===0)fs.chownSync(file,1000,1000);return file;};
     const recoveryConfig=writePrivate('api.json',JSON.stringify(plan.recovery)),recoveryCredentials=writePrivate('credentials.json',JSON.stringify(credentials)),provider=writePrivate('provider.env','# Recovery has no provider credentials or enabled sends.\n');
     evidence.phase='application';
-    docker(['run','--detach','--pull=never','--name',plan.container,'--label',`av8.recovery.resource=${plan.resource}`,'--network',networks[0],'--user','1000:1000','--cap-drop=ALL','--security-opt=no-new-privileges:true','--pids-limit=150','--memory=512m','--cpus=1','--mount',`type=bind,src=${recoveryConfig},dst=/run/secrets/api_config,readonly`,'--mount',`type=bind,src=${recoveryCredentials},dst=/run/secrets/recovery_credentials,readonly`,'--mount',`type=bind,src=${provider},dst=/run/secrets/provider_config,readonly`,'--mount',`type=bind,src=${path.join(repository,'deploy/hetzner/restore-verify.mjs')},dst=/run/restore-verify.mjs,readonly`,image,'api']);apiCreated=true;
+    apiCreated=true;
+    docker(['run','--detach','--pull=never','--name',plan.container,'--label',`av8.recovery.resource=${plan.resource}`,'--network',networks[0],'--user','1000:1000','--cap-drop=ALL','--security-opt=no-new-privileges:true','--pids-limit=150','--memory=512m','--cpus=1','--mount',`type=bind,src=${recoveryConfig},dst=/run/secrets/api_config,readonly`,'--mount',`type=bind,src=${recoveryCredentials},dst=/run/secrets/recovery_credentials,readonly`,'--mount',`type=bind,src=${provider},dst=/run/secrets/provider_config,readonly`,'--mount',`type=bind,src=${path.join(repository,'deploy/hetzner/restore-verify.mjs')},dst=/run/restore-verify.mjs,readonly`,image,'api']);
     let healthy=false;for(let attempt=0;attempt<40;attempt++){
       const probe=spawnSync('docker',['exec',plan.container,'node','-e',"fetch('http://127.0.0.1:8181/api/health',{signal:AbortSignal.timeout(1500)}).then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"],{stdio:'ignore',timeout:4000});
       if(probe.status===0){healthy=true;break;}await new Promise(resolve=>setTimeout(resolve,500));
     }if(!healthy)throw new Error('Restored API did not become healthy');
     const application=JSON.parse(docker(['exec',plan.container,'node','/run/restore-verify.mjs']));if(application.status!=='PASS')throw new Error('Restored application acceptance failed');
-    if(JSON.stringify(sourceBefore)!==JSON.stringify(sql(plan.source,manifestSql)))throw new Error('Staging source changed during application recovery acceptance');
+    if(JSON.stringify(sourceBefore)!==JSON.stringify(sql(plan.source,manifestSql))||JSON.stringify(sourceSequences)!==JSON.stringify(sql(plan.source,sequenceSql)))throw new Error('Staging source changed during application recovery acceptance');
+    privateFile(path.join(plan.privateDirectory,'backup-key'));if(fs.readFileSync(path.join(plan.privateDirectory,'backup-key'),'utf8').trim()!==key)throw new Error('Original operational backup key was not retained unchanged');
     Object.assign(evidence,application,{status:'PASS',sourceUnchangedAtCompletion:true,finishedAt:new Date().toISOString(),elapsedSeconds:Number(((performance.now()-started)/1000).toFixed(3)),phase:'cleanup'});
-  }catch(error){evidence.error='Recovery gate failed; see phase and private configuration. Source was not altered by this helper.';throw error;}
+  }catch(error){evidence.error='Recovery gate failed; see phase and private configuration. Source was not altered by this helper.';evidence.failureClassification=error.classification||'VERIFICATION_GATE_FAILED';if(error.diagnosticFile)evidence.privateDiagnosticFile=error.diagnosticFile;throw error;}
   finally{
     let cleanup=true;
     try{if(apiCreated){const container=JSON.parse(docker(['inspect',plan.container]))[0];if(container.Config?.Labels?.['av8.recovery.resource']!==plan.resource)throw new Error('Cleanup identity mismatch');docker(['rm','--force',plan.container]);}}catch{cleanup=false;}

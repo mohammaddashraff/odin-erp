@@ -1,4 +1,5 @@
 export const av8EnglishCopy: Record<string,string> = {
+  IMPORTED_REVIEW_REQUIRED:'Imported record awaiting review',
   APPOINTMENT_BOOKED:'Appointment booked', FEE_RECEIVED:'Application fee received',
   CONTRACT_PENDING:'Awaiting agreement', CONTRACT_SIGNED:'Agreement signed', INCONCLUSIVE:'Inconclusive',
   VERIFIED:'Verified', STARTED:'Training started', SUSPENSION_REQUESTED:'Suspension requested',
@@ -16,7 +17,23 @@ export const av8EnglishCopy: Record<string,string> = {
 };
 
 export const av8Copy: Record<string,string> = {
+  'Search posted transactions':'البحث في الحركات المرحلة',
+  'Transaction resource':'المورد المالي للحركة',
+  'Transaction ID':'معرف الحركة',
+  'Rows per page':'عدد الصفوف في الصفحة',
+  'Transaction rows per page':'عدد الحركات في الصفحة',
+  'Search bank statements':'البحث في كشوف البنك',
+  'Statements per page':'عدد الكشوف في الصفحة',
+  'Match posted transaction by ID':'مطابقة حركة مرحلة بالمعرف',
+  'Confirm match':'تأكيد المطابقة',
+  'Enter the ID from the original posted movement. The bank, amount, direction and unused reconciliation state must match.':'أدخل المعرف من الحركة المرحلة الأصلية. يجب تطابق البنك والمبلغ والاتجاه وعدم استخدام الحركة في مطابقة سابقة.',
+
+  'Or enter the approved posted journal ID':'أو أدخل معرف القيد المعتمد والمرحل',
+  'Or enter the posted bank transaction ID':'أو أدخل معرف الحركة البنكية المرحلة',
+  'Choose a recent posted source or enter its ID from the original record. The same authorization and reconciliation checks apply.':'اختر مصدراً مرحلاً حديثاً أو أدخل معرفه من السجل الأصلي. تطبق فحوص الصلاحيات والمطابقة نفسها.',
   'APPLICATION':'التقديم',
+  'IMPORTED_REVIEW_REQUIRED':'سجل مستورد يحتاج إلى مراجعة',
+  'Original policy reference':'مرجع السياسة الأصلية',
   'Built for AV8': 'مخصص لـ AV8',
   'Unpin navigation': 'إلغاء تثبيت القائمة',
   'Close navigation': 'إغلاق القائمة',

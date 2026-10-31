@@ -52,12 +52,49 @@ describe('final delivery paired treasury and statement import',()=>{
     await expect(erp.matchStatementLine(actor,statement.lines[0].id,BigInt(transfer.outgoing.id))).rejects.toThrow('directions');
     expect(await db.admin.bankStatementLine.findUniqueOrThrow({where:{id:statement.lines[0].id}})).toMatchObject({matched:false});
   });
-  it('deactivates resources without losing their movement history',async()=>{
-    const before=await db.admin.bankTransaction.count({where:{bankAccountId:destination.id}});
+  it('retrieves older scoped transaction pages with stable same-day order and exact filtered totals',async()=>{
+    const search=`SYN-HISTORY-${randomUUID()}`,ids:string[]=[];
+    for(let i=0;i<5;i++){const transfer=await erp.transferResources(actor,{...body(),feeAmount:'0',reason:'Synthetic reference search',reference:search},randomUUID());ids.push(String(transfer.outgoing.id));}
+    const query={bankAccountId:String(source.id),transactionPageSize:'2',transactionSearch:search};
+    const pages:any[]=await Promise.all([1,2,3].map(transactionPage=>erp.banking(actor,{...query,transactionPage})));
+    expect(pages.map(p=>p.transactionPagination)).toEqual([1,2,3].map(page=>({page,size:2,total:5})));
+    expect(pages.map(p=>p.transactions.length)).toEqual([2,2,1]);
+    expect(pages.flatMap(p=>p.transactions.map((r:any)=>String(r.id)))).toEqual(ids.reverse());
+    expect(pages.flatMap(p=>p.transactions).every((r:any)=>String(r.bankAccountId)===String(source.id))).toBe(true);
+    expect((await erp.banking(actor,{...query,transactionPage:4})as any).transactions).toHaveLength(0);
+    expect((await erp.banking(actor,{...query,transactionSearch:'nonexistent-'+randomUUID()})as any).transactionPagination.total).toBe(0);
+    await expect(erp.banking(actor,{transactionPageSize:201})).rejects.toThrow('page size');
+    await expect(erp.banking({...actor,permissions:[],legacyPermissions:[],companyScopedPermissions:{}}as Actor,query)).rejects.toThrow();
+  });
+
+  it('pages statement history by source reference without skipping equal-date imports',async()=>{
+    const search=`SYN-STATEMENT-${randomUUID()}`,ids:string[]=[];
+    for(let i=0;i<5;i++){const statement=await erp.createStatement(actor,{bankAccountId:String(source.id),statementDate:'2026-10-31',opening:'0',closing:'1',lines:[{date:'2026-10-31',amount:'1',description:`Historical row ${i}`,reference:search}]});ids.push(String(statement.id));}
+    const query={bankAccountId:String(source.id),statementPageSize:2,statementSearch:search};
+    const pages:any[]=await Promise.all([1,2,3].map(statementPage=>erp.banking(actor,{...query,statementPage})));
+    expect(pages.map(p=>p.statementPagination)).toEqual([1,2,3].map(page=>({page,size:2,total:5})));
+    expect(pages.flatMap(p=>p.statements.map((r:any)=>String(r.id)))).toEqual(ids.reverse());
+    expect((await erp.banking(actor,{...query,bankAccountId:String(destination.id)})as any).statementPagination.total).toBe(0);
+    await expect(erp.banking(actor,{statementPageSize:51})).rejects.toThrow('page size');
+  });
+  it('preserves assigned history when a bank stops operating, denies new postings and honors access revocation',async()=>{
+    const companyId=actor.companyIds[0],permissions=['banking.account.view','banking.transaction.view','banking.statement.view','banking.transaction.create'];
+    const scoped:Actor={...actor,permissions,legacyPermissions:[],companyAdminIds:[],companyScopedPermissions:{[companyId]:permissions},
+      dataScopes:[{resource:'bank_account',scope:'ASSIGNED'},{resource:'account',scope:'ALL'}],
+      companyResourceAssignments:{[companyId]:{bank_account:[String(destination.id)]}}};
+    const query={bankAccountId:String(destination.id)};
+    const before:any=await erp.banking(scoped,query);expect(before.transactionPagination.total).toBeGreaterThan(0);
     await erp.updateBankAccount(actor,destination.id,{active:false,reason:'Synthetic deactivation'});
-    expect(await db.admin.bankTransaction.count({where:{bankAccountId:destination.id}})).toBe(before);
+    const after:any=await erp.banking(scoped,query);expect(after.transactionPagination.total).toBe(before.transactionPagination.total);
+    expect(after.accounts.find((r:any)=>r.id===String(destination.id))).toMatchObject({active:false});
     await expect(erp.transferResources(actor,body(),randomUUID())).rejects.toThrow();
+    await expect(erp.createBankTransaction(actor,{branchId:String(branchId),bankAccountId:String(destination.id),counterpartyAccountId:String(feeAccount.id),kind:'PAYMENT',amount:'1',postingDate:'2026-10-31'})).rejects.toThrow('invalid');
+    const revoked:any=await erp.banking({...scoped,companyResourceAssignments:{}},query);expect(revoked.transactionPagination.total).toBe(0);
+    await db.admin.financialResource.update({where:{linkedBankAccountId:destination.id},data:{active:false}});
+    expect((await erp.banking(scoped,query)as any).transactionPagination.total).toBe(0);
     await erp.updateBankAccount(actor,destination.id,{active:true,reason:'Synthetic reactivation'});
+    expect((await erp.banking(scoped,query)as any).transactionPagination.total).toBe(0);
+    await db.admin.financialResource.update({where:{linkedBankAccountId:destination.id},data:{active:true}});
   });
   it('normalizes persisted contacts and paginated search without merging family identities',async()=>{
     const suffix=randomUUID().slice(0,8),name=`أَحْمَد ${suffix}`;

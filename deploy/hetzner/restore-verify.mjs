@@ -14,8 +14,8 @@ async function main(){
   const email=String(credentials.email||'').trim().toLowerCase();let password=String(credentials.password||credentials.temporaryPassword||'');
   if(!email||!password)throw new Error('Private current login credentials required');
   const hash=bytes=>createHash('sha256').update(bytes).digest('hex');
-  const request=async(route,body,token)=>{
-    const response=await fetch(`http://127.0.0.1:8181/api/${route}`,{method:body?'POST':'GET',headers:{...(body?{'content-type':'application/json'}:{}),...(token?{authorization:`Bearer ${token}`}:{})},body:body?JSON.stringify(body):undefined,signal:AbortSignal.timeout(15000)});
+  const request=async(route,body,token,extraHeaders={})=>{
+    const response=await fetch(`http://127.0.0.1:8181/api/${route}`,{method:body?'POST':'GET',headers:{...(body?{'content-type':'application/json'}:{}),...(token?{authorization:`Bearer ${token}`}:{}) ,...extraHeaders},body:body?JSON.stringify(body):undefined,signal:AbortSignal.timeout(15000)});
     if(!response.ok)throw new Error(`Recovery HTTP ${route.split('/')[0]} verification failed`);
     return response.json();
   };
@@ -43,7 +43,10 @@ async function main(){
     let session=await login();
     if(session.user.passwordChangeRequired){
       const next=randomBytes(36).toString('base64url');
-      await request('auth/change-password',{currentPassword:password,newPassword:next},session.accessToken);
+      const latest=await db.admin.user.findUnique({where:{id:user.id}});
+      const step=await request('auth/step-up',{password,code:totpCode(decryptMfaSecret(latest.mfaSecretEncrypted))},session.accessToken);
+      if(!step.stepUpToken)throw new Error('Restored password change step-up failed');
+      await request('auth/change-password',{currentPassword:password,newPassword:next},session.accessToken,{'x-odin-step-up':step.stepUpToken});
       password=next;passwordChanged=true;session=await login();
     }
     const me=await request('auth/me',undefined,session.accessToken);if(String(me.userId)!==String(user.id))throw new Error('Restored authenticated identity mismatch');

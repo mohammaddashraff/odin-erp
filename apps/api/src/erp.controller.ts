@@ -365,7 +365,7 @@ export class ErpController {
 
   @Get('banking')
   @RequireAnyPermission('banking.account.view', 'banking.transaction.view', 'banking.statement.view')
-  banking(@Req() request: AuthRequest) { return this.erp.banking(request.actor); }
+  banking(@Req() request: AuthRequest, @Query() query:any) { return this.erp.banking(request.actor,query); }
 
   @Post('banking/transfers')
   @RequirePermissions('banking.transaction.create')

@@ -170,6 +170,8 @@ export class ErpService {
     if(fund.kind!=='RECEIPT'||fund.status!=='CLEARED'||!fund.bankTransactionId)throw new BadRequestException('Only a cleared receipt can be reversed');
     const companyId=this.requireAtBranch(actor,'av8.finance.adjust',fund.branchId);
     this.assertResourceId(actor,'bank_account',fund.bankAccountId,companyId);
+    const bank=await tx.bankAccount.findFirst({where:{id:fund.bankAccountId,tenantId:actor.tenantId,active:true,...this.resourceIdScope(actor,'bank_account',companyId)}});
+    if(!bank)throw new BadRequestException('Original receipt bank is inactive or unavailable; authorized reactivation is required before posting the return');
     const movement=await tx.bankTransaction.findFirst({where:{id:fund.bankTransactionId,tenantId:actor.tenantId},include:{journalEntry:{include:{lines:{include:{account:true}},reversedBy:true}}}});
     if(!movement||movement.journalEntry.status!=='POSTED'||movement.journalEntry.reversedBy)throw new BadRequestException('Receipt journal is missing, unposted or already reversed');
     const historicalCodes=new Map<bigint,string>();
@@ -3042,7 +3044,21 @@ export class ErpService {
     return {originalBalanceMinor:String(BigInt(original?.openingMinor||'0')+originalMovement),bookBalanceMinor:String((book._sum.debitMinor||0n)-(book._sum.creditMinor||0n)),baseCurrency:base,openingMinor:original?.openingMinor||'0',cutoverDate:original?.cutoverDate||null,balanceBasis:original?'Opening source plus movements after cutover':'Recorded resource movements; no imported opening balance'};
   }
 
-  async banking(actor: Actor) {
+  async banking(actor: Actor, query: any = {}) {
+    const pageNumber=(value:unknown,fallback:number,maximum:number,label:string)=>{
+      if(value===undefined||value==='')return fallback;
+      if(!/^[1-9]\d*$/.test(String(value))||Number(value)>maximum)throw new BadRequestException(`Invalid ${label}`);
+      return Number(value);
+    };
+    const page=pageNumber(query.transactionPage,1,100000,'transaction page');
+    const size=pageNumber(query.transactionPageSize,200,200,'transaction page size');
+    const statementPage=pageNumber(query.statementPage,1,100000,'statement page');
+    const statementSize=pageNumber(query.statementPageSize,50,50,'statement page size');
+    const statementSearch=String(query.statementSearch||'').trim();
+    if(statementSearch.length>100)throw new BadRequestException('Statement search must not exceed 100 characters');
+    const search=String(query.transactionSearch||'').trim();
+    if(search.length>100)throw new BadRequestException('Transaction search must not exceed 100 characters');
+    if(query.bankAccountId&&!/^[1-9]\d{0,17}$/.test(String(query.bankAccountId)))throw new BadRequestException('Invalid bank resource');
     const permissions = ['banking.account.view', 'banking.transaction.view', 'banking.statement.view'];
     const accountCompanies = this.companiesForPermissions(actor, ['banking.account.view']);
     const transactionCompanies = this.companiesForPermissions(actor, ['banking.transaction.view']);
@@ -3054,14 +3070,24 @@ export class ErpService {
       const bankScope = (companyIds: bigint[]): Prisma.BankAccountWhereInput => can(actor, 'system.super_admin') ? {} : ({
         AND: [this.resourceIdScope(actor, 'bank_account'), { financialResources: { some: { companyId: { in: companyIds }, active: true } } }],
       });
-      const [accounts, transactions, statements] = await Promise.all([
+      const transactionWhere:Prisma.BankTransactionWhereInput={...branchScope,bankAccount:bankScope(transactionCompanies),
+        ...(query.bankAccountId?{bankAccountId:BigInt(String(query.bankAccountId))}:{}),
+        ...(search?{OR:[{number:{contains:search,mode:'insensitive'}},{description:{contains:search,mode:'insensitive'}},{reference:{contains:search,mode:'insensitive'}}]}:{})};
+      const statementWhere:Prisma.BankStatementWhereInput={bankAccount:bankScope(statementCompanies),
+        ...(query.bankAccountId?{bankAccountId:BigInt(String(query.bankAccountId))}:{}),
+        ...(statementSearch?{lines:{some:{OR:[{reference:{contains:statementSearch,mode:'insensitive'}},{description:{contains:statementSearch,mode:'insensitive'}}]}}}:{})};
+      const [accounts, transactions, statements, transactionTotal, statementTotal] = await Promise.all([
         tx.bankAccount.findMany({ where: bankScope(accountCompanies), include: { glAccount: true }, orderBy: { code: 'asc' } }),
-        tx.bankTransaction.findMany({ where: { ...branchScope, bankAccount: bankScope(transactionCompanies) }, include: { bankAccount: true, counterpartyAccount: true, journalEntry: true }, orderBy: { postingDate: 'desc' }, take: 200 }),
-        tx.bankStatement.findMany({ where: { bankAccount: bankScope(statementCompanies) }, include: { bankAccount: true, lines: { include: { transaction: true } } }, orderBy: { statementDate: 'desc' }, take: 50 }),
+        tx.bankTransaction.findMany({ where: transactionWhere, include: { bankAccount: true, counterpartyAccount: true, journalEntry: true }, orderBy: [{ postingDate: 'desc' },{id:'desc'}], skip:(page-1)*size, take:size }),
+        tx.bankStatement.findMany({ where: statementWhere, include: { bankAccount: true, lines: { include: { transaction: true }, orderBy:{id:'asc'} } }, orderBy: [{ statementDate: 'desc' },{id:'desc'}], skip:(statementPage-1)*statementSize, take:statementSize }),
+        tx.bankTransaction.count({where:transactionWhere}),
+        tx.bankStatement.count({where:statementWhere}),
       ]);
       return {
         accounts: accounts.map((account) => this.bankAccountForActor(actor, account)),
         transactions: transactions.map((transaction) => ({ ...transaction, bankAccount: this.bankAccountForActor(actor, transaction.bankAccount) })),
+        transactionPagination:{page,size,total:transactionTotal},
+        statementPagination:{page:statementPage,size:statementSize,total:statementTotal},
         statements: statements.map((statement) => ({ ...statement, bankAccount: this.bankAccountForActor(actor, statement.bankAccount) })),
       };
     });
@@ -3143,7 +3169,9 @@ export class ErpService {
       const updated=await tx.bankAccount.update({where:{id:bankId},data:{name,active,...(body.bankName!==undefined?{bankName:String(body.bankName).slice(0,200)}:{}),...(body.accountNumber!==undefined?{accountNumber:String(body.accountNumber).slice(0,100)}:{})}});
       let metadata:any=wrapper.metadata||{};
       if(body.resourceBranchId!==undefined){const branchId=body.resourceBranchId?BigInt(body.resourceBranchId):null;if(branchId&&!await tx.companyBranch.findFirst({where:{tenantId:actor.tenantId,companyId:wrapper.companyId,branchId,active:true}}))throw new BadRequestException('Resource branch must belong to this company');metadata={...metadata,branchId:branchId?String(branchId):null};}
-      await tx.financialResource.update({where:{id:wrapper.id},data:{name,active,metadata}});
+      // Operational deactivation stops new postings while preserving authorized historical access.
+      // Resource governance can still revoke the independent financialResource.active grant.
+      await tx.financialResource.update({where:{id:wrapper.id},data:{name,metadata}});
       await this.audit(tx,actor,'UPDATE','BANK_ACCOUNT',bankId,{reason,before:{name:bank.name,active:bank.active},after:{name,active}});
       return this.bankAccountForActor(actor,updated);
     });
@@ -3156,7 +3184,7 @@ export class ErpService {
       const bankAccountId = BigInt(body.bankAccountId || 0), counterpartyAccountId = BigInt(body.counterpartyAccountId || 0);
       this.assertResourceId(actor, 'bank_account', bankAccountId, companyId);
       this.assertResourceId(actor, 'account', counterpartyAccountId, companyId);
-      const bank = await tx.bankAccount.findFirst({ where: { id: bankAccountId, ...this.resourceIdScope(actor, 'bank_account', companyId) }, include: { glAccount: true } });
+      const bank = await tx.bankAccount.findFirst({ where: { id: bankAccountId, active:true, ...this.resourceIdScope(actor, 'bank_account', companyId) }, include: { glAccount: true } });
       const counterparty = await tx.account.findFirst({ where: { id: counterpartyAccountId, ...this.resourceIdScope(actor, 'account', companyId) } });
       if (!bank || !counterparty || !counterparty.postingAllowed) throw new BadRequestException('Bank or counterparty account is invalid');
       const tenant=await tx.tenant.findUniqueOrThrow({where:{id:actor.tenantId},select:{baseCurrency:true}});

@@ -1,0 +1,18 @@
+[Unit]
+Description=Encrypted local AV8 %i PostgreSQL and document backup
+Requires=docker.service
+After=docker.service
+AssertPathExists=/srv/av8-erp-final/%i/private/api.json
+AssertPathExists=/srv/av8-erp-final/%i/private/compose.env
+AssertPathExists=/srv/av8-erp-final/%i/private/backup-key
+AssertPathExists=/srv/av8-erp-final/current-%i/deploy/hetzner/backup.mjs
+
+[Service]
+Type=oneshot
+User=root
+UMask=0077
+WorkingDirectory=/srv/av8-erp-final/current-%i
+ExecStart=/usr/bin/node /srv/av8-erp-final/current-%i/deploy/hetzner/backup.mjs /srv/av8-erp-final/%i/private /srv/av8-erp-final/backups/%i
+TimeoutStartSec=15min
+TimeoutStopSec=30s
+Nice=10

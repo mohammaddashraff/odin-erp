@@ -9,14 +9,14 @@ if(origin!=='http://127.0.0.1:18180')throw new Error('Use the explicitly approve
 const output='docs/final-delivery/evidence/hosted-browser';
 await mkdir(output,{recursive:true});
 const browser=await chromium.launch({executablePath:process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH});
-const results=[];
+const results=[], diagnostics=[];
 try{
  for(const viewport of [{name:'desktop',width:1440,height:1000},{name:'mobile',width:390,height:844}]){
-  const context=await browser.newContext({baseURL:origin,viewport});
+  const context=await browser.newContext({baseURL:origin,viewport:{width:viewport.width,height:viewport.height}});
   await context.addCookies([{name:'av8_language',value:'en',url:origin}]);
   await context.addInitScript(()=>{localStorage.setItem('av8_language','en');localStorage.setItem('odin-theme','light');});
-  const page=await context.newPage(),errors=[];page.on('pageerror',error=>errors.push(error.message));
-  const response=await page.goto('/login');assert.equal(response.status(),200);await page.getByTestId('login-email').waitFor();
+  const page=await context.newPage(),errors=[];page.on('pageerror',error=>errors.push(error.message));page.on('requestfailed',request=>diagnostics.push({kind:'requestfailed',path:new URL(request.url()).pathname,message:request.failure()?.errorText}));page.on('response',response=>{if(response.status()>=400)diagnostics.push({kind:'http',path:new URL(response.url()).pathname,status:response.status()});});
+  const response=await page.goto('/login',{waitUntil:'domcontentloaded',timeout:60000});assert.equal(response.status(),200);await page.getByTestId('login-email').waitFor();
   assert.equal(await page.locator('html').getAttribute('dir'),'ltr');assert.equal(await page.locator('html').getAttribute('lang'),'en');
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),true);
   await page.screenshot({path:`${output}/${viewport.name}-login-en.png`,fullPage:true});
@@ -37,4 +37,4 @@ try{
  }
  const evidence={capturedAt:new Date().toISOString(),origin,scope:'Read-only hosted staging login shell/API health/anonymous denial/CSP. Authenticated business workflows and final production domain are not inferred.',results};
  await writeFile(`${output}/results.json`,JSON.stringify(evidence,null,2)+'\n');console.log(JSON.stringify({status:'PASS',resultFile:`${output}/results.json`,credentialsSubmitted:false}));
-}finally{await browser.close();}
+}catch(error){await writeFile(`${output}/failure.json`,JSON.stringify({capturedAt:new Date().toISOString(),message:error.message,diagnostics},null,2)+'\n');throw error;}finally{await browser.close();}

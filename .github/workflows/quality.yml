@@ -27,6 +27,7 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 24
@@ -65,6 +66,7 @@ jobs:
       - run: node scripts/av8/run.mjs test node .av8/api/src/scripts/av8-supplier-uat.js > .av8/supplier-uat-fixture.json
       - run: node scripts/av8/run.mjs test node scripts/av8/prepare-finance-uat.mjs
       - run: node scripts/av8/run.mjs test node scripts/av8/operations-uat.cjs
+      - run: node scripts/av8/run.mjs test node scripts/av8/prepare-opening-uat.cjs
       - name: Start tested services
         run: |
           node scripts/av8/run.mjs test npm run start > .av8/services.log 2>&1 &
