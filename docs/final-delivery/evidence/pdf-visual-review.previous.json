@@ -1,0 +1,75 @@
+{
+  "status": "PASS",
+  "scope": "12 synthetic bilingual documents, each rendered using Poppler and visually inspected",
+  "checks": [
+    "complete 8/8/2 schedule rows and USD64000/64000/54000 totals",
+    "readable joined Arabic text and explicit left-to-right numeric cells",
+    "receipt gross2000 fee20 net1980 and actual signature/stamp spaces",
+    "student charge/paid/remaining totals and unapplied credit",
+    "academy USD54000 original entitlement and pending transfer",
+    "no clipped table cells or detached blank signature pages"
+  ],
+  "documents": [
+    {
+      "file": "bank-fee-receipt-ar.pdf",
+      "pages": 1,
+      "sha256": "1eb85d8da4f1ef3efbf30b53d198f46e400129013e510be6feb052511f730e3b"
+    },
+    {
+      "file": "bank-fee-receipt-en.pdf",
+      "pages": 1,
+      "sha256": "a151573562a03e019a4da112fffbe9ce54ee8655210ec7e58be3e27af024b0c4"
+    },
+    {
+      "file": "cash-academy-statement-ar.pdf",
+      "pages": 1,
+      "sha256": "9f9b1837d17323da415cdab282307e0a424fcedc60a32b4d9cda077527d1657c"
+    },
+    {
+      "file": "cash-academy-statement-en.pdf",
+      "pages": 1,
+      "sha256": "1c437908a8bb5a03f3526f996b7ae7293308e85ddffb4925a34c540d5e2c25d9"
+    },
+    {
+      "file": "cash-contract-ar.pdf",
+      "pages": 1,
+      "sha256": "c7dc822db9bbad75b246453b68498dfb69853406ecdd17159cc756e248caa053"
+    },
+    {
+      "file": "cash-contract-en.pdf",
+      "pages": 1,
+      "sha256": "21c3d091e98ae93bc28a2376bd93ce89dd43b4a4b1a72da6dfcfaab854c13733"
+    },
+    {
+      "file": "partial-student-statement-ar.pdf",
+      "pages": 1,
+      "sha256": "ce468cc35309bfdee382fbf94a85606f9818c485858bb4c496e0028b232240d5"
+    },
+    {
+      "file": "partial-student-statement-en.pdf",
+      "pages": 1,
+      "sha256": "8be52c2f539b5de2d1fbee352af0f0f7c2f89135d66d2181a3cd469ad8deb152"
+    },
+    {
+      "file": "plan-a-contract-ar.pdf",
+      "pages": 1,
+      "sha256": "ca79e0f87b1d5a8e3e6538ceeee38e38cac2e730d4670d4f728553a35da9ffa0"
+    },
+    {
+      "file": "plan-a-contract-en.pdf",
+      "pages": 1,
+      "sha256": "60d64caffd661ce368ab16db516880bf617134482b5d8ee0457c2d3d77068583"
+    },
+    {
+      "file": "plan-b-contract-ar.pdf",
+      "pages": 1,
+      "sha256": "10b278268ed907d0faa9dd9c65de1c39619115764bdbf3d2238dd342e5ab1bcf"
+    },
+    {
+      "file": "plan-b-contract-en.pdf",
+      "pages": 1,
+      "sha256": "5af83c5f05bd965c25052b7d8f832d74fef1d2e77107d9bbef498b5feb04e747"
+    }
+  ],
+  "limit": "Legal wording and actual client-signed evidence are not approved by this synthetic render check"
+}

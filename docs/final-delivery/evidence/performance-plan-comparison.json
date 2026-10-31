@@ -1,0 +1,252 @@
+[
+  {
+    "phase": "before",
+    "query": "page",
+    "executionMilliseconds": 7908.285,
+    "nodes": [
+      {
+        "node": "Limit",
+        "estimate": 1,
+        "actual": 25,
+        "loops": 1,
+        "time": 7908.266
+      },
+      {
+        "node": "Sort",
+        "estimate": 1,
+        "actual": 25,
+        "loops": 1,
+        "time": 7908.265
+      },
+      {
+        "node": "Result",
+        "estimate": 1,
+        "actual": 10000,
+        "loops": 1,
+        "time": 7904.77
+      },
+      {
+        "node": "Nested Loop",
+        "join": "Inner",
+        "estimate": 1,
+        "actual": 10000,
+        "loops": 1,
+        "removed": 100300000,
+        "time": 7903.894
+      },
+      {
+        "node": "Bitmap Heap Scan",
+        "relation": "customers",
+        "estimate": 1,
+        "actual": 10000,
+        "loops": 1,
+        "filterRemoved": 31,
+        "time": 3.119
+      },
+      {
+        "node": "Bitmap Index Scan",
+        "index": "customers_tenant_id_tax_number_idx",
+        "estimate": 31,
+        "actual": 10031,
+        "loops": 1,
+        "time": 0.124
+      },
+      {
+        "node": "Bitmap Heap Scan",
+        "relation": "av8_leads",
+        "estimate": 31,
+        "actual": 10031,
+        "loops": 10000,
+        "time": 0.472
+      },
+      {
+        "node": "Bitmap Index Scan",
+        "index": "av8_leads_tenant_id_branch_id_owner_id_status_idx",
+        "estimate": 31,
+        "actual": 10031,
+        "loops": 10000,
+        "time": 0.093
+      }
+    ]
+  },
+  {
+    "phase": "before",
+    "query": "count",
+    "executionMilliseconds": 8018.685,
+    "nodes": [
+      {
+        "node": "Aggregate",
+        "estimate": 1,
+        "actual": 1,
+        "loops": 1,
+        "time": 8018.658
+      },
+      {
+        "node": "Result",
+        "estimate": 1,
+        "actual": 10000,
+        "loops": 1,
+        "time": 8017.565
+      },
+      {
+        "node": "Nested Loop",
+        "join": "Inner",
+        "estimate": 1,
+        "actual": 10000,
+        "loops": 1,
+        "removed": 100300000,
+        "time": 8016.881
+      },
+      {
+        "node": "Bitmap Heap Scan",
+        "relation": "customers",
+        "estimate": 1,
+        "actual": 10000,
+        "loops": 1,
+        "filterRemoved": 31,
+        "time": 4.078
+      },
+      {
+        "node": "Bitmap Index Scan",
+        "index": "customers_tenant_id_tax_number_idx",
+        "estimate": 31,
+        "actual": 10031,
+        "loops": 1,
+        "time": 0.126
+      },
+      {
+        "node": "Bitmap Heap Scan",
+        "relation": "av8_leads",
+        "estimate": 31,
+        "actual": 10031,
+        "loops": 10000,
+        "time": 0.48
+      },
+      {
+        "node": "Bitmap Index Scan",
+        "index": "av8_leads_tenant_id_branch_id_owner_id_status_idx",
+        "estimate": 31,
+        "actual": 10031,
+        "loops": 10000,
+        "time": 0.094
+      }
+    ]
+  },
+  {
+    "phase": "after",
+    "query": "page",
+    "executionMilliseconds": 14.3,
+    "nodes": [
+      {
+        "node": "Limit",
+        "estimate": 25,
+        "actual": 25,
+        "loops": 1,
+        "time": 14.268
+      },
+      {
+        "node": "Sort",
+        "estimate": 261,
+        "actual": 25,
+        "loops": 1,
+        "time": 14.267
+      },
+      {
+        "node": "Result",
+        "estimate": 261,
+        "actual": 10000,
+        "loops": 1,
+        "time": 11.419
+      },
+      {
+        "node": "Nested Loop",
+        "join": "Inner",
+        "estimate": 261,
+        "actual": 10000,
+        "loops": 1,
+        "time": 10.882
+      },
+      {
+        "node": "Bitmap Heap Scan",
+        "relation": "customers",
+        "estimate": 1,
+        "actual": 10000,
+        "loops": 1,
+        "filterRemoved": 31,
+        "time": 2.251
+      },
+      {
+        "node": "Bitmap Index Scan",
+        "index": "customers_tenant_id_tax_number_idx",
+        "estimate": 31,
+        "actual": 10031,
+        "loops": 1,
+        "time": 0.161
+      },
+      {
+        "node": "Index Scan",
+        "relation": "av8_leads",
+        "index": "av8_leads_tenant_customer_diag_idx",
+        "estimate": 1,
+        "actual": 1,
+        "loops": 10000,
+        "time": 0.001
+      }
+    ]
+  },
+  {
+    "phase": "after",
+    "query": "count",
+    "executionMilliseconds": 10.042,
+    "nodes": [
+      {
+        "node": "Aggregate",
+        "estimate": 1,
+        "actual": 1,
+        "loops": 1,
+        "time": 9.835
+      },
+      {
+        "node": "Result",
+        "estimate": 261,
+        "actual": 10000,
+        "loops": 1,
+        "time": 9.566
+      },
+      {
+        "node": "Nested Loop",
+        "join": "Inner",
+        "estimate": 261,
+        "actual": 10000,
+        "loops": 1,
+        "time": 9.145
+      },
+      {
+        "node": "Bitmap Heap Scan",
+        "relation": "customers",
+        "estimate": 1,
+        "actual": 10000,
+        "loops": 1,
+        "filterRemoved": 31,
+        "time": 1.956
+      },
+      {
+        "node": "Bitmap Index Scan",
+        "index": "customers_tenant_id_tax_number_idx",
+        "estimate": 31,
+        "actual": 10031,
+        "loops": 1,
+        "time": 0.12
+      },
+      {
+        "node": "Index Only Scan",
+        "relation": "av8_leads",
+        "index": "av8_leads_tenant_customer_diag_idx",
+        "estimate": 1,
+        "actual": 1,
+        "loops": 10000,
+        "time": 0.001
+      }
+    ]
+  }
+]

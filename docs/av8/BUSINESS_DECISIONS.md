@@ -1,3 +1,5 @@
+> Historical delivery record. The 2026-10-31 [master brief](../final-delivery/master-delivery-brief.md), [decisions](../final-delivery/02-business-rules-and-decisions.md) and [release runbook](../final-delivery/07-deployment-and-recovery-runbook.md) supersede incompatible instructions and old readiness claims. Do not use legacy simple-login/reset or production synthetic seeding.
+
 # AV8 business decisions
 
 Confirmed client inputs: USD 2,000 application fee (included once); cash student total USD 54,000; installment upfront USD 16,000; academy initial milestones USD 1,500 medical pass and USD 4,500 visa; deferred collections forwarded in full. Tuition includes materials, headset, theoretical study and described training package.

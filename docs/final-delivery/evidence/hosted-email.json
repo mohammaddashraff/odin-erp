@@ -1,0 +1,49 @@
+{
+  "environment": "isolated Hetzner staging",
+  "sourceImageTag": "candidate-58d770c3",
+  "isExactFinalCommit": false,
+  "domain": "av8.odin-ltd.com",
+  "domainVerifiedByResend": true,
+  "synthetic": true,
+  "sentAt": "2026-10-31T19:06:03Z",
+  "recipientValues": "Private authorized recipient manifest; personal addresses omitted from publishable evidence",
+  "recipients": [
+    {
+      "kind": "STUDENT",
+      "status": "DELIVERED",
+      "attempts": 1,
+      "providerReference": "01a1935a-cb55-7ae5-931a-b9138c3a566c",
+      "evidence": "Actual Resend retrieval through application reconciliation; owner also confirmed receipt"
+    },
+    {
+      "kind": "GUARDIAN",
+      "status": "DELIVERED",
+      "attempts": 1,
+      "providerReference": "01a1935a-cc56-7137-98a3-350dd29a5551",
+      "evidence": "Actual Resend retrieval through application reconciliation; connected Gmail INBOX with synthetic PDF verified"
+    }
+  ],
+  "reconciliationResentMessages": false,
+  "worker": "Assigned-only Student Affairs identity separate from initial administrator; no financial permissions",
+  "monitoring": [
+    {
+      "event": "DOWN during controlled API restart",
+      "accepted": true,
+      "inboxVerified": true,
+      "receivedAt": "2026-10-31T19:08:55Z",
+      "sensitivePayload": false
+    },
+    {
+      "event": "RECOVERED after healthy API and authenticated scheduler check",
+      "accepted": true,
+      "inboxVerified": true,
+      "receivedAt": "2026-10-31T19:13:24Z",
+      "sensitivePayload": false
+    }
+  ],
+  "limits": [
+    "Does not prove either recipient read the message",
+    "Local provider-stub tests separately cover failed guardian retry, concurrent claims and ambiguous outcomes",
+    "Final release image/commit alignment and periodic hosted timer evidence remain separate gates"
+  ]
+}

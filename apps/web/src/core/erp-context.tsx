@@ -51,7 +51,7 @@ export function ERPProvider({
     (message: string, error = false) => {
       const id = Date.now() + Math.random();
       setNotices((current) => [
-        ...current.filter((n) => n.owner === session.user),
+        ...current.filter((n) => n.owner === session.user && (n.message !== message || n.error !== error)),
         { id, message, error, owner: session.user },
       ]);
       setTimeout(

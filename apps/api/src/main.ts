@@ -10,7 +10,7 @@ import { allowedOrigins, mfaEncryptionKey, swaggerEnabled, tokenSigningSecret } 
 async function bootstrap() {
   tokenSigningSecret();
   mfaEncryptionKey();
-  if (process.env.AV8_ENV === 'production') {
+  if (['production','staging'].includes(process.env.AV8_ENV||'')) {
     // Reject incomplete serverless bundles before serving student PDF requests.
     for (const font of ['manrope-regular.ttf', 'manrope-bold.ttf', 'noto-arabic-regular.ttf', 'noto-arabic-bold.ttf']) {
       publicAsset(`fonts/${font}`);
@@ -18,6 +18,9 @@ async function bootstrap() {
   }
   const app = await NestFactory.create(AppModule);
   app.getHttpAdapter().getInstance().disable('x-powered-by');
+  // The dedicated Hetzner API has no public port: one trusted web-service hop.
+  // Its proxy accepts only nginx-overwritten, validated client addresses in production.
+  if(process.env.AV8_HOSTING==='hetzner')app.getHttpAdapter().getInstance().set('trust proxy',1);
   app.use((_request: unknown, response: { setHeader(name: string, value: string): void }, next: () => void) => {
     response.setHeader('Cache-Control', 'no-store');
     response.setHeader('Content-Security-Policy', "default-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'");
@@ -41,7 +44,7 @@ async function bootstrap() {
     SwaggerModule.setup('api/docs', app, SwaggerModule.createDocument(app, swagger));
   }
   app.enableShutdownHooks();
-  await app.listen(Number(process.env.PORT || process.env.API_PORT || 8181), process.env.VERCEL ? '0.0.0.0' : '127.0.0.1');
+  await app.listen(Number(process.env.PORT || process.env.API_PORT || 8181), process.env.VERCEL || process.env.AV8_HOSTING === 'hetzner' ? '0.0.0.0' : '127.0.0.1');
   console.log(`AV8 API ready on http://127.0.0.1:${process.env.API_PORT || 8181}`);
 }
 void bootstrap();

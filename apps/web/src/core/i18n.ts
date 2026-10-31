@@ -1,5 +1,5 @@
 import { adminCopy } from './admin-copy';
-import { av8Copy } from './av8-copy';
+import { av8Copy, av8EnglishCopy } from './av8-copy';
 import { accountingCopy } from "./accounting-copy";
 import { accountingReportCopy } from "./accounting-report-copy";
 import { uiCopy, plainEnglish, plainArabic, guideArabic, employeeProfileCopy } from "./ui-copy";
@@ -1852,6 +1852,7 @@ export const t = (value: string, language: Language): string =>
   normalizeWesternDigits(translate(value, language));
 
 const englishEnums: Record<string, string> = {
+  ...av8EnglishCopy,
   PENDING:'Pending',OVERDUE:'Overdue',PASSED:'Passed',FAILED:'Failed',CLEARED:'Cleared',SIGNED:'Signed',PARTIAL:'Partial',
   FEE_PENDING:'Awaiting application fee',MEDICAL_PENDING:'Awaiting medical result',MEDICAL_PASSED:'Medical passed',MEDICAL_FAILED:'Medical failed',CAPTURED:'Inquiry recorded',DECISION_REQUIRED:'Awaiting management decision',DUE_SOON:'Due soon',
   NEW:'New inquiry',CONTACTED:'Contacted',NURTURING:'Long-term follow-up',DEFERRED:'Deferred',NOT_PROCEEDING:'Not proceeding',CONVERTED:'Application opened',

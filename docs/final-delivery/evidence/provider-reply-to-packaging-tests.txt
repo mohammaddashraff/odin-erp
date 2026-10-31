@@ -1,0 +1,23 @@
+✔ backup encryption round-trips exact dump bytes and rejects tampering before restore (662.650333ms)
+✔ staging and production have distinct data identities, secrets and loopback ports (1.072ms)
+✔ new production provider file is empty and cannot inherit a staging credential (4.009583ms)
+✔ unapproved public origin, privileged port and unsafe directory are rejected (0.41875ms)
+✔ private configuration generation never overwrites credentials or prints secrets (3.436375ms)
+✔ monitor validates explicit alert enablement and staging recipient allowlist (1.593833ms)
+✔ one alert per outage and recovery; no student or credential text in body (2.611041ms)
+✔ ambiguous send persists unknown and never auto-retries after restart (0.252ms)
+✔ same controlled test identity sends once and disabled monitoring cannot send tests (0.286875ms)
+✔ enabled scheduler failure is monitored and uses only its distinct bearer token (0.254917ms)
+✔ monitor sends the validated display sender and optional Reply-To without accepting header injection (0.209125ms)
+✔ provider file permits only literal sender/key and cannot enable email or alter application configuration (2.162958ms)
+✔ duplicate or malformed values fail without disclosing the supplied secret (0.24175ms)
+✔ absent/empty provider file preserves existing configuration and disabled switches (0.993291ms)
+✔ named sender and optional Reply-To are single validated mailboxes without control characters (0.338625ms)
+ℹ tests 15
+ℹ suites 0
+ℹ pass 15
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 717.985041

@@ -1,0 +1,104 @@
+name: ${AV8_COMPOSE_PROJECT:?Generate a private deployment configuration first}
+x-app: &app
+  init: true
+  restart: unless-stopped
+  user: "1000:1000"
+  security_opt: [no-new-privileges:true]
+  cap_drop: [ALL]
+  pids_limit: 150
+  logging:
+    driver: json-file
+    options: {max-size: "10m", max-file: "3"}
+services:
+  av8-postgres:
+    image: ${AV8_POSTGRES_IMAGE:-postgres:17-alpine}
+    restart: unless-stopped
+    shm_size: 128m
+    mem_limit: 768m
+    cpus: 1.0
+    environment:
+      POSTGRES_USER: av8_bootstrap
+      POSTGRES_DB: postgres
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
+      POSTGRES_INITDB_ARGS: --auth-host=scram-sha-256
+    secrets: [postgres_password, db_config]
+    volumes:
+      - database:/var/lib/postgresql/data
+      - ./init-database.sh:/docker-entrypoint-initdb.d/10-av8.sh:ro
+    networks: [database]
+    healthcheck:
+      test: [CMD-SHELL, "pg_isready -U av8_bootstrap -d postgres"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    logging:
+      driver: json-file
+      options: {max-size: "10m", max-file: "3"}
+  api:
+    <<: *app
+    image: av8-delivery-api:${AV8_IMAGE_TAG:?Set the exact release image tag}
+    build: {context: ../.., dockerfile: deploy/hetzner/Dockerfile, target: api, args: {AV8_SOURCE_REVISION: "${AV8_IMAGE_TAG:?}"}}
+    secrets: [api_config, provider_config]
+    mem_limit: 512m
+    cpus: 1.0
+    networks: [database, application]
+    depends_on:
+      av8-postgres: {condition: service_healthy}
+    healthcheck:
+      test: [CMD, node, -e, "fetch('http://127.0.0.1:8181/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      start_period: 40s
+      retries: 3
+  web:
+    <<: *app
+    image: av8-delivery-web:${AV8_IMAGE_TAG:?Set the exact release image tag}
+    build: {context: ../.., dockerfile: deploy/hetzner/Dockerfile, target: web, args: {AV8_SOURCE_REVISION: "${AV8_IMAGE_TAG:?}"}}
+    secrets: [web_config]
+    mem_limit: 384m
+    cpus: 0.75
+    networks: [application]
+    ports: ["127.0.0.1:${AV8_WEB_PORT:?Set an unused loopback port}:8180"]
+    depends_on:
+      api: {condition: service_healthy}
+    healthcheck:
+      test: [CMD, node, -e, "fetch('http://127.0.0.1:8180/').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      start_period: 40s
+      retries: 3
+  maintenance:
+    <<: *app
+    profiles: [maintenance]
+    restart: "no"
+    image: av8-delivery-maintenance:${AV8_IMAGE_TAG:?Set the exact release image tag}
+    build: {context: ../.., dockerfile: deploy/hetzner/Dockerfile, target: maintenance, args: {AV8_SOURCE_REVISION: "${AV8_IMAGE_TAG:?}"}}
+    secrets: [api_config, provider_config]
+    mem_limit: 768m
+    networks: [database]
+    volumes: ["${AV8_PRIVATE_DIR:?}/bootstrap:/run/av8-bootstrap"]
+    depends_on:
+      av8-postgres: {condition: service_healthy}
+  monitor:
+    <<: *app
+    profiles: [jobs]
+    restart: "no"
+    image: av8-delivery-api:${AV8_IMAGE_TAG:?Set the exact release image tag}
+    command: [monitor]
+    secrets: [api_config, provider_config]
+    mem_limit: 192m
+    cpus: 0.5
+    networks: [application]
+    volumes: [monitor_state:/var/lib/av8-monitor]
+secrets:
+  api_config: {file: "${AV8_PRIVATE_DIR:?}/api.json"}
+  web_config: {file: "${AV8_PRIVATE_DIR:?}/web.json"}
+  db_config: {file: "${AV8_PRIVATE_DIR:?}/database.env"}
+  postgres_password: {file: "${AV8_PRIVATE_DIR:?}/postgres-password"}
+  provider_config: {file: "${AV8_PROVIDER_CONFIG_FILE:?Generate an empty fallback or select the prepared private provider file}"}
+volumes:
+  database:
+  monitor_state:
+networks:
+  database: {internal: true}
+  application:

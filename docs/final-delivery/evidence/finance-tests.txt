@@ -1,0 +1,76 @@
+AV8 finance frozen-workstream checkpoint — synthetic local data only
+
+Latest repeatability checkpoint after aggregate-run fixture diagnosis:
+Same full 34-case workflow passed twice on the same populated database, without reset or historical rewrites:
+Run1: 34/34 PASS,13.766s (.av8/finance-repeat-1.log)
+Run2: 34/34 PASS,9.851s (.av8/finance-repeat-2.log)
+API TypeScript checking: exit0 (.av8/finance-repeat-types.log).
+The fixture now pins the named assigned AV8-USD/AV8-EGP banks instead of selecting the first USD resource from unordered refs containing prior cash/wallet resources. Production authorization and assignments are unchanged. See finance-repeatability.md for exact diagnostic evidence.
+
+Latest source-attribution correction checkpoint:
+PATH="$PWD/.av8/bin:$PATH" node scripts/av8/run.mjs test npm exec --workspace @odin/api -- jest --runInBand --testPathPatterns=av8-workflow.database.spec.ts
+Test Suites: 1 passed, 1 total
+Tests:       34 passed, 34 total
+Time:        13.594 s
+API TypeScript checking: exit 0.
+Log: .av8/finance-source-regression.log
+
+Independent integrity inspection found four older synthetic posted refunds with overlapping prior-remittance receipt attribution. Corrected selection preserves aggregate cash and per-receipt USD/book basis, counts actual attributed recoveries, and reserves pending refunds against competing remittance posting. The actual differing-rate regression sources USD1,000 at50 and USD3,000 at51, posts20,300,000 liability book minor and300,000 FX credit, and proves source conservation. The old immutable test snapshots were not rewritten. Release owner preserves that integration database before a fresh final aggregate run.
+
+Commands:
+PATH="$PWD/.av8/bin:$PATH" node scripts/av8/run.mjs test npm exec --workspace @odin/api -- jest --runInBand --testPathPatterns='av8-workflow.database.spec.ts|pos-return-accounting.spec.ts'
+PATH="$PWD/.av8/bin:$PATH" npm exec --workspace @odin/api -- jest --runInBand "--testPathPatterns=av8-(confirmed-finance|domain|qa).spec.ts|money.spec.ts"
+
+Latest observed results:
+
+Test Suites: 2 passed, 2 total
+Tests:       37 passed, 37 total
+Snapshots:   0 total
+Time:        18.416 s
+Ran all test suites matching av8-workflow.database.spec.ts|pos-return-accounting.spec.ts.
+
+Includes 34 PostgreSQL workflows and 3 focused POS monetary unit tests. The cheque workflow now temporarily reassigns the original liability's canonical GL resource while retaining an active historical alias, then proves the actual reversal uses every original account ID and exact debit/credit values; the temporary resource mapping is restored in finally. POS unit tests cover exact original 100.01 stock cost restoration for quantity 3.000, original-account reversal through a surviving alias, and refusal when that historical mapping is unavailable. POS authorization and full database lifecycle coverage belong to the release owner's accounting suite.
+
+Test Suites: 4 passed, 4 total
+Tests:       28 passed, 28 total
+Snapshots:   0 total
+Time:        0.675 s, estimated 1 s
+Ran all test suites matching av8-(confirmed-finance|domain|qa).spec.ts|money.spec.ts.
+
+Actual workflow case names from the tested source:
+1. opens one application fee and records an idempotent receipt with allocation and dated FX in one operation
+2. keeps assignment, first contact, a year-away follow-up and conversion history
+3. reschedules and records no-show on the same person, with repeat applications
+4. medical failure creates a request, then separate approval, credit and refund cash posting
+5. medical pass creates one obligation; incomplete plans cannot contract; signed terms remain immutable
+6. runs English, documents and visa independently; 60 days is a follow-up, not failure
+7. reconciles partial and FX payments, early deferred pass-through, and unapplied cash
+8. supports partial/batch remittances, maker-checker and idempotent concurrent confirmation
+9. blocks over-allocation under concurrency and never equates a receipt with academy payment
+10. readiness allows future installments, checks upfront transfers and records factual departure exceptions
+11. cash price and full academy entitlement are confirmed without inventing commission
+12. permits normal departure readiness with future installments outstanding after all upfront transfers
+13. approves plan amendments without changing signed terms or charging the fee again
+14. rejects unauthorized APIs, sensitive evidence, cross-branch records and exports
+15. preserves appointment and document metadata when only notes or location change
+16. creates a default exception request and protects management decisions
+17. corrects student identity with duplicate checks and an audit snapshot
+18. records non-empty monthly study reports after departure and honors guardian consent
+19. creates a restricted staff login through administration without leaking credentials
+20. matches a USD bank statement against a real AV8 posting and blocks unconverted manual FX
+21. records bank-deducted student fees as net principal with no fictitious cash or waiver
+22. keeps cheque receipt separate from cash, reverses a cleared return once, and safely replaces it
+23. caps termination refund concurrency, deducts evidenced actual expenses once and preserves the 45-day deadline through academy recovery
+24. returns a partly remitted cheque without duplicating academy entitlement when replacement funds arrive
+25. uses explicitly approved foreign-currency refund conversion while preserving receipt credit and posting the actual FX difference
+26. corrects deferred allocation with independent evidence while carrying actual academy transfers exactly once
+27. uses net corrected receipt allocations when reserving a refund and preserves the original liability mapping
+28. posts actual academy bank fees as approved expenses and exact separate receivables, then reimburses once without changing tuition or academy principal
+29. preserves original receipt liability on later-rate remittance and clears partial fee reimbursements including the last base minor unit
+30. collects a Cairo-managed application into an authorized Luxor resource while preserving both branch dimensions
+31. reserves and consumes refunds from unallocated receipts so neither tuition nor service reuse can spend the same cash
+32. issues an unsigned cash receipt and records only an actual evidenced immutable signed-copy certification
+33. generates bilingual exact signed schedules and receipt/statement evidence from completed database workflows
+34. uses restricted database role, RLS, balanced journals and existing locked-period controls
+
+Expected HTTP401/403 denial logs are part of the negative authorization tests. No external bank action or real email occurred. All policy choices and people are explicitly synthetic. Final release commit/aggregate suite evidence is recorded by the release owner, not inferred from this checkpoint.

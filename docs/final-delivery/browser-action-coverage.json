@@ -1,0 +1,247 @@
+{
+  "scope": "Actual compiled local browser evidence, synthetic data. Source review and individual unexercised variants remain distinct.",
+  "runMetadata": "evidence/browser-compiled/run-metadata.json",
+  "testsPassed": 20,
+  "workflows": [
+    {
+      "id": "B01",
+      "title": "All registered route render variants",
+      "sourceFiles": [
+        "av8.tsx",
+        "overview.tsx",
+        "accounting-overview.tsx"
+      ],
+      "verifiedScope": "78 routes × four language/theme/viewport sets; actual API responses, page exceptions and overflow checked.",
+      "result": "PASS",
+      "evidence": "evidence/browser-compiled/route-results.json",
+      "test": "tests/final-delivery/browser.spec.ts"
+    },
+    {
+      "id": "B02",
+      "title": "Student service, evidence, guardian and net receipt",
+      "sourceFiles": [
+        "av8-student.tsx",
+        "av8-operations.tsx",
+        "av8-ui.tsx"
+      ],
+      "verifiedScope": "18 tabs; guardian edit; attachment; provider monthly agreement/charge/payment; unchanged AV8 cash for provider payment; gross2010 minus fee10 gives principal2000; actual bank posting; English/Arabic official receipt downloads.",
+      "result": "PASS",
+      "evidence": "evidence/browser-compiled/results.json",
+      "test": "tests/final-delivery/browser.spec.ts"
+    },
+    {
+      "id": "B03",
+      "title": "Five role entry and denial checks",
+      "sourceFiles": [
+        "workspace.tsx",
+        "login.tsx"
+      ],
+      "verifiedScope": "Telesales, sales, Student Affairs, finance and management use permitted destinations; four direct forbidden API requests return403. Not every permission/branch combination.",
+      "result": "PASS",
+      "evidence": "evidence/browser-compiled/role-results.json",
+      "test": "tests/final-delivery/browser.spec.ts"
+    },
+    {
+      "id": "B04",
+      "title": "Treasury resource and statement lifecycle",
+      "sourceFiles": [
+        "masters.tsx",
+        "finance.tsx"
+      ],
+      "verifiedScope": "Edit/deactivate/filter/reactivate/restore actual resource; statement preview/import leaves bank-movement count unchanged. Paired transfer UI not individually clicked here.",
+      "result": "PASS",
+      "evidence": "evidence/browser-compiled/results.json",
+      "test": "tests/final-delivery/browser.spec.ts"
+    },
+    {
+      "id": "B05",
+      "title": "System appearance preference",
+      "sourceFiles": [
+        "theme-toggle.tsx",
+        "workspace.tsx"
+      ],
+      "verifiedScope": "System follows browser dark/light preference; explicit Dark persists across reload.",
+      "result": "PASS",
+      "evidence": "evidence/browser-compiled/results.json",
+      "test": "tests/final-delivery/browser.spec.ts"
+    },
+    {
+      "id": "B06",
+      "title": "AV8 reports and filtered export",
+      "sourceFiles": [
+        "av8.tsx"
+      ],
+      "verifiedScope": "Every permitted report choice loads real API; services search and current-page CSV download. Numeric report invariants are backend-suite evidence.",
+      "result": "PASS",
+      "evidence": "evidence/browser-compiled/report-results.json",
+      "test": "tests/final-delivery/browser.spec.ts"
+    },
+    {
+      "id": "B07",
+      "title": "Memory-only session and cross-tab recovery",
+      "sourceFiles": [
+        "login.tsx",
+        "workspace.tsx"
+      ],
+      "verifiedScope": "HttpOnly refresh cookie, no persisted bearer, reload and second tab restore; one injected503 restoration fails closed; logout both tabs and account switch remain authorized.",
+      "result": "PASS",
+      "evidence": "evidence/browser-compiled/results.json",
+      "test": "tests/final-delivery/browser.spec.ts"
+    },
+    {
+      "id": "B08",
+      "title": "Production CSP",
+      "sourceFiles": [
+        "login.tsx"
+      ],
+      "verifiedScope": "Unique nonce, no unsafe-inline/eval in production script policy; injected nonce-less parser script blocked; legitimate login works.",
+      "result": "PASS",
+      "evidence": "evidence/browser-compiled/results.json",
+      "test": "tests/final-delivery/browser.spec.ts"
+    },
+    {
+      "id": "B09",
+      "title": "POS retry and closed-register recovery",
+      "sourceFiles": [
+        "pos.tsx"
+      ],
+      "verifiedScope": "Lost response after actual committed sale retries same identity/sale; hold/close/open/resume with explicit matching shift; both sales returned with original split tenders; closed original cash counts unchanged.",
+      "result": "PASS",
+      "evidence": "evidence/browser-compiled/results.json",
+      "test": "tests/final-delivery/browser.spec.ts"
+    },
+    {
+      "id": "B10",
+      "title": "Actual policy modal keyboard behavior",
+      "sourceFiles": [
+        "av8-policies.tsx",
+        "av8-ui.tsx",
+        "ui.tsx"
+      ],
+      "verifiedScope": "Open policy form;15 Tab and15 ShiftTab remain inside; fields have labels; Escape closes. Focused check, not WCAG certification.",
+      "result": "PASS",
+      "evidence": "evidence/browser-compiled/results.json",
+      "test": "tests/final-delivery/browser.spec.ts"
+    },
+    {
+      "id": "B11",
+      "title": "Opening supplier settlement",
+      "sourceFiles": [
+        "av8-opening.tsx"
+      ],
+      "verifiedScope": "Existing400 EGP payment links to1000 EGP source;600 EGP remains; same bank movement and unchanged cash/journal counts. Manual-journal alternative not individually clicked here.",
+      "result": "PASS",
+      "evidence": "evidence/browser-compiled/supplier-settlement.json",
+      "test": "tests/final-delivery/browser.spec.ts"
+    },
+    {
+      "id": "B12",
+      "title": "Tablet shell and populated finance tables",
+      "sourceFiles": [
+        "workspace.tsx",
+        "av8-student.tsx",
+        "masters.tsx"
+      ],
+      "verifiedScope": "768×1024 English/light and 1024×768 Arabic/dark; populated student/resource tables, horizontal containment, scrollable table region, drawer Escape/focus/inert state, desktop sidebar collapse and restore.",
+      "result": "PASS",
+      "evidence": "evidence/browser-compiled/tablet-results.json",
+      "test": "tests/final-delivery/browser.spec.ts"
+    },
+    {
+      "id": "B13",
+      "title": "Termination refund and actual academy recovery",
+      "sourceFiles": [
+        "av8-financial-cases.tsx",
+        "av8-student.tsx"
+      ],
+      "verifiedScope": "Finance requests 8000 USD refund, independent Management approves;500 USD actual partial payout;1500 USD approved and actually received academy recovery;7500 USD final payout; immutable45-day deadline; all instructions independently approved and bank-cleared.",
+      "result": "PASS",
+      "evidence": "evidence/browser-compiled/finance-refund.json",
+      "test": "tests/final-delivery/browser.spec.ts"
+    },
+    {
+      "id": "B14",
+      "title": "Cheque clearance, returned-credit reversal and replacement",
+      "sourceFiles": [
+        "av8-financial-cases.tsx"
+      ],
+      "verifiedScope": "Receive/present 1000 USD cheque with zero credit; clearance credits1000; independent return approval reverses credit to zero; replacement cheque clears once to1000; original retained RETURNED and replacement provenance linked; acknowledgment PDF downloaded.",
+      "result": "PASS",
+      "evidence": "evidence/browser-compiled/finance-cheque.json",
+      "test": "tests/final-delivery/browser.spec.ts"
+    },
+    {
+      "id": "B15",
+      "title": "Exact fee reimbursement, signed copy and policy approval",
+      "sourceFiles": [
+        "av8-bank-fees.tsx",
+        "av8-policies.tsx",
+        "av8-ui.tsx"
+      ],
+      "verifiedScope": "20 USD fee reimbursement prepared, independently approved and actually cleared; fee remainingzero while tuition and academy principal unchanged; explicitly synthetic signed/stamped copy uploaded and certified; draft Plan B approved; existing signed Plan A snapshot unchanged.",
+      "result": "PASS",
+      "evidence": "evidence/browser-compiled/finance-fee.json",
+      "test": "tests/final-delivery/browser.spec.ts"
+    },
+    {
+      "id": "B16",
+      "title": "Evidenced admission eligibility gate",
+      "sourceFiles": [
+        "av8-operations.tsx"
+      ],
+      "verifiedScope": "Ordinary Student Affairs admission attempt fails400 with missing eligibility; evidence-backed eligibility verified; admission approval then succeeds.",
+      "result": "PASS",
+      "evidence": "evidence/browser-compiled/finance-operations-contract-results.json",
+      "test": "tests/final-delivery/browser.spec.ts"
+    },
+    {
+      "id": "B17",
+      "title": "Immutable academic correction, recipient blockers and training graduation",
+      "sourceFiles": [
+        "av8-operations.tsx",
+        "av8-student.tsx",
+        "av8-ui.tsx"
+      ],
+      "verifiedScope": "Receive/review original report; upload corrected source and create reviewed version 2; original snapshot unchanged; separate student/guardian records per version; duplicate queue remains 4 records; retry with disabled provider returns actionable 400 and remains blocked; six training transitions through resumed and evidenced graduation preserve unpaid 2000 USD obligation. No external email is sent by this local test.",
+      "result": "PASS",
+      "evidence": "evidence/browser-compiled/affairs-operations.json",
+      "test": "tests/final-delivery/browser.spec.ts"
+    },
+    {
+      "id": "B18",
+      "title": "Independent manual journal approval, posting and linked reversal",
+      "sourceFiles": [
+        "accounting-journals.tsx",
+        "accounting-reports.tsx"
+      ],
+      "verifiedScope": "Finance creates and submits a balanced 5 EGP journal; an independent Admin approves and posts; Finance prepares linked reversal; independent approval and posting restore combined effects on each account to zero. Management AV8 role was correctly denied hidden journal lines; no permission was expanded.",
+      "result": "PASS",
+      "evidence": "evidence/browser-compiled/accounting-results.json",
+      "test": "tests/final-delivery/browser.spec.ts"
+    },
+    {
+      "id": "B19",
+      "title": "Actual signed 8/8/2 contract schedules",
+      "sourceFiles": [
+        "av8-student.tsx",
+        "av8-ui.tsx"
+      ],
+      "verifiedScope": "View signed Plan A8 rows; prepare Plan B, upload explicitly synthetic signed agreement, record signature 8rows64kUSD; CASH2rows54kUSD, academy entitlement54k and three-calendar-month due date; original application fee exists once,2000 USD remains paid; actual HTML/PDF downloads. PDF rendering is separate evidence.",
+      "result": "PASS",
+      "evidence": "evidence/browser-compiled/contract-schedules.json",
+      "test": "tests/final-delivery/browser.spec.ts"
+    },
+    {
+      "id": "B20",
+      "title": "Paired treasury transfer with actual fee and lost-response retry",
+      "sourceFiles": [
+        "finance.tsx"
+      ],
+      "verifiedScope": "Actual 10 EGP principal+1 EGP source fee posts paired 11 EGP outgoing/10 EGP incoming and one balanced journal; intercepted response is lost only after real API commit; unchanged form retries same identity and response; only 2 movements created.",
+      "result": "PASS",
+      "evidence": "evidence/browser-compiled/treasury-paired-transfer.json",
+      "test": "tests/final-delivery/browser.spec.ts"
+    }
+  ],
+  "runNote": "Named scenarios passed across the original 11-test compiled run and retained focused follow-ups. Focused result files also retain failed selector/role assumptions before correction. This is not yet a single exact-commit aggregate pass."
+}

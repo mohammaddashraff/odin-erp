@@ -426,6 +426,9 @@ export function Banking({
   const { tr, refs, money, name, date, allowed, request, notify, user } = useERP();
   const state = useResource("/banking");
   const [mode, setMode] = useState("");
+  const [statementPreview,setStatementPreview]=useState<any>(null);
+  const [previewBusy,setPreviewBusy]=useState(false);
+  const [previewError,setPreviewError]=useState('');
   const [match, setMatch] = useState<any>(null);
   const data = state.data;
   const saved = async () => {
@@ -436,6 +439,39 @@ export function Banking({
   const accounts = refs.accounts.filter(
     (a: any) => a.postingAllowed && !a.controlType,
   );
+  if(mode==='statement-csv')return <FormPage title="Preview bank statement import" close={()=>setMode('')} defaults={{bankAccountId:'',statementDate:today(),opening:'',closing:'',csv:'',dateColumn:'date',amountColumn:'amount',descriptionColumn:'description',referenceColumn:'reference'}} specs={[
+    {key:'bankAccountId',label:'Bank account',options:[{value:'',label:tr('Select')},...refs.bankAccounts],required:true},
+    {key:'statementDate',label:'Statement date',type:'date',required:true},
+    {key:'opening',label:'Opening balance',type:'decimal',required:true},
+    {key:'closing',label:'Closing balance',type:'decimal',required:true},
+    {key:'dateColumn',label:'Date column',required:true},{key:'amountColumn',label:'Amount column',required:true},
+    {key:'descriptionColumn',label:'Description column',required:true},{key:'referenceColumn',label:'Reference column',required:true},
+    {key:'csv',label:'Statement CSV',type:'textarea',required:true,wide:true},
+  ]} submitLabel="Import validated statement" submit={async(d)=>{
+    if(statementPreview?.input!==JSON.stringify(d)||!statementPreview?.result.valid)throw new Error(tr('Preview this statement and resolve its row errors before importing.'));
+    await request('/banking/statements',{method:'POST',body:JSON.stringify({...d,mapping:{date:d.dateColumn,amount:d.amountColumn,description:d.descriptionColumn,reference:d.referenceColumn}})});setStatementPreview(null);await saved();
+  }}>{d=><>
+    <div className="actions"><Button busy={previewBusy} onClick={async()=>{setPreviewBusy(true);setPreviewError('');try{const result=await request('/banking/statements/preview',{method:'POST',body:JSON.stringify({...d,mapping:{date:d.dateColumn,amount:d.amountColumn,description:d.descriptionColumn,reference:d.referenceColumn}})});setStatementPreview({input:JSON.stringify(d),result});}catch(e:any){setPreviewError(e.message);}finally{setPreviewBusy(false);}}}>{tr('Preview import')}</Button></div>
+    {previewError?<ErrorNotice message={previewError}/>:null}
+    {statementPreview?.input===JSON.stringify(d)?<Panel title="Statement preview"><p>{tr('Rows')}: {statementPreview.result.rowCount} · {tr('Currency')}: {statementPreview.result.currency}</p><Table rows={statementPreview.result.rows} columns={[{key:'row',label:'Row'},{key:'date',label:'Date'},{key:'description',label:'Description'},{key:'reference',label:'Reference'},{key:'amount',label:'Amount'}]}/>{statementPreview.result.errors.map((error:any,index:number)=><ErrorNotice key={index} message={`${error.row||''} ${error.message}`}/>)}</Panel>:null}
+  </>}</FormPage>;
+  if (mode === "transfer") return <FormPage title="Transfer between resources" close={()=>setMode("")} defaults={{branchId:defaultBranch(refs.branches,user),sourceId:'',destinationId:'',sourceAmount:'',destinationAmount:'',sourceBaseRate:'',destinationBaseRate:'',feeAmount:'0',feeAccountId:'',fxAccountId:'',fxTreatmentConfirmed:false,postingDate:today(),rateSource:'',reference:'',reason:'',idempotencyKey:crypto.randomUUID()}} specs={[
+    {key:'branchId',label:'Branch',options:refs.branches,required:true},
+    {key:'sourceId',label:'Source resource',options:[{value:'',label:tr('Select')},...refs.bankAccounts],required:true},
+    {key:'destinationId',label:'Destination resource',options:[{value:'',label:tr('Select')},...refs.bankAccounts],required:true},
+    {key:'sourceAmount',label:'Source principal amount',type:'decimal',required:true},
+    {key:'destinationAmount',label:'Destination principal amount',type:'decimal',required:true},
+    {key:'sourceBaseRate',label:'Approved source book rate (base per source unit)',type:'decimal'},
+    {key:'destinationBaseRate',label:'Actual destination rate (base per destination unit)',type:'decimal'},
+    {key:'feeAmount',label:'Fee in source currency',type:'decimal',required:true},
+    {key:'feeAccountId',label:'Fee expense account',options:[{value:'',label:tr('Select')},...accounts.filter((a:any)=>a.type==='EXPENSE')]},
+    {key:'fxAccountId',label:'Approved FX difference account',options:[{value:'',label:tr('Select')},...accounts]},
+    {key:'fxTreatmentConfirmed',label:'I confirm the FX accounting treatment for this transfer',type:'checkbox'},
+    {key:'rateSource',label:'Rate provenance or evidence reference',required:true},
+    {key:'postingDate',label:'Posting date',type:'date',required:true},
+    {key:'reference',label:'Reference'},
+    {key:'reason',label:'Transfer reason',required:true},
+  ]} submitLabel="Post paired transfer" submit={async(d)=>{await request('/banking/transfers',{method:'POST',headers:{'idempotency-key':d.idempotencyKey},body:JSON.stringify(d)});await saved();}}>{d=><p className="notice">{tr('Account currency')}: {refs.bankAccounts.find((a:any)=>String(a.id)===String(d.sourceId))?.currency||'—'} → {refs.bankAccounts.find((a:any)=>String(a.id)===String(d.destinationId))?.currency||'—'}. {tr('Both resource movements post together. Fees and FX differences require explicit accounts.')}</p>}</FormPage>;
   if (mode === "transaction")
     return (
       <FormPage
@@ -456,7 +492,7 @@ export function Banking({
           {
             key: "kind",
             label: "Kind",
-            options: ["RECEIPT", "PAYMENT", "TRANSFER_IN", "TRANSFER_OUT"],
+            options: ["RECEIPT", "PAYMENT"],
           },
           {
             key: "bankAccountId",
@@ -565,6 +601,8 @@ export function Banking({
         title={title}
         subtitle="Posted receipts, payments, transfers and bank-statement matching"
       >
+        {allowed("banking.transaction.create") ? <Button onClick={()=>setMode("transfer")}>{tr("Transfer between resources")}</Button> : null}
+        {allowed("banking.statement.create") ? <Button onClick={()=>setMode("statement-csv")}>{tr("Preview bank statement import")}</Button> : null}
         {screenId !== "bank-statements" &&
         allowed("banking.transaction.create") ? (
           <AddButton onClick={() => setMode("transaction")}>

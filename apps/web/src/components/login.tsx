@@ -13,6 +13,7 @@ import {
   Package,
 } from "lucide-react";
 import { useERP } from "../core/erp-context";
+import { withSessionLock } from "../core/session-provider";
 import { localizeError } from "../core/i18n";
 import { Brand, Button, Fields } from "./ui";
 import ThemeToggle from "./theme-toggle";
@@ -38,6 +39,7 @@ export default function Login() {
     setBusy(true);
     setError("");
     try {
+      await withSessionLock(async () => {
       const response = await fetch(
         challenge ? "/api/auth/mfa/verify" : "/api/auth/login",
         {
@@ -64,6 +66,7 @@ export default function Login() {
       if (result.mfaRequired || result.mfaEnrollmentRequired)
         setChallenge(result);
       else establishSession(result);
+      });
     } catch (submissionError: any) {
       setError(localizeError(submissionError.message, language));
     } finally {

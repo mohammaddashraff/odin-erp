@@ -1,0 +1,298 @@
+{
+  "config": {
+    "argv": [
+      "/private/tmp/odin-erp-final-delivery-20261031/.av8/node/bin/node",
+      "/private/tmp/odin-erp-final-delivery-20261031/node_modules/@playwright/test/cli.js",
+      "test",
+      "--config=playwright.delivery.config.ts",
+      "--grep",
+      "finance fee|Student Affairs|inherited accounting|contract UI"
+    ],
+    "configFile": "/private/tmp/odin-erp-final-delivery-20261031/playwright.delivery.config.ts",
+    "rootDir": "/private/tmp/odin-erp-final-delivery-20261031/tests/final-delivery",
+    "failOnFlakyTests": false,
+    "forbidOnly": false,
+    "fullyParallel": false,
+    "globalSetup": null,
+    "globalTeardown": null,
+    "globalTimeout": 0,
+    "grep": {},
+    "grepInvert": null,
+    "maxFailures": 0,
+    "metadata": {
+      "actualWorkers": 1
+    },
+    "preserveOutput": "always",
+    "projects": [
+      {
+        "outputDir": "/private/tmp/odin-erp-final-delivery-20261031/output/playwright/final-delivery/artifacts",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "",
+        "name": "",
+        "testDir": "/private/tmp/odin-erp-final-delivery-20261031/tests/final-delivery",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 900000
+      }
+    ],
+    "quiet": false,
+    "reporter": [
+      [
+        "list",
+        null
+      ],
+      [
+        "json",
+        {
+          "outputFile": "output/playwright/final-delivery/results.json"
+        }
+      ]
+    ],
+    "reportSlowTests": {
+      "max": 5,
+      "threshold": 300000
+    },
+    "shard": null,
+    "tags": [],
+    "updateSnapshots": "missing",
+    "updateSourceMethod": "patch",
+    "version": "1.61.1",
+    "workers": 1,
+    "webServer": null
+  },
+  "suites": [
+    {
+      "title": "browser.spec.ts",
+      "file": "browser.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "finance fee reimbursement UI posts only the exact fee and records a synthetic signed copy; management approves a policy version",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 900000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 7532,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-31T19:06:36.685Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "fbeac1b2decfba2c3acd-e859c6f5a7622017b77e",
+          "file": "browser.spec.ts",
+          "line": 157,
+          "column": 5
+        },
+        {
+          "title": "Student Affairs admission refuses missing eligibility then records evidenced eligibility and approval",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 900000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 2539,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-31T19:06:44.645Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "fbeac1b2decfba2c3acd-2bfa75b46f0d55bd4a33",
+          "file": "browser.spec.ts",
+          "line": 168,
+          "column": 5
+        },
+        {
+          "title": "Student Affairs reviews and corrects source reports, preserves both blocked recipients and completes evidenced training without wiping debt",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 900000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 7098,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-31T19:06:47.189Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "fbeac1b2decfba2c3acd-f910049bbf777f2b8c00",
+          "file": "browser.spec.ts",
+          "line": 173,
+          "column": 5
+        },
+        {
+          "title": "inherited accounting UI posts an independently approved manual journal and its linked reversal",
+          "ok": false,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 900000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "failed",
+                  "duration": 24335,
+                  "error": {
+                    "message": "TimeoutError: locator.click: Timeout 20000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByRole('button', { name: 'Approve', exact: true })\u001b[22m\n",
+                    "stack": "TimeoutError: locator.click: Timeout 20000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByRole('button', { name: 'Approve', exact: true })\u001b[22m\n\n    at action (/private/tmp/odin-erp-final-delivery-20261031/tests/final-delivery/browser.spec.ts:187:243)\n    at /private/tmp/odin-erp-final-delivery-20261031/tests/final-delivery/browser.spec.ts:188:1198",
+                    "location": {
+                      "file": "/private/tmp/odin-erp-final-delivery-20261031/tests/final-delivery/browser.spec.ts",
+                      "column": 243,
+                      "line": 187
+                    },
+                    "snippet": "  185 | test('inherited accounting UI posts an independently approved manual journal and its linked reversal',async({page,browser})=>{\n  186 |  const f=await financeFixture();await login(page,f.actors.maker);const context=await browser.newContext({baseURL:process.env.PLAYWRIGHT_BASE_URL||'http://127.0.0.1:8180'});const checker=await context.newPage();await login(checker,f.actors.approver);const refs=await(await page.request.get('/api/bootstrap',{headers:await auth(page)})).json();const debit=refs.accounts.find((account:any)=>account.code==='SYN-UAT-FEE-EXP'),credit=refs.accounts.find((account:any)=>account.code==='SYN-UAT-FEE-RCV');expect(debit).toBeTruthy();expect(credit).toBeTruthy();\n> 187 |  const open=async(actor:Page,id:string)=>{await actor.goto(`/accounting/journals?journal=${id}`);await ready(actor);};const action=async(actor:Page,id:string,label:string,verb:string)=>{await actor.getByRole('button',{name:label,exact:true}).click();const response=actor.waitForResponse(response=>response.url().endsWith(`/api/journals/${id}/${verb}`)&&response.request().method()==='POST');await actor.getByRole('dialog').getByRole('button',{name:'Confirm',exact:true}).click();const result=await response;expect(result.ok(),await result.text()).toBe(true);await expect(actor.getByRole('dialog')).toHaveCount(0);await ready(actor);};\n      |                                                                                                                                                                                                                                                   ^\n  188 |  try{await page.goto('/accounting/journals?new=1');await ready(page);await page.getByLabel('Accounting date').fill(f.date);await page.getByLabel('Branch',{exact:false}).selectOption(refs.branches.find((branch:any)=>branch.code==='CAI').id);await page.getByRole('textbox',{name:'Description',exact:true}).fill(`SYNTHETIC UI reversible journal ${Date.now()}`);await page.getByRole('combobox',{name:'Posting account 1',exact:true}).selectOption(debit.id);await page.getByRole('combobox',{name:'Posting account 2',exact:true}).selectOption(credit.id);await page.getByRole('textbox',{name:'Debit 1',exact:true}).fill('5.00');await page.getByRole('textbox',{name:'Credit 2',exact:true}).fill('5.00');let saved=page.waitForResponse(response=>response.url().endsWith('/api/journals')&&response.request().method()==='POST');await page.getByRole('button',{name:'Create balanced draft',exact:true}).click();let response=await saved;expect(response.ok(),await response.text()).toBe(true);const journal=await response.json();await ready(page);await action(page,journal.id,'Submit','submit');await expect(page.getByRole('button',{name:'Approve',exact:true})).toHaveCount(0);await open(checker,journal.id);await action(checker,journal.id,'Approve','approve');await action(checker,journal.id,'Post','post');await open(page,journal.id);const original=await(await page.request.get(`/api/journals/${journal.id}`,{headers:await auth(page)})).json();expect(original.status).toBe('POSTED');await page.getByRole('button',{name:'Reverse',exact:true}).click();await page.getByLabel('Open reversal date (YYYY-MM-DD)').fill(f.date);await page.getByLabel('Reversal reason').fill('Synthetic acceptance; restore the original ledger balance');saved=page.waitForResponse(response=>response.url().endsWith(`/api/journals/${journal.id}/reverse/create`)&&response.request().method()==='POST');await page.getByRole('button',{name:'Create balanced draft',exact:true}).click();response=await saved;expect(response.ok(),await response.text()).toBe(true);const reversal=await response.json();await ready(page);await action(page,reversal.id,'Submit','submit');await open(checker,reversal.id);await action(checker,reversal.id,'Approve','approve');await action(checker,reversal.id,'Post','post');const reversed=await(await page.request.get(`/api/journals/${reversal.id}`,{headers:await auth(page)})).json();expect(reversed.status).toBe('POSTED');expect(reversed.reversesEntry.id).toBe(journal.id);for(const account of [debit,credit])expect([...original.lines,...reversed.lines].filter((line:any)=>line.accountId===account.id).reduce((sum:bigint,line:any)=>sum+BigInt(line.debitMinor)-BigInt(line.creditMinor),0n)).toBe(0n);await page.goto(`/accounting/general-ledger?accountId=${debit.id}&from=${f.date}&to=${f.date}`);await ready(page);await page.screenshot({path:`${out}/accounting-linked-reversal-ledger.png`,fullPage:true});await writeFile(`${out}/accounting-reversal.json`,JSON.stringify({synthetic:true,originalId:journal.id,reversalId:reversal.id,originalStatus:original.status,reversalStatus:reversed.status,combinedTestEffectMinor:'0'},null,2));}finally{await context.close();}\n  189 | });\n  190 |"
+                  },
+                  "errors": [
+                    {
+                      "location": {
+                        "file": "/private/tmp/odin-erp-final-delivery-20261031/tests/final-delivery/browser.spec.ts",
+                        "column": 243,
+                        "line": 187
+                      },
+                      "message": "TimeoutError: locator.click: Timeout 20000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByRole('button', { name: 'Approve', exact: true })\u001b[22m\n\n\n  185 | test('inherited accounting UI posts an independently approved manual journal and its linked reversal',async({page,browser})=>{\n  186 |  const f=await financeFixture();await login(page,f.actors.maker);const context=await browser.newContext({baseURL:process.env.PLAYWRIGHT_BASE_URL||'http://127.0.0.1:8180'});const checker=await context.newPage();await login(checker,f.actors.approver);const refs=await(await page.request.get('/api/bootstrap',{headers:await auth(page)})).json();const debit=refs.accounts.find((account:any)=>account.code==='SYN-UAT-FEE-EXP'),credit=refs.accounts.find((account:any)=>account.code==='SYN-UAT-FEE-RCV');expect(debit).toBeTruthy();expect(credit).toBeTruthy();\n> 187 |  const open=async(actor:Page,id:string)=>{await actor.goto(`/accounting/journals?journal=${id}`);await ready(actor);};const action=async(actor:Page,id:string,label:string,verb:string)=>{await actor.getByRole('button',{name:label,exact:true}).click();const response=actor.waitForResponse(response=>response.url().endsWith(`/api/journals/${id}/${verb}`)&&response.request().method()==='POST');await actor.getByRole('dialog').getByRole('button',{name:'Confirm',exact:true}).click();const result=await response;expect(result.ok(),await result.text()).toBe(true);await expect(actor.getByRole('dialog')).toHaveCount(0);await ready(actor);};\n      |                                                                                                                                                                                                                                                   ^\n  188 |  try{await page.goto('/accounting/journals?new=1');await ready(page);await page.getByLabel('Accounting date').fill(f.date);await page.getByLabel('Branch',{exact:false}).selectOption(refs.branches.find((branch:any)=>branch.code==='CAI').id);await page.getByRole('textbox',{name:'Description',exact:true}).fill(`SYNTHETIC UI reversible journal ${Date.now()}`);await page.getByRole('combobox',{name:'Posting account 1',exact:true}).selectOption(debit.id);await page.getByRole('combobox',{name:'Posting account 2',exact:true}).selectOption(credit.id);await page.getByRole('textbox',{name:'Debit 1',exact:true}).fill('5.00');await page.getByRole('textbox',{name:'Credit 2',exact:true}).fill('5.00');let saved=page.waitForResponse(response=>response.url().endsWith('/api/journals')&&response.request().method()==='POST');await page.getByRole('button',{name:'Create balanced draft',exact:true}).click();let response=await saved;expect(response.ok(),await response.text()).toBe(true);const journal=await response.json();await ready(page);await action(page,journal.id,'Submit','submit');await expect(page.getByRole('button',{name:'Approve',exact:true})).toHaveCount(0);await open(checker,journal.id);await action(checker,journal.id,'Approve','approve');await action(checker,journal.id,'Post','post');await open(page,journal.id);const original=await(await page.request.get(`/api/journals/${journal.id}`,{headers:await auth(page)})).json();expect(original.status).toBe('POSTED');await page.getByRole('button',{name:'Reverse',exact:true}).click();await page.getByLabel('Open reversal date (YYYY-MM-DD)').fill(f.date);await page.getByLabel('Reversal reason').fill('Synthetic acceptance; restore the original ledger balance');saved=page.waitForResponse(response=>response.url().endsWith(`/api/journals/${journal.id}/reverse/create`)&&response.request().method()==='POST');await page.getByRole('button',{name:'Create balanced draft',exact:true}).click();response=await saved;expect(response.ok(),await response.text()).toBe(true);const reversal=await response.json();await ready(page);await action(page,reversal.id,'Submit','submit');await open(checker,reversal.id);await action(checker,reversal.id,'Approve','approve');await action(checker,reversal.id,'Post','post');const reversed=await(await page.request.get(`/api/journals/${reversal.id}`,{headers:await auth(page)})).json();expect(reversed.status).toBe('POSTED');expect(reversed.reversesEntry.id).toBe(journal.id);for(const account of [debit,credit])expect([...original.lines,...reversed.lines].filter((line:any)=>line.accountId===account.id).reduce((sum:bigint,line:any)=>sum+BigInt(line.debitMinor)-BigInt(line.creditMinor),0n)).toBe(0n);await page.goto(`/accounting/general-ledger?accountId=${debit.id}&from=${f.date}&to=${f.date}`);await ready(page);await page.screenshot({path:`${out}/accounting-linked-reversal-ledger.png`,fullPage:true});await writeFile(`${out}/accounting-reversal.json`,JSON.stringify({synthetic:true,originalId:journal.id,reversalId:reversal.id,originalStatus:original.status,reversalStatus:reversed.status,combinedTestEffectMinor:'0'},null,2));}finally{await context.close();}\n  189 | });\n  190 |\n    at action (/private/tmp/odin-erp-final-delivery-20261031/tests/final-delivery/browser.spec.ts:187:243)\n    at /private/tmp/odin-erp-final-delivery-20261031/tests/final-delivery/browser.spec.ts:188:1198"
+                    }
+                  ],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-31T19:06:54.293Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "screenshot",
+                      "contentType": "image/png",
+                      "path": "/private/tmp/odin-erp-final-delivery-20261031/output/playwright/final-delivery/artifacts/browser-inherited-accounti-a826e-nal-and-its-linked-reversal/test-failed-1.png"
+                    },
+                    {
+                      "name": "screenshot",
+                      "contentType": "image/png",
+                      "path": "/private/tmp/odin-erp-final-delivery-20261031/output/playwright/final-delivery/artifacts/browser-inherited-accounti-a826e-nal-and-its-linked-reversal/test-failed-2.png"
+                    },
+                    {
+                      "name": "error-context",
+                      "contentType": "text/markdown",
+                      "path": "/private/tmp/odin-erp-final-delivery-20261031/output/playwright/final-delivery/artifacts/browser-inherited-accounti-a826e-nal-and-its-linked-reversal/error-context.md"
+                    }
+                  ],
+                  "errorLocation": {
+                    "file": "/private/tmp/odin-erp-final-delivery-20261031/tests/final-delivery/browser.spec.ts",
+                    "column": 243,
+                    "line": 187
+                  }
+                }
+              ],
+              "status": "unexpected"
+            }
+          ],
+          "id": "fbeac1b2decfba2c3acd-01348bf2188a2e4deb5c",
+          "file": "browser.spec.ts",
+          "line": 185,
+          "column": 5
+        },
+        {
+          "title": "contract UI preserves the signed Plan A schedule and prepares evidenced Plan B and cash agreements with 8, 8 and 2 items",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 900000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 5205,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-31T19:07:18.983Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "fbeac1b2decfba2c3acd-80e39f552eabfd5252c5",
+          "file": "browser.spec.ts",
+          "line": 191,
+          "column": 5
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "stats": {
+    "startTime": "2026-10-31T19:06:36.251Z",
+    "duration": 48535.959,
+    "expected": 4,
+    "skipped": 0,
+    "unexpected": 1,
+    "flaky": 0
+  }
+}

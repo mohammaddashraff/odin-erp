@@ -17,10 +17,12 @@ async function login(page:Page){
 }
 
 test('AV8 one-save receipt, Arabic actions, identity and spacing',async({page})=>{
+ let token='';
+ page.on('request',request=>{const header=request.headers().authorization;if(new URL(request.url()).pathname.startsWith('/api/')&&header?.startsWith('Bearer '))token=header.slice(7);});
  await login(page);
  const nav=page.locator('.glass-navigation');
  await expect(nav).toBeVisible();await page.getByTestId('nav-av8').click();await expect(page.locator('#glass-module-pages')).toBeVisible();await page.keyboard.press('Escape');await expect(page.locator('#glass-module-pages')).toHaveCount(0);expect(await page.locator('.loading').count()).toBe(0);
- const token=await page.evaluate(()=>localStorage.getItem('av8_token'));
+ expect(token).toBeTruthy();
  const headers={Authorization:`Bearer ${token}`,'Content-Type':'application/json','Idempotency-Key':randomUUID()};
  const refs=await (await page.request.get('/api/av8/refs',{headers})).json();
  const leadResponse=await page.request.post('/api/av8/leads',{headers:{...headers,'Idempotency-Key':randomUUID()},data:{name:`SYNTHETIC browser receipt ${Date.now()}`,phone:`+209${String(Date.now()).slice(-9)}`,source:'Browser QA',program:'Flight training',branchId:refs.branches[0].id,ownerId:refs.users[0].id,duplicateReviewed:true}});

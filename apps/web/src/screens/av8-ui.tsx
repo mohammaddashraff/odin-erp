@@ -4,7 +4,7 @@ import { useERP } from '../core/erp-context';
 import { Button, Dialog, ErrorNotice, Fields, useUnsaved, type FieldSpec } from '../components/ui';
 import { cairoToday } from '../core/cairo-time';
 import {formSnapshot} from '../core/ui-presentation';
-export const cash=(v:any,currency='USD')=>{const x=BigInt(v||0),n=x<0n?-x:x;return `${currency} ${x<0n?'-':''}${(n/100n).toLocaleString('en-US')}.${String(n%100n).padStart(2,'0')}`;};
+export const cash=(v:any,currency='USD',precision=2)=>{if(v==null||v==='')return '—';const x=BigInt(v),n=x<0n?-x:x,unit=10n**BigInt(precision);return `${currency} ${x<0n?'-':''}${(n/unit).toLocaleString('en-US')}${precision?'.'+String(n%unit).padStart(precision,'0'):''}`;};
 export const today=cairoToday;
 export const time=(v:any,language='en')=>v?new Intl.DateTimeFormat(language==='ar'?'ar-EG':'en-GB',{timeZone:'Africa/Cairo',numberingSystem:'latn',dateStyle:'medium',timeStyle:'short'}).format(new Date(v)):'—';
 export const option=(items:any[])=>[{value:'',label:'Select'},...items];
@@ -34,15 +34,47 @@ export function Form({title,fields,initial={},change,render,save,close,children,
 export function FxPreview({value,baseCurrency='EGP'}:{value:any;baseCurrency?:string}) {
  const {tr}=useERP();
  const currency=String(value.currency||'USD'),manual=value.usdToBaseRate||value.baseRate;
- return <div className="av8-callout av8-fx-help" aria-live="polite"><strong>{tr('Currency handling')}</strong><p>{tr('The receiving account sets the payment currency')}: <bdi>{currency}</bdi>.</p><p><bdi>{tr('1 USD =')} {manual||tr('saved dated rate')} {baseCurrency}</bdi></p><small>{tr('The student-payment conversion and ledger conversion are calculated separately and saved with the receipt.')}</small></div>;
+ return <div className="av8-callout av8-fx-help" aria-live="polite"><strong>{tr('Currency handling')}</strong><p>{tr('The receiving account sets the payment currency')}: <bdi>{currency}</bdi>.</p><p><bdi>{value.usdToBaseRate?'1 USD':`1 ${currency}`} = {manual||tr('saved dated rate')} {baseCurrency}</bdi></p>{value.usdRate?<p><bdi>1 {currency} = {value.usdRate} USD</bdi></p>:null}<small>{tr('The student-payment conversion and ledger conversion are calculated separately and saved with the receipt.')}</small></div>;
 }
-export function useAv8Actions(reload:()=>void) {const {request,notify}=useERP();return async(path:string,value:any)=>{const result=await request('/av8'+path,{method:'POST',headers:{'Idempotency-Key':crypto.randomUUID()},body:JSON.stringify(value)});notify('Saved successfully');reload();return result;};}
+export function useAv8Actions(reload:()=>void) {
+ const {request,notify}=useERP();
+ // Keep the request identity after an ambiguous network failure. A retry of
+ // unchanged values must reconcile the original operation, not post it twice.
+ const pending=useRef(new Map<string,string>());
+ return async(path:string,value:any)=>{
+  const body=JSON.stringify(value),fingerprint=path+'\n'+body;
+  let key=pending.current.get(fingerprint);
+  if(!key){key=crypto.randomUUID();pending.current.set(fingerprint,key);}
+  const result=await request('/av8'+path,{method:'POST',headers:{'Idempotency-Key':key},body});
+  pending.current.delete(fingerprint);
+  notify('Saved successfully');reload();return result;
+ };
+}
 import { useSession } from '../core/session-provider';
 export function Download({path,label,filename}:{path:string;label:string;filename:string}) {
  const {authorizedFetch}=useSession();const {tr,language}=useERP();const [error,setError]=useState('');
  return <><Button onClick={async()=>{try{const r=await authorizedFetch('/api/av8'+path,{headers:{'Accept-Language':language}});if(!r.ok)throw new Error((await r.json()).message||'Download failed');const blob=await r.blob();const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=filename;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}catch(e:any){setError(e.message);}}}>{tr(label)}</Button>{error?<span role="alert">{error}</span>:null}</>;
 }
 export function Evidence({appId,record,files,reload}:{appId:string;record:any;files:any[];reload:()=>void}) {
- const {request,tr}=useERP();const [error,setError]=useState(''),[busy,setBusy]=useState(false);
- return <div className="av8-evidence"><small>{tr('Supported files: PDF, PNG, JPEG or WebP, up to 4 MB.')}</small>{files.filter(x=>x.recordId===record.id).map(file=><Download key={file.id} path={'/attachments/'+file.id} label={file.filename} filename={file.filename}/>)}<label className="btn">{tr(busy?'Uploading…':'Upload evidence')}<input type="file" accept="application/pdf,image/png,image/jpeg,image/webp" disabled={busy} onChange={async e=>{const file=e.target.files?.[0];if(!file)return;if(file.size>4*1024*1024){setError(tr('Choose a file within the 4 MB attachment limit'));e.target.value='';return;}setBusy(true);setError('');const body=new FormData();body.append('file',file);try{await request(`/av8/applications/${appId}/attachments/${record.id}`,{method:'POST',body});reload();}catch(e:any){setError(e.message);}finally{setBusy(false);e.target.value='';}}}/></label>{error?<span role="alert">{error}</span>:null}</div>;
+ const {request,tr,allowed}=useERP();const [error,setError]=useState(''),[busy,setBusy]=useState(false);
+ const category=record.data?.sensitivity||record.kind;const permission=['medical','passport','bank','criminal'].includes(category)?`av8.${category}.edit`:['finance','opening-source','receipt-signature','allocation-correction','cheque','cheque-event','refund','settlement','finance_evidence','amendment','expense','service-charge','service-payment'].includes(category)?'av8.finance.create':category==='contract'?'av8.applications.edit':'av8.affairs.edit';
+ return <div className="av8-evidence"><small>{tr('Supported files: PDF, PNG, JPEG or WebP, up to 4 MB.')}</small>{files.filter(x=>x.recordId===record.id).map(file=><Download key={file.id} path={'/attachments/'+file.id} label={file.filename} filename={file.filename}/>)}{allowed(permission)?<label className="btn">{tr(busy?'Uploading…':'Upload evidence')}<input type="file" accept="application/pdf,image/png,image/jpeg,image/webp" disabled={busy} onChange={async e=>{const file=e.target.files?.[0];if(!file)return;if(file.size>4*1024*1024){setError(tr('Choose a file within the 4 MB attachment limit'));e.target.value='';return;}setBusy(true);setError('');const body=new FormData();body.append('file',file);try{await request(`/av8/applications/${appId}/attachments/${record.id}`,{method:'POST',body});reload();}catch(e:any){setError(e.message);}finally{setBusy(false);e.target.value='';}}}/></label>:null}{error?<span role="alert">{error}</span>:null}</div>;
+}
+
+/** A failed upload can be retried against the same evidence record. */
+export function SupportingEvidence({app,reload,financial=false}:{app:any;reload:()=>void;financial?:boolean}) {
+ const {request,tr,allowed,notify}=useERP();const [editor,setEditor]=useState<any>(null);
+ if(!allowed(financial?'av8.finance.create':'av8.affairs.edit'))return null;
+ const open=()=>{
+  const identity=crypto.randomUUID();let recordId:string|undefined;
+  setEditor({save:async(value:any)=>{
+   const file=value.file as File;if(!file?.size)throw new Error(tr('Choose a supporting file'));
+   if(file.size>4*1024*1024)throw new Error(tr('Choose a file within the 4 MB attachment limit'));
+   if(!recordId){const record=await request(`/av8/applications/${app.id}/record`,{method:'POST',headers:{'Idempotency-Key':identity},body:JSON.stringify({kind:financial?'finance_evidence':'task',key:identity,status:financial?'RECORDED':'OPEN',title:value.title,reason:value.reason,ownerId:app.ownerId,version:app.version})});recordId=String(record.recordId);}
+   const body=new FormData();body.append('file',file);
+   await request(`/av8/applications/${app.id}/attachments/${recordId}`,{method:'POST',body});
+   notify('Evidence uploaded');reload();
+  }});
+ };
+ return <><Button onClick={open}>{tr('Add supporting evidence')}</Button>{editor?<Form title="Add supporting evidence" fields={[f('title','Evidence description','text',true),{...f('file','Attachment','file',true),accept:'application/pdf,image/png,image/jpeg,image/webp'},reason]} save={editor.save} close={()=>{setEditor(null);reload();}}><p>{tr('Supported files: PDF, PNG, JPEG or WebP, up to 4 MB.')}</p></Form>:null}</>;
 }

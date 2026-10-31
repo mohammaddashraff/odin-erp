@@ -1,0 +1,25 @@
+Hosted staging configuration checkpoint — no external connection or deployment
+
+Selected Hetzner profile follow-up:
+PATH="$PWD/.av8/bin:$PATH" npm exec --workspace @odin/api -- jest --runInBand --testPathPatterns='av8-hetzner-isolation.spec.ts|av8-staging.spec.ts|av8-isolation.spec.ts|deployment-config.spec.ts|av8-bootstrap.spec.ts'
+Test Suites: 5 passed, 5 total
+Tests:       42 passed, 42 total
+Time:        0.836 s
+API TypeScript check: exit 0.
+Log: .av8/hosted-isolation-test.log
+
+Includes explicit Hetzner production/staging identity, mandatory secure authentication, the approved production domain, an explicitly selected SSH-loopback staging origin, rejection of inherited Vercel state, strict internal database transport and actual admin/runtime address rejection with marker/role/RLS checks. Actual connection rows are mocked here; operational host/Compose isolation and real startup remain deployment evidence owned by the release agent.
+
+Command:
+PATH="$PWD/.av8/bin:$PATH" npm exec --workspace @odin/api -- jest --runInBand --testPathPatterns='av8-staging.spec.ts|av8-isolation.spec.ts|deployment-config.spec.ts|av8-bootstrap.spec.ts'
+
+Test Suites: 4 passed, 4 total
+Tests:       32 passed, 32 total
+Snapshots:   0 total
+Time:        0.635 s
+
+API TypeScript check: npm run lint --workspace @odin/api, exit 0.
+
+Scope: explicit staging target validation; absent identity/credentials/origins; production direct/pooler/project/marker rejection; runtime-owner misuse; insecure/duplicate TLS and arbitrary URL parameter rejection; mandatory hosted authentication; no seed/reset; mocked actual admin/runtime database marker/name/role/TLS/effective-RLS acceptance and failures. Existing production isolation/authentication/bootstrap regressions included.
+
+Actual staging database/provider/project identities, credentials, hosted TLS/RLS queries, deployment, migration, MFA enrollment, worker scheduling and controlled email/alert delivery have NOT been executed. The release owner's final aggregate evidence and exact commit supersede this local checkpoint.

@@ -20,3 +20,18 @@ describe('exact fixed-point business math', () => {
     expect(roundDiv(-5n, 2n)).toBe(-3n);
   });
 });
+
+
+describe('currency minor-unit conversion', () => {
+  const { convertMinor, currencyAmount } = require('./money');
+  it('converts zero, two and three decimal currencies to USD cents exactly', () => {
+    expect(convertMinor(currencyAmount('1500', 0), 0, 2, 6667n)).toBe(1000n);
+    expect(convertMinor(currencyAmount('2000.50', 2), 2, 2, 1000000n)).toBe(200050n);
+    expect(convertMinor(currencyAmount('1.234', 3), 3, 2, 3250000n)).toBe(401n);
+  });
+  it('rejects excess fractional units, invalid scales and nonpositive rates', () => {
+    expect(() => currencyAmount('1.1', 0)).toThrow();
+    expect(() => convertMinor(100n, 2, 2, 0n)).toThrow();
+    expect(() => convertMinor(100n, -1, 2, 1n)).toThrow();
+  });
+});

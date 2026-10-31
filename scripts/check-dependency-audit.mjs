@@ -16,18 +16,8 @@ if (report?.auditReportVersion !== 2 || typeof report.vulnerabilities !== 'objec
 }
 
 const failures = [];
-const accepted = {
-  '@nestjs/swagger': {
-    reviewBy: '2026-09-08',
-    sources: [],
-    reason: 'Latest stable 11.4.6 pins JS-YAML 5.2.1. Swagger is disabled unless explicitly enabled, and Odin generates an OpenAPI document without parsing user-controlled YAML.',
-  },
-  'js-yaml': {
-    reviewBy: '2026-09-08',
-    sources: [1124281],
-    reason: 'The remaining vulnerable copy is pinned by latest stable NestJS Swagger and is not used to parse user-controlled YAML. Upgrade immediately when a patched stable Swagger release is published.',
-  },
-};
+// No standing High-risk exceptions. Any future advisory requires an explicit reviewed decision.
+const accepted = {};
 
 const today = new Date().toISOString().slice(0, 10);
 const vulnerabilities = report.vulnerabilities || {};

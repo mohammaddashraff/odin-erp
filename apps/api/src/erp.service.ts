@@ -3,11 +3,14 @@ import {
   AccountType, BankAccountType, BankTransactionKind, DocumentType, FinancialResourceType, JournalStatus, PaymentKind, PaymentMethod, PaymentStatus,
   PosSaleStatus, PosShiftStatus, Prisma, WorkflowStatus,
 } from '@prisma/client';
-import { randomUUID } from 'node:crypto';
+import { randomUUID, createHash } from 'node:crypto';
+import { once } from './av8-access';
+import { supplierOpeningBalances } from './av8-opening-supplier';
+import { csvRows, calendarDate, cairoCalendarDate } from './av8-domain';
 import { compare } from 'bcryptjs';
 import { Actor, can, requirePermission } from './auth';
 import { CustomerReceivablesService, receivableBaseMinor, receivableJournalAmounts } from './customer-receivables';
-import { money, parseFixed, quantity, roundDiv, serialize } from './money';
+import { money, parseFixed, quantity, roundDiv, serialize, convertMinor, currencyAmount } from './money';
 import { PrismaService } from './prisma.service';
 import { demoResetEnabled } from './deployment-config';
 import { normalizePermissions } from './permissions';
@@ -103,32 +106,80 @@ export class ErpService {
       ...this.resourceIdScope(actor, 'bank_account', companyId) }, include: { glAccount: true } });
     if (!bank || bank.currency !== fund.currency) throw new BadRequestException('Select an accessible bank account in the receipt/remittance currency');
     const agency = await tx.account.findFirst({ where: {
-      tenantId: actor.tenantId, id: agencyAccountId, active: true, postingAllowed: true, type: AccountType.LIABILITY,
+      tenantId: actor.tenantId, id: agencyAccountId, active: true, postingAllowed: true, type: fund.kind==='FEE_REIMBURSEMENT'?AccountType.ASSET:AccountType.LIABILITY,
       financialResources: { some: { tenantId: actor.tenantId, companyId, type: FinancialResourceType.GL_ACCOUNT, active: true } },
     } });
     if (!agency || agency.id === bank.glAccountId) throw new BadRequestException('The AV8 student-collections account is not configured for this company');
+    if(fund.kind==='FEE_REIMBURSEMENT')this.assertResourceId(actor,'account',agency.id,companyId);
     await this.governance.enforceAuthorityLimit(tx, actor, { companyId, branchId: fund.branchId,
-      key: 'payments.payment_amount_minor', currency: fund.currency, amountMinor: fund.amountMinor });
-    const base = roundDiv(BigInt(fund.amountMinor) * BigInt(fund.baseRateMicros), 1000000n);
-    const incoming = fund.kind === 'RECEIPT';
-    const number = await this.sequence(tx, actor, fund.branchId, incoming ? 'RECEIPT' : 'PAYMENT', fund.postingDate);
+      key: 'payments.payment_amount_minor', currency: fund.currency, amountMinor: BigInt(fund.amountMinor)+BigInt(fund.metadata?.fee?.originalMinor||0) });
     const tenant = await tx.tenant.findUniqueOrThrow({ where: { id: actor.tenantId } });
+    const metadata = fund.metadata || {};
+    const sourceCurrency = await tx.currency.findFirst({where:{tenantId:actor.tenantId,code:fund.currency}});
+    const baseCurrency = await tx.currency.findFirst({where:{tenantId:actor.tenantId,code:tenant.baseCurrency}});
+    const originalPrecision = metadata.originalPrecision ?? sourceCurrency?.precision ?? 2;
+    const basePrecision = metadata.basePrecision ?? baseCurrency?.precision ?? 2;
+    const base = convertMinor(BigInt(fund.amountMinor), originalPrecision, basePrecision, BigInt(fund.baseRateMicros));
+    const incoming = ['RECEIPT','ACADEMY_RECOVERY','FEE_REIMBURSEMENT'].includes(fund.kind);
+    const liability = metadata.liabilityBaseMinor === undefined ? base : BigInt(metadata.liabilityBaseMinor);
+    if (liability <= 0n || base <= 0n) throw new BadRequestException('Cash and historical liability must be positive');
+    const number = await this.sequence(tx, actor, fund.branchId, incoming ? 'RECEIPT' : 'PAYMENT', fund.postingDate);
+    const lines: JournalLineInput[] = incoming ? [
+      {code:bank.glAccount.code,debit:base,description:number},
+      {code:agency.code,credit:liability,description:fund.kind==='FEE_REIMBURSEMENT'?'Student bank-fee receivable reimbursement':'Student agency collections'},
+    ] : [
+      {code:agency.code,debit:liability,description:number},
+      {code:bank.glAccount.code,credit:base,description:fund.kind},
+    ];
+    const fee=metadata.fee;
+    if(fee){
+      if(fund.kind!=='REMITTANCE'||BigInt(fee.originalMinor)<=0n)throw new BadRequestException('Only actual academy remittances may carry a positive bank fee');
+      const policy=await tx.av8Policy.findFirst({where:{tenantId:actor.tenantId,id:BigInt(fee.policyId),kind:'BANK_FEE',key:'REMITTANCE',status:'APPROVED'}});const data:any=policy?.data;
+      if(!data||data.treatment!=='EXPENSE_AND_RECEIVABLE'||['expenseAccountCode','receivableAccountCode','reimbursementOffsetAccountCode'].some(key=>data[key]!==fee.policyData?.[key]))throw new BadRequestException('Actual fee accounting must match the approved policy snapshot');
+      const mapped=async(code:string,types:AccountType[])=>{const account=await tx.account.findFirst({where:{tenantId:actor.tenantId,code,type:{in:types},active:true,postingAllowed:true,financialResources:{some:{tenantId:actor.tenantId,companyId,type:FinancialResourceType.GL_ACCOUNT,active:true}}}});if(!account||account.controlType||[agency.id,bank.glAccountId].includes(account.id))throw new BadRequestException('Select active scoped non-control fee expense, receivable and reimbursement-offset GL accounts');this.assertResourceId(actor,'account',account.id,companyId);return account;};
+      const expense=await mapped(data.expenseAccountCode,[AccountType.EXPENSE]),receivable=await mapped(data.receivableAccountCode,[AccountType.ASSET]),offset=await mapped(data.reimbursementOffsetAccountCode,[AccountType.EXPENSE,AccountType.REVENUE]);
+      const actualFee=convertMinor(BigInt(fee.originalMinor),originalPrecision,basePrecision,BigInt(fund.baseRateMicros));if(actualFee!==BigInt(fee.baseMinor))throw new BadRequestException('Stored fee amount must reconcile to actual source precision and rate');
+      lines.push({code:expense.code,debit:actualFee,description:'Actual bank fee paid for student'}, {code:bank.glAccount.code,credit:actualFee,description:'Actual fee in addition to academy principal'}, {code:receivable.code,debit:actualFee,description:'Approved exact student fee receivable'}, {code:offset.code,credit:actualFee,description:'Approved accrued reimbursement offset; cash recovery remains outstanding'});
+    }
+    const difference = incoming ? liability-base : base-liability;
+    if (difference !== 0n) {
+      if (!metadata.policyId || !metadata.fxDifferenceAccountCode) throw new BadRequestException('An approved FX accounting policy and account are required for the cash/historical liability difference');
+      const policy = await tx.av8Policy.findFirst({where:{tenantId:actor.tenantId,id:BigInt(metadata.policyId),status:'APPROVED'}});
+      const policyData = policy?.data as any;
+      if (!policyData || policyData.fxDifferenceAccountCode !== metadata.fxDifferenceAccountCode) throw new BadRequestException('FX difference account must match the approved policy snapshot');
+      const fx = await tx.account.findFirst({where:{tenantId:actor.tenantId,code:metadata.fxDifferenceAccountCode,active:true,postingAllowed:true,financialResources:{some:{companyId,active:true}}}});
+      if (!fx || fx.id===agency.id || fx.id===bank.glAccountId || fx.controlType) throw new BadRequestException('Select an approved scoped FX difference posting account');
+      this.assertResourceId(actor,'account',fx.id,companyId);
+      lines.push({code:fx.code,...(difference>0n?{debit:difference}:{credit:-difference}),description:`Approved FX difference ${number}`});
+    }
     const journal = await this.postedJournal(tx, actor, {
-      branchId: fund.branchId, date: fund.postingDate, description: `AV8 ${fund.kind} ${number}`, module: 'AV8',
-      sourceType: 'AV8_CASH', sourceId: fund.id, sourceNumber: number, currency: tenant.baseCurrency,
-      lines: incoming ? [
-        {code: bank.glAccount.code, debit: base, description: number}, {code: agency.code, credit: base, description: 'Student agency collections'},
-      ] : [
-        {code: agency.code, debit: base, description: number}, {code: bank.glAccount.code, credit: base, description: fund.kind},
-      ],
+      branchId:fund.branchId,date:fund.postingDate,description:`AV8 ${fund.kind} ${number}`,module:'AV8',
+      sourceType:'AV8_CASH',sourceId:fund.id,sourceNumber:number,currency:tenant.baseCurrency,lines,
     });
     const transaction = await tx.bankTransaction.create({data: {
       tenantId: actor.tenantId, branchId: fund.branchId, bankAccountId: bank.id, counterpartyAccountId: agency.id,
       kind: incoming ? BankTransactionKind.RECEIPT : BankTransactionKind.PAYMENT, number,
-      postingDate: fund.postingDate, amountMinor: fund.amountMinor, reference: fund.reference,
+      postingDate: fund.postingDate, amountMinor: BigInt(fund.amountMinor)+BigInt(metadata.fee?.originalMinor||0), reference: fund.reference,
       description: `AV8 ${fund.kind}; internal recording`, journalEntryId: journal.id, createdById: actor.userId,
     }});
     return transaction;
+  }
+
+  /** Called only inside the AV8 cheque return transaction after case authorization. */
+  async reverseAv8Receipt(tx:Tx,actor:Actor,fund:any,postingDate:Date,reason:string) {
+    if(fund.kind!=='RECEIPT'||fund.status!=='CLEARED'||!fund.bankTransactionId)throw new BadRequestException('Only a cleared receipt can be reversed');
+    const companyId=this.requireAtBranch(actor,'av8.finance.adjust',fund.branchId);
+    this.assertResourceId(actor,'bank_account',fund.bankAccountId,companyId);
+    const movement=await tx.bankTransaction.findFirst({where:{id:fund.bankTransactionId,tenantId:actor.tenantId},include:{journalEntry:{include:{lines:{include:{account:true}},reversedBy:true}}}});
+    if(!movement||movement.journalEntry.status!=='POSTED'||movement.journalEntry.reversedBy)throw new BadRequestException('Receipt journal is missing, unposted or already reversed');
+    const historicalCodes=new Map<bigint,string>();
+    for(const line of movement.journalEntry.lines){if(historicalCodes.has(line.accountId))continue;const resource=await tx.financialResource.findFirst({where:{tenantId:actor.tenantId,companyId,type:FinancialResourceType.GL_ACCOUNT,linkedAccountId:line.accountId,active:true,linkedAccount:{active:true,postingAllowed:true}}});if(!resource)throw new BadRequestException('Original receipt ledger account is unavailable; an approved historical reconciliation is required before return');historicalCodes.set(line.accountId,resource.code);}
+    await this.governance.enforceAuthorityLimit(tx,actor,{companyId,branchId:fund.branchId,key:'payments.payment_amount_minor',currency:fund.currency,amountMinor:fund.amountMinor});
+    const number=await this.sequence(tx,actor,fund.branchId,'CHEQUE_RETURN',postingDate);
+    const journal=await this.postedJournal(tx,actor,{branchId:fund.branchId,date:postingDate,description:`Returned cheque: ${reason}`,module:'AV8',sourceType:'AV8_CHEQUE_RETURN',sourceId:fund.id,sourceNumber:number,currency:movement.journalEntry.currency,reversesEntryId:movement.journalEntry.id,reversalReason:reason,lines:movement.journalEntry.lines.map(line=>({code:historicalCodes.get(line.accountId)!,debit:line.creditMinor,credit:line.debitMinor,description:`Reverse ${movement.number}: ${reason}`}))});
+    const reversal=await tx.bankTransaction.create({data:{tenantId:actor.tenantId,branchId:fund.branchId,bankAccountId:fund.bankAccountId,counterpartyAccountId:movement.counterpartyAccountId,kind:'PAYMENT',number,postingDate,amountMinor:fund.amountMinor,reference:movement.number,description:`Cheque return: ${reason}`,journalEntryId:journal.id,createdById:actor.userId}});
+    await this.audit(tx,actor,'CHEQUE_RETURN_POSTED','AV8_FUND',fund.id,{reason,originalJournalId:String(movement.journalEntry.id),reversalJournalId:String(journal.id),bankTransactionId:String(reversal.id)});
+    return reversal;
   }
 
   private assertBranch(actor: Actor, branchId: bigint) {
@@ -512,7 +563,8 @@ export class ErpService {
   }
 
   private customerForActor(actor: Actor, customer: any) {
-    return projectRecord(actor, 'customer', customer);
+    const {normalizedName,normalizedPhone,normalizedEmail,...visible}=customer;
+    return projectRecord(actor, 'customer', visible);
   }
 
   private itemForActor(actor: Actor, item: any) {
@@ -630,7 +682,7 @@ export class ErpService {
   }
 
   private async postedJournal(tx: Tx, actor: Actor, input: {
-    branchId: bigint; date: Date; description: string; module: string; sourceType: string; sourceId: bigint; sourceNumber: string; lines: JournalLineInput[]; currency?: string;
+    branchId: bigint; date: Date; description: string; module: string; sourceType: string; sourceId: bigint; sourceNumber: string; lines: JournalLineInput[]; currency?: string; reversesEntryId?:bigint; reversalReason?:string;
   }) {
     await this.assertOpenPeriod(tx, actor, input.date);
     const debit = input.lines.reduce((sum, line) => sum + (line.debit || 0n), 0n);
@@ -646,6 +698,7 @@ export class ErpService {
       tenantId: actor.tenantId, branchId: input.branchId, number, postingDate: input.date,
       description: input.description, status: JournalStatus.DRAFT, sourceModule: input.module, currency: input.currency,
       sourceType: input.sourceType, sourceId: input.sourceId, sourceNumber: input.sourceNumber,
+      reversesEntryId:input.reversesEntryId,reversalReason:input.reversalReason,
       createdById: actor.userId, submittedById: actor.userId, approvedById: actor.userId, postedById: actor.userId,
       submittedAt: new Date(), approvedAt: new Date(), postedAt: new Date(),
       lines: { create: input.lines.map((line) => ({
@@ -658,7 +711,7 @@ export class ErpService {
   }
 
   private async stock(tx: Tx, actor: Actor, input: {
-    branchId: bigint; warehouseId: bigint; itemId: bigint; qtyMilli: bigint; direction: 'IN' | 'OUT'; unitCostMinor?: bigint;
+    branchId: bigint; warehouseId: bigint; itemId: bigint; qtyMilli: bigint; direction: 'IN' | 'OUT'; unitCostMinor?: bigint; exactTotalCostMinor?: bigint;
     date: Date; sourceType: string; sourceId: bigint; sourceNumber: string;
   }) {
     const current = await tx.stockBalance.findUnique({ where: { tenantId_warehouseId_itemId: {
@@ -669,6 +722,7 @@ export class ErpService {
     if (input.qtyMilli <= 0n) throw new BadRequestException('Stock quantity must be greater than zero');
     let cost = input.unitCostMinor || 0n;
     let total = roundDiv(input.qtyMilli * cost, 1000n);
+    if(input.exactTotalCostMinor!==undefined){if(input.direction!=='IN'||input.sourceType!=='POS_RETURN'||input.exactTotalCostMinor<0n)throw new BadRequestException('Exact historical stock cost is restricted to a valid POS return');total=input.exactTotalCostMinor;cost=roundDiv(total*1000n,input.qtyMilli);}
     if (input.direction === 'OUT') {
       if (beforeQty < input.qtyMilli) throw new BadRequestException('Insufficient stock; negative inventory is disabled');
       cost = beforeQty === 0n ? 0n : roundDiv(beforeValue * 1000n, beforeQty);
@@ -703,7 +757,7 @@ export class ErpService {
     const hrCompanies = this.companiesForPermissions(actor, ['hr.employee.view']);
     return this.withTenant(actor, async (tx) => {
       const items = itemCompanies.length
-        ? await tx.item.findMany({ where: { active: true }, include: { category: true, uom: true }, orderBy: { sku: 'asc' } }) : [];
+        ? await tx.item.findMany({ where: { active: true, ...this.inventoryItemScope(actor) }, include: { category: true, uom: true }, orderBy: { sku: 'asc' } }) : [];
       const bankAccounts = bankCompanies.length
         ? await tx.bankAccount.findMany({ where: { active: true, AND: [this.resourceIdScope(actor, 'bank_account'), { financialResources: { some: { companyId: { in: bankCompanies }, active: true } } }] }, orderBy: { code: 'asc' } }) : [];
       const salesEmployees = salesEmployeeBranches.length
@@ -718,8 +772,8 @@ export class ErpService {
         AND: [this.customerScope(actor), { companyId: { in: customerCompanies } }],
       }, orderBy: { code: 'asc' } })).map((customer) => this.customerForActor(actor, customer)) : [],
       suppliers: supplierCompanies.length ? (await tx.supplier.findMany({ where: { active: true, companyId: { in: supplierCompanies }, ...this.resourceIdScope(actor, 'supplier') }, orderBy: { code: 'asc' } })).map((supplier) => this.supplierForActor(actor, supplier)) : [],
-      categories: items.length ? await tx.itemCategory.findMany({ orderBy: { code: 'asc' } }) : [],
-      units: items.length ? await tx.unitOfMeasure.findMany({ orderBy: { code: 'asc' } }) : [],
+      categories: itemCompanies.length ? await tx.itemCategory.findMany({ orderBy: { code: 'asc' } }) : [],
+      units: itemCompanies.length ? await tx.unitOfMeasure.findMany({ orderBy: { code: 'asc' } }) : [],
       items: items.map((item) => this.itemForActor(actor, item)),
       accounts: accountCompanies.length ? await tx.account.findMany({ where: { active: true, AND: [this.resourceIdScope(actor, 'account'), { financialResources: { some: { companyId: { in: accountCompanies }, active: true } } }] }, orderBy: { code: 'asc' } }) : [],
       bankAccounts: bankAccounts.map((account) => this.bankAccountForActor(actor, account)),
@@ -2790,6 +2844,10 @@ export class ErpService {
     });
   }
 
+  private async assertPosShiftAccess(tx: Tx, actor: Actor, id: bigint) {
+    if (!await tx.posShift.findFirst({where:{id,AND:[this.posShiftDataScope(actor,'pos_terminal')]},select:{id:true}})) throw new ForbiddenException('POS terminal is outside your access scope');
+  }
+
   async posState(actor: Actor) {
     const shiftBranches = this.branchesForPermissions(actor, ['pos.register.view']);
     const saleBranches = this.branchesForPermissions(actor, ['pos.sale.view']);
@@ -2804,8 +2862,8 @@ export class ErpService {
         branchId: { in: saleBranches }, warehouseId: { in: actor.warehouseIds.map(BigInt) },
       };
       return {
-        shifts: await tx.posShift.findMany({ where: shiftScope, include: { openedBy: publicUser, closedBy: publicUser, _count: { select: { sales: true } } }, orderBy: { openedAt: 'desc' }, take: 30 }),
-        sales: (await tx.posSale.findMany({ where: { shift: saleShiftScope }, include: { customer: true, lines: { include: { item: true } }, tenders: true, shift: true, journalEntry: true }, orderBy: { createdAt: 'desc' }, take: 100 })).map((sale) => this.posSaleForActor(actor, sale)),
+        shifts: await tx.posShift.findMany({ where: {AND:[shiftScope,this.posShiftDataScope(actor,'pos_terminal')]}, include: { openedBy: publicUser, closedBy: publicUser, _count: { select: { sales: true } } }, orderBy: { openedAt: 'desc' }, take: 30 }),
+        sales: (await tx.posSale.findMany({ where: { shift: {AND:[saleShiftScope,this.posShiftDataScope(actor,'pos_terminal')]} }, include: { customer: true, lines: { include: { item: true } }, tenders: true, shift: true, journalEntry: true }, orderBy: { createdAt: 'desc' }, take: 100 })).map((sale) => this.posSaleForActor(actor, sale)),
       };
     });
   }
@@ -2817,6 +2875,7 @@ export class ErpService {
         journalEntry: { include: { lines: { include: { account: true } } } },
       } });
       if (!sale) throw new NotFoundException('POS sale not found');
+      await this.assertPosShiftAccess(tx,actor,sale.shiftId);
       this.requireAtBranch(actor, 'pos.sale.view', sale.shift.branchId);
       this.assertWarehouse(actor, sale.shift.warehouseId);
       return this.posSaleForActor(actor, sale);
@@ -2832,27 +2891,34 @@ export class ErpService {
       const existing = await tx.posShift.findFirst({ where: { registerCode: String(body.registerCode || 'REG-01'), status: PosShiftStatus.OPEN } });
       if (existing) throw new BadRequestException('This register already has an open shift');
       const shift = await tx.posShift.create({ data: { tenantId: actor.tenantId, branchId, warehouseId, registerCode: String(body.registerCode || 'REG-01'), openedById: actor.userId, openingCashMinor: money(body.openingCash || 0, 'opening cash'), expectedCashMinor: money(body.openingCash || 0, 'opening cash') } });
+      await this.assertPosShiftAccess(tx,actor,shift.id);
       await this.audit(tx, actor, 'OPEN', 'POS_SHIFT', shift.id, { registerCode: shift.registerCode, openingCashMinor: shift.openingCashMinor.toString() });
       return shift;
     });
   }
 
-  async createPosSale(actor: Actor, body: any) {
-    return this.withTenant(actor, async (tx) => {
+  async createPosSale(actor: Actor, body: any, key:string = randomUUID()) {
+    return once(this.db, actor, 'pos.sale.create', key, body, async (tx) => {
       const shift = await tx.posShift.findUnique({ where: { id: BigInt(body.shiftId || 0) } });
       if (!shift || shift.status !== PosShiftStatus.OPEN) throw new BadRequestException('An open shift is required');
+      await this.assertPosShiftAccess(tx,actor,shift.id);
       const companyId = this.requireAtBranch(actor, 'pos.sale.create', shift.branchId);
       await this.assertBranchWarehouse(tx, actor, shift.branchId, shift.warehouseId);
       const customerId = body.customerId ? BigInt(body.customerId) : null;
       if (customerId && !await tx.customer.findFirst({ where: { id: customerId, companyId, active: true } })) throw new BadRequestException('The selected customer is not available for this company.');
       if (!Array.isArray(body.lines) || !body.lines.length) throw new BadRequestException('Add at least one item');
-      const items = await tx.item.findMany({ where: { id: { in: body.lines.map((line: any) => BigInt(line.itemId)) }, active: true } });
+      const items = await tx.item.findMany({ where: { id: { in: body.lines.map((line: any) => BigInt(line.itemId)) }, active: true, ...this.inventoryItemScope(actor) } });
       const map = new Map(items.map((item) => [item.id.toString(), item]));
       let subtotal = 0n, discount = 0n, tax = 0n, total = 0n;
       const lines = body.lines.map((line: any, index: number) => {
         const item = map.get(String(line.itemId)); if (!item) throw new BadRequestException(`Line ${index + 1}: item is invalid`);
         const qty = quantity(line.quantity, 'quantity'); if (qty <= 0n) throw new BadRequestException('Quantity must be greater than zero');
         const unitPrice = line.unitPrice === undefined ? item.salePriceMinor : money(line.unitPrice, 'unit price');
+        if(unitPrice<0n)throw new BadRequestException('Unit price cannot be negative');
+        if(unitPrice!==item.salePriceMinor){
+          if(!canAtCompany(actor,'sales.price.edit',companyId))throw new ForbiddenException('You do not have permission to override the selling price');
+          if(!String(body.priceOverrideReason||'').trim())throw new BadRequestException('A price override reason is required');
+        }
         const lineDiscount = money(line.discount || 0, 'discount'), gross = roundDiv(qty * unitPrice, 1000n);
         if (lineDiscount < 0n || lineDiscount > gross) throw new BadRequestException(`Line ${index + 1}: discount is invalid`);
         const discountLimit = this.limit(actor, 'sales.discount_percent', 0);
@@ -2865,6 +2931,7 @@ export class ErpService {
       const date = new Date(); const number = await this.sequence(tx, actor, shift.branchId, 'POS', date);
       const complete = body.hold !== true;
       const tenders = Array.isArray(body.tenders) ? body.tenders.map((tender: any) => ({ tenantId: actor.tenantId, method: tender.method as PaymentMethod, amountMinor: money(tender.amount, 'tender amount'), reference: tender.reference || null })) : [];
+      if(tenders.some((tender:any)=>!Object.values(PaymentMethod).includes(tender.method)||tender.amountMinor<=0n))throw new BadRequestException('Tender method and positive amount are required');
       if (complete && tenders.reduce((sum: bigint, tender: { amountMinor: bigint }) => sum + tender.amountMinor, 0n) !== total) throw new BadRequestException('Split tender total must exactly equal sale total');
       const sale = await tx.posSale.create({ data: { tenantId: actor.tenantId, shiftId: shift.id, customerId, number, status: complete ? PosSaleStatus.HELD : PosSaleStatus.HELD, subtotalMinor: subtotal, discountMinor: discount, taxMinor: tax, totalMinor: total, createdById: actor.userId, lines: { create: lines }, ...(tenders.length ? { tenders: { create: tenders } } : {}) }, include: { customer: true, lines: { include: { item: true } }, tenders: true } });
       if (!complete) { await this.audit(tx, actor, 'HOLD', 'POS_SALE', sale.id, { number }); return this.posSaleForActor(actor, sale); }
@@ -2876,8 +2943,18 @@ export class ErpService {
     return this.withTenant(actor, async (tx) => {
       const sale = await tx.posSale.findUnique({ where: { id }, include: { tenders: true, shift: true } });
       if (!sale || sale.status !== PosSaleStatus.HELD) throw new BadRequestException('Held sale not found');
+      await this.assertPosShiftAccess(tx,actor,sale.shiftId);
+      if(body.targetShiftId&&BigInt(body.targetShiftId)!==sale.shiftId){
+        const target=await tx.posShift.findUnique({where:{id:BigInt(body.targetShiftId)}});
+        if(!target||target.status!==PosShiftStatus.OPEN||target.branchId!==sale.shift.branchId||target.warehouseId!==sale.shift.warehouseId)throw new BadRequestException('Select an open shift in the original branch and warehouse');
+        await this.assertPosShiftAccess(tx,actor,target.id);
+        this.requireAtBranch(actor,'pos.sale.edit',target.branchId);this.assertWarehouse(actor,target.warehouseId);
+        await tx.posSale.update({where:{id},data:{shiftId:target.id}});await this.audit(tx,actor,'MOVE_HELD_CART','POS_SALE',id,{originalShiftId:String(sale.shiftId),targetShiftId:String(target.id)});
+      }else if(sale.shift.status!==PosShiftStatus.OPEN)throw new BadRequestException('The sale shift is closed; select an open shift to resume this cart');
+      if(!Array.isArray(body.tenders)||!body.tenders.length)throw new BadRequestException('Tender is required');
       this.requireAtBranch(actor, 'pos.sale.edit', sale.shift.branchId); this.assertWarehouse(actor, sale.shift.warehouseId);
       const tenders = body.tenders.map((tender: any) => ({ tenantId: actor.tenantId, saleId: id, method: tender.method as PaymentMethod, amountMinor: money(tender.amount), reference: tender.reference || null }));
+      if(tenders.some((tender:any)=>!Object.values(PaymentMethod).includes(tender.method)||tender.amountMinor<=0n))throw new BadRequestException('Tender method and positive amount are required');
       if (tenders.reduce((sum: bigint, tender: any) => sum + tender.amountMinor, 0n) !== sale.totalMinor) throw new BadRequestException('Split tender total must exactly equal sale total');
       await tx.posTender.deleteMany({ where: { saleId: id } }); await tx.posTender.createMany({ data: tenders });
       return this.completePosSaleTx(tx, actor, id);
@@ -2886,14 +2963,16 @@ export class ErpService {
 
   private async completePosSaleTx(tx: Tx, actor: Actor, saleId: bigint) {
     const sale = await tx.posSale.findUniqueOrThrow({ where: { id: saleId }, include: { lines: { include: { item: true } }, tenders: true, shift: true } });
+    const postingDate=new Date(cairoCalendarDate());
+    if(sale.shift.status!==PosShiftStatus.OPEN)throw new BadRequestException('An open shift is required');
     if (!sale.tenders.length) throw new BadRequestException('Tender is required');
     let cost = 0n;
     for (const line of sale.lines) {
-      const movement = await this.stock(tx, actor, { branchId: sale.shift.branchId, warehouseId: sale.shift.warehouseId, itemId: line.itemId, qtyMilli: line.quantityMilli, direction: 'OUT', date: sale.createdAt, sourceType: 'POS_SALE', sourceId: sale.id, sourceNumber: sale.number });
+      const movement = await this.stock(tx, actor, { branchId: sale.shift.branchId, warehouseId: sale.shift.warehouseId, itemId: line.itemId, qtyMilli: line.quantityMilli, direction: 'OUT', date: postingDate, sourceType: 'POS_SALE', sourceId: sale.id, sourceNumber: sale.number });
       cost += movement.totalCostMinor; await tx.posSaleLine.update({ where: { id: line.id }, data: { costMinor: movement.totalCostMinor } });
     }
     const tenderLines = sale.tenders.map((tender) => ({ code: tender.method === PaymentMethod.CASH ? '1000' : tender.method === PaymentMethod.CARD ? '1020' : '1010', debit: tender.amountMinor, description: `${tender.method} tender ${sale.number}` }));
-    const journal = await this.postedJournal(tx, actor, { branchId: sale.shift.branchId, date: sale.createdAt, description: `POS sale ${sale.number}`, module: 'POS', sourceType: 'POS_SALE', sourceId: sale.id, sourceNumber: sale.number, lines: [...tenderLines, { code: '4000', credit: sale.subtotalMinor - sale.discountMinor, description: `POS revenue ${sale.number}` }, ...(sale.taxMinor ? [{ code: '2200', credit: sale.taxMinor, description: `POS VAT ${sale.number}` }] : []), { code: '5000', debit: cost, description: `POS COGS ${sale.number}` }, { code: '1200', credit: cost, description: `POS inventory ${sale.number}` }] });
+    const journal = await this.postedJournal(tx, actor, { branchId: sale.shift.branchId, date: postingDate, description: `POS sale ${sale.number}`, module: 'POS', sourceType: 'POS_SALE', sourceId: sale.id, sourceNumber: sale.number, lines: [...tenderLines, { code: '4000', credit: sale.subtotalMinor - sale.discountMinor, description: `POS revenue ${sale.number}` }, ...(sale.taxMinor ? [{ code: '2200', credit: sale.taxMinor, description: `POS VAT ${sale.number}` }] : []), { code: '5000', debit: cost, description: `POS COGS ${sale.number}` }, { code: '1200', credit: cost, description: `POS inventory ${sale.number}` }] });
     const cash = sale.tenders.filter((tender) => tender.method === PaymentMethod.CASH).reduce((sum, tender) => sum + tender.amountMinor, 0n);
     await tx.posShift.update({ where: { id: sale.shiftId }, data: { expectedCashMinor: { increment: cash } } });
     const updated = await tx.posSale.update({ where: { id: sale.id }, data: { status: PosSaleStatus.COMPLETED, completedAt: new Date(), costMinor: cost, journalEntryId: journal.id } });
@@ -2904,18 +2983,27 @@ export class ErpService {
     return this.withTenant(actor, async (tx) => {
       const original = await tx.posSale.findUnique({ where: { id }, include: { lines: true, tenders: true, shift: true } });
       if (!original || original.status !== PosSaleStatus.COMPLETED) throw new BadRequestException('Only a completed sale can be returned');
+      await this.assertPosShiftAccess(tx,actor,original.shiftId);
       this.requireAtBranch(actor, 'pos.return.create', original.shift.branchId);
       this.assertBranch(actor, original.shift.branchId); this.assertWarehouse(actor, original.shift.warehouseId);
-      const number = await this.sequence(tx, actor, original.shift.branchId, 'POS_RETURN', new Date());
+      const refundShift=body.refundShiftId?await tx.posShift.findUnique({where:{id:BigInt(body.refundShiftId)}}):original.shift;
+      if(!refundShift||refundShift.status!==PosShiftStatus.OPEN||refundShift.branchId!==original.shift.branchId||refundShift.warehouseId!==original.shift.warehouseId)throw new BadRequestException('Select an open refund shift in the original branch and warehouse');
+      const originalJournal=await tx.journalEntry.findFirst({where:{tenantId:actor.tenantId,id:original.journalEntryId||0n,status:JournalStatus.POSTED,sourceType:'POS_SALE',sourceId:original.id},include:{lines:{include:{account:true}},reversedBy:true}});
+      if(!originalJournal||originalJournal.reversedBy)throw new BadRequestException('Original POS journal is missing or already reversed');
+      const companyId=this.companyIdForBranch(actor,original.shift.branchId),historicalCodes=new Map<bigint,string>();
+      for(const line of originalJournal.lines){if(historicalCodes.has(line.accountId))continue;const resource=await tx.financialResource.findFirst({where:{tenantId:actor.tenantId,companyId,type:FinancialResourceType.GL_ACCOUNT,linkedAccountId:line.accountId,active:true,linkedAccount:{active:true,postingAllowed:true}}});if(!resource)throw new BadRequestException('Original POS ledger account is unavailable; an approved historical reconciliation is required before return');historicalCodes.set(line.accountId,resource.code);}
+      await this.assertPosShiftAccess(tx,actor,refundShift.id);
+      const number = await this.sequence(tx, actor, original.shift.branchId, 'POS_RETURN', new Date(cairoCalendarDate()));
       let cost = 0n;
       for (const line of original.lines) {
-        const movement = await this.stock(tx, actor, { branchId: original.shift.branchId, warehouseId: original.shift.warehouseId, itemId: line.itemId, qtyMilli: line.quantityMilli, direction: 'IN', unitCostMinor: roundDiv(line.costMinor * 1000n, line.quantityMilli), date: new Date(), sourceType: 'POS_RETURN', sourceId: original.id, sourceNumber: number }); cost += movement.totalCostMinor;
+        const movement = await this.stock(tx, actor, { branchId: original.shift.branchId, warehouseId: original.shift.warehouseId, itemId: line.itemId, qtyMilli: line.quantityMilli, direction: 'IN', unitCostMinor: roundDiv(line.costMinor * 1000n, line.quantityMilli), exactTotalCostMinor:line.costMinor, date: new Date(cairoCalendarDate()), sourceType: 'POS_RETURN', sourceId: original.id, sourceNumber: number }); cost += movement.totalCostMinor;
       }
-      const refund = original.tenders[0]?.method || PaymentMethod.CASH;
-      const journal = await this.postedJournal(tx, actor, { branchId: original.shift.branchId, date: new Date(), description: `POS return ${number}`, module: 'POS', sourceType: 'POS_RETURN', sourceId: original.id, sourceNumber: number, lines: [{ code: '4000', debit: original.subtotalMinor - original.discountMinor, description: `Reverse revenue ${number}` }, ...(original.taxMinor ? [{ code: '2200', debit: original.taxMinor, description: `Reverse VAT ${number}` }] : []), { code: refund === PaymentMethod.CASH ? '1000' : refund === PaymentMethod.CARD ? '1020' : '1010', credit: original.totalMinor, description: `Refund ${number}` }, { code: '1200', debit: cost, description: `Inventory restored ${number}` }, { code: '5000', credit: cost, description: `COGS reversed ${number}` }] });
+      if(cost!==original.costMinor)throw new BadRequestException('Original POS line costs do not reconcile to the signed-off sale cost');
+      const cashRefund=original.tenders.filter(tender=>tender.method===PaymentMethod.CASH).reduce((sum,tender)=>sum+tender.amountMinor,0n);
+      const journal = await this.postedJournal(tx, actor, { branchId: original.shift.branchId, date: new Date(cairoCalendarDate()), description: `POS return ${number}`, module: 'POS', sourceType: 'POS_RETURN', sourceId: original.id, sourceNumber: number, currency:originalJournal.currency,reversesEntryId:originalJournal.id,reversalReason:String(body.reason||'Customer return'),lines:originalJournal.lines.map(line=>({code:historicalCodes.get(line.accountId)!,debit:line.creditMinor,credit:line.debitMinor,description:`Reverse original ${originalJournal.number}: ${line.description}`})) });
       await tx.posSale.update({ where: { id }, data: { status: PosSaleStatus.RETURNED } });
-      if (refund === PaymentMethod.CASH) await tx.posShift.update({ where: { id: original.shiftId }, data: { expectedCashMinor: { decrement: original.totalMinor } } });
-      await this.audit(tx, actor, 'RETURN', 'POS_SALE', id, { postingReference: journal.number, returnNumber: number, reason: body.reason || 'Customer return' });
+      if(cashRefund>0n)await tx.posShift.update({where:{id:refundShift.id},data:{expectedCashMinor:{decrement:cashRefund}}});
+      await this.audit(tx, actor, 'RETURN', 'POS_SALE', id, { postingReference: journal.number, returnNumber: number, refundShiftId:String(refundShift.id), originalTenderMethods:true, reason: body.reason || 'Customer return' });
       return { originalId: id, number, journalEntryId: journal.id, status: 'RETURNED' };
     });
   }
@@ -2924,14 +3012,34 @@ export class ErpService {
     return this.withTenant(actor, async (tx) => {
       const shift = await tx.posShift.findUnique({ where: { id } });
       if (!shift || shift.status !== PosShiftStatus.OPEN) throw new BadRequestException('Open shift not found');
+      await this.assertPosShiftAccess(tx,actor,shift.id);
       this.requireAtBranch(actor, 'pos.shift.edit', shift.branchId);
       this.assertBranch(actor, shift.branchId); this.assertWarehouse(actor, shift.warehouseId);
       const actual = money(body.actualCash, 'actual cash'), difference = actual - shift.expectedCashMinor;
       let journal = null;
-      if (difference !== 0n) journal = await this.postedJournal(tx, actor, { branchId: shift.branchId, date: new Date(), description: `Cash count difference ${shift.registerCode}`, module: 'POS', sourceType: 'POS_SHIFT_CLOSE', sourceId: shift.id, sourceNumber: shift.registerCode, lines: difference > 0n ? [{ code: '1000', debit: difference, description: 'Cash over' }, { code: '5200', credit: difference, description: 'Cash over' }] : [{ code: '5200', debit: -difference, description: 'Cash short' }, { code: '1000', credit: -difference, description: 'Cash short' }] });
+      if (difference !== 0n) journal = await this.postedJournal(tx, actor, { branchId: shift.branchId, date: new Date(cairoCalendarDate()), description: `Cash count difference ${shift.registerCode}`, module: 'POS', sourceType: 'POS_SHIFT_CLOSE', sourceId: shift.id, sourceNumber: shift.registerCode, lines: difference > 0n ? [{ code: '1000', debit: difference, description: 'Cash over' }, { code: '5200', credit: difference, description: 'Cash over' }] : [{ code: '5200', debit: -difference, description: 'Cash short' }, { code: '1000', credit: -difference, description: 'Cash short' }] });
       const updated = await tx.posShift.update({ where: { id }, data: { status: PosShiftStatus.CLOSED, actualCashMinor: actual, differenceMinor: difference, closedById: actor.userId, closedAt: new Date(), closingJournalEntryId: journal?.id || null } });
       await this.audit(tx, actor, 'CLOSE', 'POS_SHIFT', id, { postingReference: journal?.number || 'NO_DIFFERENCE', expected: shift.expectedCashMinor.toString(), actual: actual.toString(), difference: difference.toString() }); return updated;
     });
+  }
+
+  /** Resource grants authorize company resource balances across management branches. */
+  private async resourceBalance(tx:Tx,actor:Actor,bank:any) {
+    const sources=await tx.av8OpeningSource.findMany({where:{tenantId:actor.tenantId,kind:'BATCH',data:{path:['resources'],array_contains:[{bankAccountId:String(bank.id)}]}},select:{data:true}});
+    const originals=sources.flatMap((source:any)=>(source.data.resources||[]).filter((r:any)=>String(r.bankAccountId)===String(bank.id)).map((r:any)=>({...r,cutoverDate:source.data.cutoverDate})));
+    if(originals.length>1)throw new BadRequestException('Multiple opening baselines need reconciliation before displaying this balance');
+    const original=originals[0];const movements=await tx.bankTransaction.groupBy({by:['kind'],where:{tenantId:actor.tenantId,bankAccountId:bank.id,...(original?{postingDate:{gt:new Date(original.cutoverDate)}}:{})},_sum:{amountMinor:true}});
+    const signed=(kind:string,value:bigint)=>['RECEIPT','TRANSFER_IN'].includes(kind)?value:-value;
+    const supplierLinks=await tx.av8Record.findMany({where:{tenantId:actor.tenantId,kind:'supplier-opening-settlement',data:{path:['bankAccountId'],equals:String(bank.id)}},select:{data:true}});
+    const linkedManualMovement=supplierLinks.reduce((sum:bigint,row:any)=>{
+      const data=row.data;
+      return !data.bankTransactionId&&(!original||String(data.date).slice(0,10)>original.cutoverDate)?sum-BigInt(data.amountMinor):sum;
+    },0n);
+    const originalMovement=movements.reduce((sum:bigint,row:any)=>sum+signed(row.kind,row._sum.amountMinor||0n),linkedManualMovement);
+    const wrapper=await tx.financialResource.findUniqueOrThrow({where:{linkedBankAccountId:bank.id},select:{companyId:true}});
+    const book=await tx.journalLine.aggregate({where:{tenantId:actor.tenantId,accountId:bank.glAccountId,journalEntry:{is:{status:'POSTED',branch:{companyLinks:{some:{companyId:wrapper.companyId,active:true}}}}}},_sum:{debitMinor:true,creditMinor:true}});
+    const base=(await tx.tenant.findUniqueOrThrow({where:{id:actor.tenantId}})).baseCurrency;
+    return {originalBalanceMinor:String(BigInt(original?.openingMinor||'0')+originalMovement),bookBalanceMinor:String((book._sum.debitMinor||0n)-(book._sum.creditMinor||0n)),baseCurrency:base,openingMinor:original?.openingMinor||'0',cutoverDate:original?.cutoverDate||null,balanceBasis:original?'Opening source plus movements after cutover':'Recorded resource movements; no imported opening balance'};
   }
 
   async banking(actor: Actor) {
@@ -2959,6 +3067,88 @@ export class ErpService {
     });
   }
 
+  async transferResources(actor: Actor, body: any, key: string) {
+    return once(this.db, actor, 'treasury.transfer', key, body, async tx => {
+      const branchId=BigInt(body.branchId||0),companyId=this.requireAtBranch(actor,'banking.transaction.create',branchId);
+      const sourceId=BigInt(body.sourceId||0),destinationId=BigInt(body.destinationId||0);
+      if(sourceId===destinationId)throw new BadRequestException('Choose two different resources');
+      for(const resourceId of [sourceId,destinationId])this.assertResourceId(actor,'bank_account',resourceId,companyId);
+      const source=await tx.bankAccount.findFirst({where:{id:sourceId,active:true,...this.resourceIdScope(actor,'bank_account',companyId)},include:{glAccount:true}});
+      const destination=await tx.bankAccount.findFirst({where:{id:destinationId,active:true,...this.resourceIdScope(actor,'bank_account',companyId)},include:{glAccount:true}});
+      if(!source||!destination||source.glAccountId===destination.glAccountId)throw new BadRequestException('Accessible resources with distinct ledger accounts are required');
+      const tenant=await tx.tenant.findUniqueOrThrow({where:{id:actor.tenantId}});
+      const currencies=await tx.currency.findMany({where:{tenantId:actor.tenantId,active:true,code:{in:[source.currency,destination.currency,tenant.baseCurrency]}}});
+      const precision=(code:string)=>{const currency=currencies.find(c=>c.code===code);if(!currency)throw new BadRequestException(`Configure active currency ${code}`);return currency.precision;};
+      const sourceAmount=currencyAmount(body.sourceAmount,precision(source.currency));
+      const destinationAmount=currencyAmount(body.destinationAmount,precision(destination.currency));
+      const fee=currencyAmount(body.feeAmount||'0',precision(source.currency),'fee');
+      if(sourceAmount<=0n||destinationAmount<=0n||fee<0n)throw new BadRequestException('Transfer amounts must be positive and fees nonnegative');
+      if(source.currency===destination.currency&&sourceAmount!==destinationAmount)throw new BadRequestException('Same-currency principal amounts must match; record fees separately');
+      const sourceRate=source.currency===tenant.baseCurrency?1000000n:parseFixed(body.sourceBaseRate,6,'source base rate');
+      const destinationRate=destination.currency===tenant.baseCurrency?1000000n:parseFixed(body.destinationBaseRate,6,'destination base rate');
+      const sourceBase=convertMinor(sourceAmount,precision(source.currency),precision(tenant.baseCurrency),sourceRate);
+      const destinationBase=convertMinor(destinationAmount,precision(destination.currency),precision(tenant.baseCurrency),destinationRate);
+      const feeBase=convertMinor(fee,precision(source.currency),precision(tenant.baseCurrency),sourceRate);
+      if(sourceBase<=0n||destinationBase<=0n)throw new BadRequestException('Transfer rounds to zero in ledger currency');
+      await this.governance.enforceAuthorityLimit(tx,actor,{companyId,branchId,key:'treasury.movement_amount_minor',currency:source.currency,amountMinor:sourceAmount+fee});
+      const postingDate=this.date(body.postingDate,'posting date'),reason=this.requiredText(body.reason,'Transfer reason');
+      if(postingDate>new Date(cairoCalendarDate()))throw new BadRequestException('Actual transfers cannot be posted in the future');
+      const provenance=this.requiredText(body.rateSource,'Rate/source evidence');
+      const lines:JournalLineInput[]=[{code:source.glAccount.code,credit:sourceBase+feeBase,description:reason},{code:destination.glAccount.code,debit:destinationBase,description:reason}];
+      const mapping=async(id:unknown,label:string)=>{
+        const accountId=BigInt(String(id||0));this.assertResourceId(actor,'account',accountId,companyId);
+        const account=await tx.account.findFirst({where:{id:accountId,active:true,postingAllowed:true,...this.resourceIdScope(actor,'account',companyId)}});
+        if(!account||account.controlType||[source.glAccountId,destination.glAccountId].includes(accountId))throw new BadRequestException(`Select an authorized ${label} account`);
+        return account;
+      };
+      if(feeBase>0n){const account=await mapping(body.feeAccountId,'fee');if(account.type!==AccountType.EXPENSE)throw new BadRequestException('Fee account must be an expense account');lines.push({code:account.code,debit:feeBase,description:'Recorded transfer fee'});}
+      const difference=sourceBase-destinationBase;
+      if(difference!==0n){
+        if(body.fxTreatmentConfirmed!==true)throw new BadRequestException('Explicitly approve the FX difference treatment for this transfer');
+        const account=await mapping(body.fxAccountId,'FX difference');lines.push({code:account.code,...(difference>0n?{debit:difference}:{credit:-difference}),description:'Explicit transfer FX difference'});
+      }
+      const number=await this.sequence(tx,actor,branchId,'TRANSFER',postingDate);
+      const [{id}]=await tx.$queryRaw<Array<{id:bigint}>>`SELECT nextval(pg_get_serial_sequence('bank_transactions','id'))::bigint AS id`;
+      const journal=await this.postedJournal(tx,actor,{branchId,date:postingDate,description:reason,module:'BANKING',sourceType:'RESOURCE_TRANSFER',sourceId:id,sourceNumber:number,lines,currency:tenant.baseCurrency});
+      const shared={tenantId:actor.tenantId,branchId,postingDate,reference:String(body.reference||number).slice(0,200),description:reason,journalEntryId:journal.id,createdById:actor.userId};
+      const outgoing=await tx.bankTransaction.create({data:{...shared,id,bankAccountId:source.id,counterpartyAccountId:destination.glAccountId,kind:'TRANSFER_OUT',number:`${number}-OUT`,amountMinor:sourceAmount+fee}});
+      const incoming=await tx.bankTransaction.create({data:{...shared,bankAccountId:destination.id,counterpartyAccountId:source.glAccountId,kind:'TRANSFER_IN',number:`${number}-IN`,amountMinor:destinationAmount}});
+      await this.audit(tx,actor,'TRANSFER','BANK_TRANSACTION',id,serialize({sourceId,destinationId,sourceAmount,destinationAmount,fee,sourceCurrency:source.currency,destinationCurrency:destination.currency,sourceRate,destinationRate,provenance,difference,journalId:journal.id,incomingId:incoming.id,reason}));
+      return {outgoing,incoming,journalId:journal.id};
+    });
+  }
+
+  async listBankResources(actor:Actor,query:any={}) {
+    const companies=this.companiesForPermissions(actor,['banking.account.view']);
+    const page=Math.max(1,Math.min(100000,Number(query.page)||1)),size=15;
+    return this.withTenant(actor,async tx=>{
+      const scope=this.scope(actor,'bank_account');
+      const where:any={tenantId:actor.tenantId,financialResources:{some:{companyId:{in:companies}}},...(!can(actor,'system.super_admin')&&scope!=='ALL'?{id:{in:scope==='ASSIGNED'?this.configuredResourceIds(actor,'bank_account'):[]}}:{}),...(query.status==='ALL'?{}:{active:query.status!=='INACTIVE'}),...(query.search?{OR:[{name:{contains:String(query.search).slice(0,100),mode:'insensitive'}},{code:{contains:String(query.search).slice(0,100),mode:'insensitive'}}]}:{})};
+      const rows=await tx.bankAccount.findMany({where,include:{financialResources:{select:{companyId:true,metadata:true}}},orderBy:{code:'asc'},skip:(page-1)*size,take:size});
+      return {rows:await Promise.all(rows.map(async row=>({...this.bankAccountForActor(actor,row),...await this.resourceBalance(tx,actor,row),resourceBranchId:(row.financialResources[0]?.metadata as any)?.branchId||'',companyId:String(row.financialResources[0]?.companyId||'')}))),pagination:{total:await tx.bankAccount.count({where}),page,pageSize:size}};
+    });
+  }
+
+  async updateBankAccount(actor:Actor,bankId:bigint,body:any) {
+    return this.withTenant(actor,async tx=>{
+      const wrapper=await tx.financialResource.findFirst({where:{tenantId:actor.tenantId,linkedBankAccountId:bankId,companyId:{in:actor.companyIds.map(BigInt)}}});
+      if(!wrapper)throw new NotFoundException('Resource not found');
+      requirePermissionAtCompany(actor,'banking.account.edit',wrapper.companyId);this.assertResourceId(actor,'bank_account',bankId,wrapper.companyId);
+      const bank=await tx.bankAccount.findFirstOrThrow({where:{id:bankId,tenantId:actor.tenantId}});
+      for(const forbidden of ['currency','glAccountId','companyId','type'])if(body[forbidden]!==undefined&&String(body[forbidden])!==String((bank as any)[forbidden]))throw new BadRequestException('Currency, ledger and ownership changes require a new resource; history must remain intact');
+      const reason=this.requiredText(body.reason,'Change reason');
+      const name=body.name===undefined?bank.name:this.requiredText(body.name,'Name');
+      const active=body.active===undefined?bank.active:body.active;if(typeof active!=='boolean')throw new BadRequestException('Active must be a boolean');
+      if(body.accountNumber!==undefined&&this.fieldAccess(actor,'bankAccount','accountNumber')!=='EDIT')throw new ForbiddenException('Account number is read-only');
+      const updated=await tx.bankAccount.update({where:{id:bankId},data:{name,active,...(body.bankName!==undefined?{bankName:String(body.bankName).slice(0,200)}:{}),...(body.accountNumber!==undefined?{accountNumber:String(body.accountNumber).slice(0,100)}:{})}});
+      let metadata:any=wrapper.metadata||{};
+      if(body.resourceBranchId!==undefined){const branchId=body.resourceBranchId?BigInt(body.resourceBranchId):null;if(branchId&&!await tx.companyBranch.findFirst({where:{tenantId:actor.tenantId,companyId:wrapper.companyId,branchId,active:true}}))throw new BadRequestException('Resource branch must belong to this company');metadata={...metadata,branchId:branchId?String(branchId):null};}
+      await tx.financialResource.update({where:{id:wrapper.id},data:{name,active,metadata}});
+      await this.audit(tx,actor,'UPDATE','BANK_ACCOUNT',bankId,{reason,before:{name:bank.name,active:bank.active},after:{name,active}});
+      return this.bankAccountForActor(actor,updated);
+    });
+  }
+
   async createBankTransaction(actor: Actor, body: any) {
     return this.withTenant(actor, async (tx) => {
       const branchId = BigInt(body.branchId || 0); this.assertBranch(actor, branchId);
@@ -2973,15 +3163,53 @@ export class ErpService {
       if(bank.currency!==tenant.baseCurrency)throw new BadRequestException('Use AV8 Collections & academy for foreign-currency movements with explicit historical exchange rates.');
       const kind = body.kind as BankTransactionKind;
       if (!Object.values(BankTransactionKind).includes(kind)) throw new BadRequestException('Bank transaction kind is invalid');
+      if (kind===BankTransactionKind.TRANSFER_IN||kind===BankTransactionKind.TRANSFER_OUT) throw new BadRequestException('Use paired resource transfer so both movements post atomically');
       const date = this.date(body.postingDate || new Date().toISOString().slice(0, 10), 'posting date');
       const amount = money(body.amount, 'amount'); if (amount <= 0n) throw new BadRequestException('Amount must be greater than zero');
       await this.governance.enforceAuthorityLimit(tx, actor, { companyId, branchId, key: 'treasury.movement_amount_minor', currency: bank.currency, amountMinor: amount });
       const number = await this.sequence(tx, actor, branchId, 'BANK', date);
       const [{ id }] = await tx.$queryRaw<Array<{ id: bigint }>>`SELECT nextval(pg_get_serial_sequence('bank_transactions', 'id'))::bigint AS id`;
-      const incoming = kind === BankTransactionKind.RECEIPT || kind === BankTransactionKind.TRANSFER_IN;
+      const incoming = kind === BankTransactionKind.RECEIPT;
       const journal = await this.postedJournal(tx, actor, { branchId, date, description: String(body.description || `${kind} ${number}`), module: 'BANKING', sourceType: 'BANK_TRANSACTION', sourceId: id, sourceNumber: number, lines: incoming ? [{ code: bank.glAccount.code, debit: amount, description: `Bank debit ${number}` }, { code: counterparty.code, credit: amount, description: `Counterparty credit ${number}` }] : [{ code: counterparty.code, debit: amount, description: `Counterparty debit ${number}` }, { code: bank.glAccount.code, credit: amount, description: `Bank credit ${number}` }] });
       const transaction = await tx.bankTransaction.create({ data: { id, tenantId: actor.tenantId, branchId, bankAccountId: bank.id, counterpartyAccountId: counterparty.id, kind, number, postingDate: date, amountMinor: amount, reference: body.reference || null, description: String(body.description || kind), journalEntryId: journal.id, createdById: actor.userId }, include: { journalEntry: true, bankAccount: true } });
       await this.audit(tx, actor, 'POST', 'BANK_TRANSACTION', id, { postingReference: journal.number, number, amountMinor: amount.toString() }); return transaction;
+    });
+  }
+
+  private statementInput(body:any,precision:number) {
+    let lines=body.lines;
+    if(typeof body.csv==='string'){
+      const rows=csvRows(body.csv.replace(/^\uFEFF/,''));const headers=rows.shift()||[];
+      const mapping=body.mapping||{date:'date',amount:'amount',description:'description',reference:'reference'};
+      for(const field of ['date','amount','description','reference'])if(headers.filter(h=>h===mapping[field]).length!==1)throw new BadRequestException(`Map one unique CSV column for ${field}`);
+      lines=rows.filter(row=>row.some(cell=>cell.trim())).map(row=>Object.fromEntries(Object.entries(mapping).map(([key,column])=>[key,row[headers.indexOf(String(column))]||''])));
+    }
+    if(!Array.isArray(lines)||!lines.length||lines.length>500)throw new BadRequestException('Provide 1–500 statement rows');
+    const errors:any[]=[];
+    const parsed=lines.map((line:any,index:number)=>{
+      try{
+        const date=calendarDate(line.date),amountMinor=currencyAmount(line.amount,precision,'statement amount');
+        const description=this.requiredText(line.description,'Description').slice(0,1000),reference=String(line.reference||'').slice(0,200);
+        return {row:index+1,date,amountMinor,amount:String(line.amount),description,reference};
+      }catch(error:any){errors.push({row:index+1,message:error.message});return null;}
+    }).filter(Boolean) as Array<{row:number;date:string;amountMinor:bigint;amount:string;description:string;reference:string}>;
+    const opening=currencyAmount(body.opening,precision,'opening'),closing=currencyAmount(body.closing,precision,'closing');
+    const movement=parsed.reduce((n,row)=>n+row.amountMinor,0n),difference=opening+movement-closing;
+    if(difference!==0n)errors.push({row:null,message:'Opening balance plus statement movements must equal closing balance'});
+    return {rows:parsed,errors,openingMinor:opening,closingMinor:closing,movementMinor:movement,differenceMinor:difference};
+  }
+
+  async previewStatement(actor:Actor,body:any) {
+    return this.withTenant(actor,async tx=>{
+      const bankAccountId=BigInt(body.bankAccountId||0);
+      const resource=await tx.financialResource.findFirst({where:{tenantId:actor.tenantId,linkedBankAccountId:bankAccountId,active:true,companyId:{in:actor.companyIds.map(BigInt)}}});
+      if(!resource)throw new NotFoundException('Resource not found');
+      requirePermissionAtCompany(actor,'banking.statement.create',resource.companyId);this.assertResourceId(actor,'bank_account',bankAccountId,resource.companyId);
+      const bank=await tx.bankAccount.findUniqueOrThrow({where:{id:bankAccountId}});
+      const currency=await tx.currency.findFirst({where:{tenantId:actor.tenantId,code:bank.currency,active:true}});
+      if(!currency)throw new BadRequestException('Configure the resource currency first');
+      const parsed=this.statementInput(body,currency.precision);
+      return serialize({...parsed,currency:bank.currency,rowCount:parsed.rows.length,valid:parsed.errors.length===0});
     });
   }
 
@@ -2992,11 +3220,18 @@ export class ErpService {
       if (!resource) throw new ForbiddenException('Bank account is outside your active companies.');
       requirePermissionAtCompany(actor, 'banking.statement.create', resource.companyId);
       this.assertResourceId(actor, 'bank_account', bankAccountId, resource.companyId);
-      const bank = await tx.bankAccount.findFirst({ where: { id: bankAccountId, ...this.resourceIdScope(actor, 'bank_account', resource.companyId) } });
+      const bank = await tx.bankAccount.findFirst({ where: { id: bankAccountId,active:true, ...this.resourceIdScope(actor, 'bank_account', resource.companyId) } });
       if (!bank) throw new BadRequestException('Bank account is invalid');
-      if (!Array.isArray(body.lines) || !body.lines.length) throw new BadRequestException('Statement lines are required');
-      const statement = await tx.bankStatement.create({ data: { tenantId: actor.tenantId, bankAccountId: bank.id, statementDate: this.date(body.statementDate, 'statement date'), openingMinor: money(body.opening, 'opening balance'), closingMinor: money(body.closing, 'closing balance'), createdById: actor.userId, lines: { create: body.lines.map((line: any) => ({ tenantId: actor.tenantId, lineDate: this.date(line.date, 'line date'), description: String(line.description), reference: line.reference || null, amountMinor: money(line.amount, 'line amount') })) } }, include: { lines: true } });
-      await this.audit(tx, actor, 'IMPORT', 'BANK_STATEMENT', statement.id, { lineCount: statement.lines.length, closingMinor: statement.closingMinor.toString() }); return statement;
+      const currency=await tx.currency.findFirst({where:{tenantId:actor.tenantId,code:bank.currency,active:true}});
+      if(!currency)throw new BadRequestException('Configure the resource currency first');
+      const parsed=this.statementInput(body,currency.precision);
+      if(parsed.errors.length)throw new BadRequestException({message:'Statement validation failed',errors:parsed.errors});
+      const statementDate=this.date(body.statementDate,'statement date');
+      const sourceHash=createHash('sha256').update(JSON.stringify(serialize({bankAccountId,statementDate,opening:parsed.openingMinor,closing:parsed.closingMinor,rows:parsed.rows.map(({row,amount,...line})=>line)}))).digest('hex');
+      const existing=await tx.bankStatement.findUnique({where:{tenantId_bankAccountId_sourceHash:{tenantId:actor.tenantId,bankAccountId,sourceHash}},include:{lines:true}});
+      if(existing)return {...existing,alreadyImported:true};
+      const statement=await tx.bankStatement.upsert({where:{tenantId_bankAccountId_sourceHash:{tenantId:actor.tenantId,bankAccountId,sourceHash}},update:{},create:{tenantId:actor.tenantId,bankAccountId,statementDate,openingMinor:parsed.openingMinor,closingMinor:parsed.closingMinor,sourceHash,createdById:actor.userId,lines:{create:parsed.rows.map(line=>({tenantId:actor.tenantId,lineDate:new Date(line.date),description:line.description,reference:line.reference||null,amountMinor:line.amountMinor}))}},include:{lines:true}});
+      await this.audit(tx, actor, 'IMPORT', 'BANK_STATEMENT', statement.id, { lineCount: statement.lines.length, closingMinor: statement.closingMinor.toString(),sourceHash }); return statement;
     });
   }
 
@@ -3011,6 +3246,8 @@ export class ErpService {
       this.assertResourceId(actor, 'bank_account', line.statement.bankAccountId, resource.companyId);
       if (line.matched || transaction.reconciled) throw new BadRequestException('Line or transaction is already reconciled');
       if ((line.amountMinor < 0n ? -line.amountMinor : line.amountMinor) !== transaction.amountMinor) throw new BadRequestException('Amounts do not match');
+      const incoming=['RECEIPT','TRANSFER_IN'].includes(transaction.kind);
+      if((line.amountMinor>0n)!==incoming)throw new BadRequestException('Statement and transaction directions do not match');
       const updated = await tx.bankStatementLine.update({ where: { id: lineId }, data: { transactionId, matched: true } });
       await tx.bankTransaction.update({ where: { id: transactionId }, data: { reconciled: true } });
       await this.audit(tx, actor, 'MATCH', 'BANK_STATEMENT_LINE', lineId, { transactionId: transactionId.toString(), transactionNumber: transaction.number }); return updated;
@@ -3321,21 +3558,33 @@ export class ErpService {
           scopedBranchIds ? { branchId: { in: scopedBranchIds } } : {},
         ] }, include: {
           customer: true,
-          supplier: true,
-          allocations: { where: { document: payableReportScope }, select: { amountMinor: true } },
+          supplier: true,bankAccount:true,
+          allocations: { where: { document: payableReportScope }, select: { amountMinor: true,document:{select:{currency:true,exchangeRateMicros:true}} } },
         } });
+        const openingSources:any[]=await tx.$queryRaw`SELECT source_system,source_id,data FROM av8_opening_sources WHERE tenant_id=${actor.tenantId} AND kind='BATCH'`;
+        const permittedSuppliers=await tx.supplier.findMany({where:this.supplierScope(actor),select:{id:true}});
+        const opening=await supplierOpeningBalances(tx,actor.tenantId,openingSources.filter(row=>!scopedBranchIds||scopedBranchIds.some(id=>String(id)===row.data.branchId)),permittedSuppliers.map(s=>String(s.id)));
+        const statementTenant=await tx.tenant.findUniqueOrThrow({where:{id:actor.tenantId}}),statementCurrencies=await tx.currency.findMany({where:{tenantId:actor.tenantId}});
+        const basePrecision=statementCurrencies.find(c=>c.code===statementTenant.baseCurrency)?.precision??2;
+        const statementBase=(amount:bigint,currency:string,rate:bigint)=>convertMinor(amount,statementCurrencies.find(c=>c.code===currency)?.precision??2,basePrecision,rate);
+        const afterOpening=(date:Date,supplierId:bigint|null,branchId:bigint,currency:string)=>!opening.some((b:any)=>b.supplierId===String(supplierId)&&b.branchId===String(branchId)&&b.currency===currency&&date.toISOString().slice(0,10)<=b.cutoverDate);
+        const openingRows=opening.flatMap((b:any)=>[
+          {date:new Date(b.cutoverDate),party:b.supplierName,reference:`${b.sourceSystem}:${b.batchSourceId}:${b.balanceIndex}`,transaction:'Supplier opening balance',debitMinor:BigInt(b.baseMinor)>0n?BigInt(b.baseMinor):0n,creditMinor:BigInt(b.baseMinor)<0n?-BigInt(b.baseMinor):0n,currency:b.baseCurrency,originalCurrency:b.currency,originalAmountMinor:b.amountMinor},
+          ...b.settlements.map((r:any)=>({date:new Date(r.date),party:b.supplierName,reference:r.reference,transaction:'Supplier opening settlement',debitMinor:BigInt(r.baseMinor)<0n?-BigInt(r.baseMinor):0n,creditMinor:BigInt(r.baseMinor)>0n?BigInt(r.baseMinor):0n,currency:b.baseCurrency,originalCurrency:b.currency,originalAmountMinor:r.amountMinor}))
+        ]);
         const rows = [
-          ...documents.map((doc) => { const credit = new Set<DocumentType>([DocumentType.SALES_RETURN, DocumentType.CREDIT_NOTE, DocumentType.PURCHASE_RETURN]).has(doc.type); return { date: doc.documentDate, party: doc.customer?.name || doc.supplier?.name, reference: doc.number, transaction: credit ? doc.type.replaceAll('_', ' ') : customerSide ? 'Invoice' : 'Supplier bill', debitMinor: credit ? 0n : doc.totalMinor, creditMinor: credit ? doc.totalMinor : 0n }; }),
-          ...payments.map((payment) => ({
+          ...openingRows,
+          ...documents.filter(doc=>afterOpening(doc.documentDate,doc.supplierId,doc.branchId,doc.currency)).map((doc) => { const credit = new Set<DocumentType>([DocumentType.SALES_RETURN, DocumentType.CREDIT_NOTE, DocumentType.PURCHASE_RETURN]).has(doc.type); return { date: doc.documentDate, party: doc.customer?.name || doc.supplier?.name, reference: doc.number, transaction: credit ? doc.type.replaceAll('_', ' ') : customerSide ? 'Invoice' : 'Supplier bill', debitMinor: credit ? 0n : statementBase(doc.totalMinor,doc.currency,doc.exchangeRateMicros), creditMinor: credit ? statementBase(doc.totalMinor,doc.currency,doc.exchangeRateMicros) : 0n,currency:statementTenant.baseCurrency,originalCurrency:doc.currency,originalAmountMinor:String(doc.totalMinor) }; }),
+          ...payments.filter(payment=>afterOpening(payment.postingDate,payment.supplierId,payment.branchId,payment.bankAccount.currency)).map((payment) => ({
             date: payment.postingDate,
             party: payment.customer?.name || payment.supplier?.name,
             reference: payment.number,
             transaction: customerSide ? 'Receipt' : 'Supplier payment',
             debitMinor: 0n,
-            creditMinor: payment.allocations.reduce((sum, allocation) => sum + allocation.amountMinor, 0n),
+            creditMinor: payment.allocations.reduce((sum, allocation) => sum + statementBase(allocation.amountMinor,allocation.document.currency,allocation.document.exchangeRateMicros), 0n),currency:statementTenant.baseCurrency,originalCurrency:payment.bankAccount.currency,originalAmountMinor:String(payment.amountMinor),
           })).filter((row) => row.creditMinor > 0n),
         ].sort((a, b) => a.date.valueOf() - b.date.valueOf());
-        return { name: 'Supplier statement', rows, totals: { balanceMinor: rows.reduce((sum, row) => sum + row.debitMinor - row.creditMinor, 0n) } };
+        return { name: 'Supplier statement',currency:statementTenant.baseCurrency,precision:basePrecision,dateBasis:'Original posting dates; imported supplier opening replaces prior source history through cutover', rows, totals: { balanceMinor: rows.reduce((sum, row) => sum + row.debitMinor - row.creditMinor, 0n) } };
       }
       if (name === 'inventory-valuation') {
         const rows = await tx.stockBalance.findMany({ where: inventoryScope, include: { item: true, warehouse: true }, orderBy: [{ warehouse: { code: 'asc' } }, { item: { sku: 'asc' } }] });

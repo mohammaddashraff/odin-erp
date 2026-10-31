@@ -19,8 +19,8 @@ const dictionaries = { ...translationCatalog, replacement: uiCopy, administratio
 const entries = Object.entries(dictionaries).flatMap(([namespace, values]) => Object.entries(values).map(([key, value]) => ({namespace, key, value})));
 const issues = {missingKeys: [], missingValues: [], duplicateKeys: [], hardcodedVisibleEnglish: [], arabicOutsideDictionary: [], suspiciousArabicValues: []};
 const brandCopy = new Set(['AV8 ERP','AV8 / ERP','AV8 ERP · ODIN Software Solutions','ODIN ERP · OSS.', 'OSS. Odin Software Solutions / ERP — ODIN ERP', 'Odin Software Solutions', 'OSS. / ERP', '/ ERP', 'odin software solution']);
-const technical = /^(?:OSS\.?|ODIN(?: ERP)?|ERP|EN|English|PDF|CSV|SKU|VAT|MFA|TOTP|EGP|USD|EUR|ID|IP|IBAN|USB-C|YYYY-MM-DD|CAI|CAI-MAIN|ALX|[A-Z]{2,}-\d+)$/;
-const allowedLatin = /\b(?:ODIN|ERP|PDF|PNG|JPEG|WebP|UTF-8|CSV|SKU|IBAN|IP|USB-C|YYYY-MM-DD|MFA|TOTP|OSS|PostgreSQL|NestJS|Prisma|Next|RESET)\b/g;
+const technical = /^(?:OSS\.?|ODIN(?: ERP)?|ERP|EN|English|PDF|CSV|JSON|SKU|VAT|MFA|TOTP|EGP|USD|EUR|ID|IP|IBAN|USB-C|YYYY-MM-DD|CAI|CAI-MAIN|ALX|[A-Z]{2,}-\d+)$/;
+const allowedLatin = /\b(?:ODIN|ERP|PDF|PNG|JPEG|WebP|UTF-8|CSV|JSON|SKU|IBAN|IP|USB-C|YYYY-MM-DD|MFA|TOTP|OSS|PostgreSQL|NestJS|Prisma|Next|RESET)\b/g;
 const sourceFiles = dir => readdirSync(dir, {withFileTypes: true}).flatMap(e => e.isDirectory() ? sourceFiles(resolve(dir, e.name)) : /\.tsx?$/.test(e.name) ? [resolve(dir, e.name)] : []);
 const visibleProps = new Set(['label', 'title', 'subtitle', 'placeholder', 'aria-label', 'caption', 'submitLabel', 'hint']);
 function check(text, file) {

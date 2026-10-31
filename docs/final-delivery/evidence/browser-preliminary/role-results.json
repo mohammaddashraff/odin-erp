@@ -1,0 +1,32 @@
+[
+  {
+    "role": "telesales",
+    "route": "/av8/leads",
+    "status": "PASS",
+    "forbiddenApi": "/api/av8/policies"
+  },
+  {
+    "role": "sales",
+    "route": "/av8/students",
+    "status": "PASS",
+    "forbiddenApi": "/api/av8/funds"
+  },
+  {
+    "role": "affairs",
+    "route": "/av8/affairs",
+    "status": "PASS",
+    "forbiddenApi": "/api/av8/funds"
+  },
+  {
+    "role": "finance",
+    "route": "/av8/finance",
+    "status": "PASS",
+    "forbiddenApi": "/api/av8/leads"
+  },
+  {
+    "role": "management",
+    "route": "/av8/reports",
+    "status": "PASS",
+    "forbiddenApi": null
+  }
+]

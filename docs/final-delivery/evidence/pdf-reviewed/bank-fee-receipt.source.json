@@ -1,0 +1,84 @@
+{
+  "name": "bank-fee-receipt",
+  "fundId": "294",
+  "value": {
+    "title": "Official collection receipt",
+    "reference": "RC-CAI-2026-00189",
+    "name": "SYNTHETIC fees 48546b",
+    "rows": [
+      {
+        "label": "Company",
+        "value": "AV8 ERP · isolated workspace"
+      },
+      {
+        "label": "Student/application",
+        "value": "SYNTHETIC fees 48546b / AV8-CAI-2026-00143"
+      },
+      {
+        "label": "Receipt number",
+        "value": "RC-CAI-2026-00189"
+      },
+      {
+        "label": "Payment status",
+        "value": "CLEARED"
+      },
+      {
+        "label": "Payment date",
+        "value": "2026-10-24"
+      },
+      {
+        "label": "Method",
+        "value": "BANK"
+      },
+      {
+        "label": "Payer",
+        "value": "SYNTHETIC fees 48546b"
+      },
+      {
+        "label": "Original currency",
+        "value": "USD"
+      },
+      {
+        "label": "Gross amount",
+        "value": "2000.00"
+      },
+      {
+        "label": "Student-borne bank fee",
+        "value": "20.00"
+      },
+      {
+        "label": "Net cash received",
+        "value": "1980.00"
+      },
+      {
+        "label": "USD principal credited",
+        "value": "1980.00"
+      },
+      {
+        "label": "External reference",
+        "value": "c9798344-4e18-4a94-9adb-9f4acbb94bd8"
+      },
+      {
+        "label": "Signature/stamp verification",
+        "value": "Awaiting actual signed/stamped copy"
+      },
+      {
+        "label": "USD per original currency unit",
+        "value": "1.000000"
+      },
+      {
+        "label": "Base currency per original currency unit",
+        "value": "50.000000"
+      },
+      {
+        "label": "Rate source",
+        "value": "TRANSACTION_INPUT"
+      },
+      {
+        "label": "Rate date",
+        "value": "2026-10-24"
+      }
+    ],
+    "disclaimer": "Generated company receipt. Signature and stamp must be completed through the recorded evidence workflow; this PDF does not fabricate a signature or government validation."
+  }
+}

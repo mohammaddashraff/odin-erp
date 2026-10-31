@@ -1,0 +1,86 @@
+[
+  {
+    "file": "bank-fee-receipt-ar.pdf",
+    "pages": 1,
+    "sha256": "cf25ed75723a02f8e46611f4120a8f588ed2cdc644ee41beb4fa830b1655195b",
+    "bytes": 17784,
+    "sourceRows": 18
+  },
+  {
+    "file": "bank-fee-receipt-en.pdf",
+    "pages": 1,
+    "sha256": "d8a32157500f66ea468334e6ea65f5ef155819ac1798d9717c2db37216c3615e",
+    "bytes": 8815,
+    "sourceRows": 18
+  },
+  {
+    "file": "cash-academy-statement-ar.pdf",
+    "pages": 1,
+    "sha256": "3cb4c500e305a2e46706b404700d2fed84a122be87d1b1d50915a602db206992",
+    "bytes": 12168,
+    "sourceRows": 1
+  },
+  {
+    "file": "cash-academy-statement-en.pdf",
+    "pages": 1,
+    "sha256": "337b0cba1d8be8cbe04674c990a37177e2e6f91fb175e065d68d9249eb809713",
+    "bytes": 6913,
+    "sourceRows": 1
+  },
+  {
+    "file": "cash-contract-ar.pdf",
+    "pages": 1,
+    "sha256": "8fd9adc3f9f6ece2dc42132e5003ed68b9cc8fa39fd07bebeed9842e2c7ba50d",
+    "bytes": 15359,
+    "sourceRows": 2
+  },
+  {
+    "file": "cash-contract-en.pdf",
+    "pages": 1,
+    "sha256": "050d914fe177ad3a9bad1d0b5807ef0ad44c2a4fe1313f0df137ff059b46d810",
+    "bytes": 8116,
+    "sourceRows": 2
+  },
+  {
+    "file": "partial-student-statement-ar.pdf",
+    "pages": 1,
+    "sha256": "48b78d54a575ddf5bbaa3924902f3cf6308077286b65ebd0163c3b7f8ccdedd0",
+    "bytes": 14790,
+    "sourceRows": 8
+  },
+  {
+    "file": "partial-student-statement-en.pdf",
+    "pages": 1,
+    "sha256": "b9177f83a31074753f6cfa23c715273b9bd863c653d4677d2d62e8f56d4689b5",
+    "bytes": 7913,
+    "sourceRows": 8
+  },
+  {
+    "file": "plan-a-contract-ar.pdf",
+    "pages": 1,
+    "sha256": "e68eb3832cf43e913651b6d147ad660a26fb416be479a504f6f185812004ce14",
+    "bytes": 16719,
+    "sourceRows": 8
+  },
+  {
+    "file": "plan-a-contract-en.pdf",
+    "pages": 1,
+    "sha256": "866e3527a32d636910cc3c54dd654d25885ab45631a522cc9b46867fdbbe155d",
+    "bytes": 8577,
+    "sourceRows": 8
+  },
+  {
+    "file": "plan-b-contract-ar.pdf",
+    "pages": 1,
+    "sha256": "472518c0904d1421ed916c3ba27743e512f86f0f4f51c4e6ea24c05a50633e98",
+    "bytes": 16102,
+    "sourceRows": 8
+  },
+  {
+    "file": "plan-b-contract-en.pdf",
+    "pages": 1,
+    "sha256": "d859e1a2cbaad8ac82b676759bb551e4680bc731f1243a9c916cc20cd3ccb295",
+    "bytes": 8427,
+    "sourceRows": 8
+  }
+]

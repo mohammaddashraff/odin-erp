@@ -150,8 +150,8 @@ describe('centralized permission policy', () => {
       .resolves.toMatchObject({ id: '9' });
 
     await service.posState(actor({ permissions: ['pos.register.view'], branchIds: ['4'], warehouseIds: ['7'], companyBranchIds: { '1': ['4'] }, dataScopes: [{ resource: 'pos_terminal', scope: 'BRANCH' }] }));
-    expect(shiftFindMany).toHaveBeenCalledWith(expect.objectContaining({ where: { branchId: { in: [4n] }, warehouseId: { in: [7n] } } }));
-    expect(saleFindMany).toHaveBeenCalledWith(expect.objectContaining({ where: { shift: { branchId: { in: [] }, warehouseId: { in: [7n] } } } }));
+    expect(shiftFindMany).toHaveBeenCalledWith(expect.objectContaining({ where: { AND: [{ branchId: { in: [4n] }, warehouseId: { in: [7n] } }, { branchId: { in: [4n] }, warehouseId: { in: [7n] } }] } }));
+    expect(saleFindMany).toHaveBeenCalledWith(expect.objectContaining({ where: { shift: { AND: [{ branchId: { in: [] }, warehouseId: { in: [7n] } }, { branchId: { in: [4n] }, warehouseId: { in: [7n] } }] } } }));
   });
 
   it.each([

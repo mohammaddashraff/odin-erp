@@ -1,0 +1,273 @@
+{
+  "config": {
+    "argv": [
+      "/private/tmp/odin-erp-final-delivery-20261031/.av8/node/bin/node",
+      "/private/tmp/odin-erp-final-delivery-20261031/node_modules/@playwright/test/cli.js",
+      "test",
+      "--config=playwright.delivery.config.ts",
+      "--grep",
+      "finance (refund|cheque|fee)"
+    ],
+    "configFile": "/private/tmp/odin-erp-final-delivery-20261031/playwright.delivery.config.ts",
+    "rootDir": "/private/tmp/odin-erp-final-delivery-20261031/tests/final-delivery",
+    "failOnFlakyTests": false,
+    "forbidOnly": false,
+    "fullyParallel": false,
+    "globalSetup": null,
+    "globalTeardown": null,
+    "globalTimeout": 0,
+    "grep": {},
+    "grepInvert": null,
+    "maxFailures": 0,
+    "metadata": {
+      "actualWorkers": 1
+    },
+    "preserveOutput": "always",
+    "projects": [
+      {
+        "outputDir": "/private/tmp/odin-erp-final-delivery-20261031/output/playwright/final-delivery/artifacts",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "",
+        "name": "",
+        "testDir": "/private/tmp/odin-erp-final-delivery-20261031/tests/final-delivery",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 900000
+      }
+    ],
+    "quiet": false,
+    "reporter": [
+      [
+        "list",
+        null
+      ],
+      [
+        "json",
+        {
+          "outputFile": "output/playwright/final-delivery/results.json"
+        }
+      ]
+    ],
+    "reportSlowTests": {
+      "max": 5,
+      "threshold": 300000
+    },
+    "shard": null,
+    "tags": [],
+    "updateSnapshots": "missing",
+    "updateSourceMethod": "patch",
+    "version": "1.61.1",
+    "workers": 1,
+    "webServer": null
+  },
+  "suites": [
+    {
+      "title": "browser.spec.ts",
+      "file": "browser.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "finance refund UI calculates entitlement, independently approves partial payout, recovers academy funds and settles the remainder",
+          "ok": false,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 900000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "failed",
+                  "duration": 26020,
+                  "error": {
+                    "message": "TimeoutError: locator.fill: Timeout 20000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByRole('dialog').getByLabel('Original amount', { exact: true })\u001b[22m\n",
+                    "stack": "TimeoutError: locator.fill: Timeout 20000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByRole('dialog').getByLabel('Original amount', { exact: true })\u001b[22m\n\n    at bankInstruction (/private/tmp/odin-erp-final-delivery-20261031/tests/final-delivery/browser.spec.ts:135:96)\n    at /private/tmp/odin-erp-final-delivery-20261031/tests/final-delivery/browser.spec.ts:144:333",
+                    "location": {
+                      "file": "/private/tmp/odin-erp-final-delivery-20261031/tests/final-delivery/browser.spec.ts",
+                      "column": 96,
+                      "line": 135
+                    },
+                    "snippet": "  133 | async function reasonModal(page:Page,path:string){await page.getByRole('dialog').getByLabel('Reason / notes').fill('Synthetic browser acceptance; no external payment instruction');return saveModal(page,path);}\n  134 | async function bankInstruction(page:Page,fixture:any,caseFixture:any,amount:string,reference:string,kind='REFUND'){\n> 135 |  const dialog=page.getByRole('dialog');await dialog.getByLabel('Original amount',{exact:true}).fill(amount);await dialog.getByLabel('Cash / bank account',{exact:true}).selectOption(fixture.bankAccountId);await dialog.getByLabel('Currency',{exact:true}).fill('USD');await dialog.getByLabel('Base currency per unit',{exact:true}).fill(fixture.baseRate);await dialog.getByLabel('Rate date',{exact:true}).fill(fixture.date);await dialog.getByLabel('Payment date',{exact:true}).fill(fixture.date);await dialog.getByLabel('Reference',{exact:true}).fill(reference);await dialog.getByLabel('Payer / counterparty',{exact:true}).fill('Synthetic counterparty');await dialog.getByLabel('Supporting attachment',{exact:true}).selectOption(caseFixture.evidenceId);if(kind==='ACADEMY_RECOVERY')await dialog.getByLabel('Original academy transfer').selectOption(caseFixture.originalRemittanceId);await dialog.getByLabel('Reason / notes').fill('Synthetic actual bank evidence in isolated acceptance');return saveModal(page,'/av8/funds');\n      |                                                                                                ^\n  136 | }\n  137 | async function settleInstruction(maker:Page,checker:Page,appId:string,tab:string,fund:any,fee=false){\n  138 |  const key=fee?fund.reference:String(fund.id),row=(page:Page)=>page.getByRole('row').filter({has:page.getByRole('cell',{name:key,exact:true})});await studentTab(checker,appId,tab);await row(checker).getByRole('button',{name:fee?'Approve fee reimbursement':'Approve',exact:true}).click();await reasonModal(checker,`/av8/funds/${fund.id}/action`);await maker.reload();await ready(maker);await row(maker).getByRole('button',{name:fee?'Confirm actual fee reimbursement':'Confirm actual bank movement',exact:true}).click();await reasonModal(maker,`/av8/funds/${fund.id}/action`);expect((await application(maker,appId)).finance.funds.find((entry:any)=>entry.id===fund.id).status).toBe('CLEARED');"
+                  },
+                  "errors": [
+                    {
+                      "location": {
+                        "file": "/private/tmp/odin-erp-final-delivery-20261031/tests/final-delivery/browser.spec.ts",
+                        "column": 96,
+                        "line": 135
+                      },
+                      "message": "TimeoutError: locator.fill: Timeout 20000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByRole('dialog').getByLabel('Original amount', { exact: true })\u001b[22m\n\n\n  133 | async function reasonModal(page:Page,path:string){await page.getByRole('dialog').getByLabel('Reason / notes').fill('Synthetic browser acceptance; no external payment instruction');return saveModal(page,path);}\n  134 | async function bankInstruction(page:Page,fixture:any,caseFixture:any,amount:string,reference:string,kind='REFUND'){\n> 135 |  const dialog=page.getByRole('dialog');await dialog.getByLabel('Original amount',{exact:true}).fill(amount);await dialog.getByLabel('Cash / bank account',{exact:true}).selectOption(fixture.bankAccountId);await dialog.getByLabel('Currency',{exact:true}).fill('USD');await dialog.getByLabel('Base currency per unit',{exact:true}).fill(fixture.baseRate);await dialog.getByLabel('Rate date',{exact:true}).fill(fixture.date);await dialog.getByLabel('Payment date',{exact:true}).fill(fixture.date);await dialog.getByLabel('Reference',{exact:true}).fill(reference);await dialog.getByLabel('Payer / counterparty',{exact:true}).fill('Synthetic counterparty');await dialog.getByLabel('Supporting attachment',{exact:true}).selectOption(caseFixture.evidenceId);if(kind==='ACADEMY_RECOVERY')await dialog.getByLabel('Original academy transfer').selectOption(caseFixture.originalRemittanceId);await dialog.getByLabel('Reason / notes').fill('Synthetic actual bank evidence in isolated acceptance');return saveModal(page,'/av8/funds');\n      |                                                                                                ^\n  136 | }\n  137 | async function settleInstruction(maker:Page,checker:Page,appId:string,tab:string,fund:any,fee=false){\n  138 |  const key=fee?fund.reference:String(fund.id),row=(page:Page)=>page.getByRole('row').filter({has:page.getByRole('cell',{name:key,exact:true})});await studentTab(checker,appId,tab);await row(checker).getByRole('button',{name:fee?'Approve fee reimbursement':'Approve',exact:true}).click();await reasonModal(checker,`/av8/funds/${fund.id}/action`);await maker.reload();await ready(maker);await row(maker).getByRole('button',{name:fee?'Confirm actual fee reimbursement':'Confirm actual bank movement',exact:true}).click();await reasonModal(maker,`/av8/funds/${fund.id}/action`);expect((await application(maker,appId)).finance.funds.find((entry:any)=>entry.id===fund.id).status).toBe('CLEARED');\n    at bankInstruction (/private/tmp/odin-erp-final-delivery-20261031/tests/final-delivery/browser.spec.ts:135:96)\n    at /private/tmp/odin-erp-final-delivery-20261031/tests/final-delivery/browser.spec.ts:144:333"
+                    }
+                  ],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-31T18:52:39.752Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "screenshot",
+                      "contentType": "image/png",
+                      "path": "/private/tmp/odin-erp-final-delivery-20261031/output/playwright/final-delivery/artifacts/browser-finance-refund-UI--bc317-s-and-settles-the-remainder/test-failed-1.png"
+                    },
+                    {
+                      "name": "screenshot",
+                      "contentType": "image/png",
+                      "path": "/private/tmp/odin-erp-final-delivery-20261031/output/playwright/final-delivery/artifacts/browser-finance-refund-UI--bc317-s-and-settles-the-remainder/test-failed-2.png"
+                    },
+                    {
+                      "name": "error-context",
+                      "contentType": "text/markdown",
+                      "path": "/private/tmp/odin-erp-final-delivery-20261031/output/playwright/final-delivery/artifacts/browser-finance-refund-UI--bc317-s-and-settles-the-remainder/error-context.md"
+                    }
+                  ],
+                  "errorLocation": {
+                    "file": "/private/tmp/odin-erp-final-delivery-20261031/tests/final-delivery/browser.spec.ts",
+                    "column": 96,
+                    "line": 135
+                  }
+                }
+              ],
+              "status": "unexpected"
+            }
+          ],
+          "id": "fbeac1b2decfba2c3acd-4bd5303ae6a6721569a6",
+          "file": "browser.spec.ts",
+          "line": 141,
+          "column": 5
+        },
+        {
+          "title": "finance cheque UI preserves zero credit before clearance, reverses returned credit and clears one replacement",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 900000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 9916,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-31T18:53:07.023Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "fbeac1b2decfba2c3acd-b63e983e4f99377c88f3",
+          "file": "browser.spec.ts",
+          "line": 150,
+          "column": 5
+        },
+        {
+          "title": "finance fee reimbursement UI posts only the exact fee and records a synthetic signed copy; management approves a policy version",
+          "ok": false,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 900000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "failed",
+                  "duration": 29133,
+                  "error": {
+                    "message": "TimeoutError: page.waitForResponse: Timeout 20000ms exceeded while waiting for event \"response\"",
+                    "stack": "TimeoutError: page.waitForResponse: Timeout 20000ms exceeded while waiting for event \"response\"\n    at saveModal (/private/tmp/odin-erp-final-delivery-20261031/tests/final-delivery/browser.spec.ts:132:69)\n    at /private/tmp/odin-erp-final-delivery-20261031/tests/final-delivery/browser.spec.ts:161:748",
+                    "location": {
+                      "file": "/private/tmp/odin-erp-final-delivery-20261031/tests/final-delivery/browser.spec.ts",
+                      "column": 69,
+                      "line": 132
+                    },
+                    "snippet": "  130 | async function application(page:Page,id:string){const response=await page.request.get(`/api/av8/applications/${id}`,{headers:await auth(page)});expect(response.ok(),await response.text()).toBe(true);return response.json();}\n  131 | async function studentTab(page:Page,id:string,tab:string){await page.goto(`/av8/students?student=${id}&tab=${encodeURIComponent(tab)}`);await ready(page);}\n> 132 | async function saveModal(page:Page,path:string){const response=page.waitForResponse(response=>new URL(response.url()).pathname==='/api'+path&&response.request().method()==='POST');const dialog=page.getByRole('dialog');await dialog.getByRole('button',{name:'Save',exact:true}).click();const result=await response;expect(result.ok(),await result.text()).toBe(true);const value=await result.json();await expect(dialog).toHaveCount(0);await ready(page);return value;}\n      |                                                                     ^\n  133 | async function reasonModal(page:Page,path:string){await page.getByRole('dialog').getByLabel('Reason / notes').fill('Synthetic browser acceptance; no external payment instruction');return saveModal(page,path);}\n  134 | async function bankInstruction(page:Page,fixture:any,caseFixture:any,amount:string,reference:string,kind='REFUND'){\n  135 |  const dialog=page.getByRole('dialog');await dialog.getByLabel('Original amount',{exact:true}).fill(amount);await dialog.getByLabel('Cash / bank account',{exact:true}).selectOption(fixture.bankAccountId);await dialog.getByLabel('Currency',{exact:true}).fill('USD');await dialog.getByLabel('Base currency per unit',{exact:true}).fill(fixture.baseRate);await dialog.getByLabel('Rate date',{exact:true}).fill(fixture.date);await dialog.getByLabel('Payment date',{exact:true}).fill(fixture.date);await dialog.getByLabel('Reference',{exact:true}).fill(reference);await dialog.getByLabel('Payer / counterparty',{exact:true}).fill('Synthetic counterparty');await dialog.getByLabel('Supporting attachment',{exact:true}).selectOption(caseFixture.evidenceId);if(kind==='ACADEMY_RECOVERY')await dialog.getByLabel('Original academy transfer').selectOption(caseFixture.originalRemittanceId);await dialog.getByLabel('Reason / notes').fill('Synthetic actual bank evidence in isolated acceptance');return saveModal(page,'/av8/funds');"
+                  },
+                  "errors": [
+                    {
+                      "location": {
+                        "file": "/private/tmp/odin-erp-final-delivery-20261031/tests/final-delivery/browser.spec.ts",
+                        "column": 69,
+                        "line": 132
+                      },
+                      "message": "TimeoutError: page.waitForResponse: Timeout 20000ms exceeded while waiting for event \"response\"\n\n  130 | async function application(page:Page,id:string){const response=await page.request.get(`/api/av8/applications/${id}`,{headers:await auth(page)});expect(response.ok(),await response.text()).toBe(true);return response.json();}\n  131 | async function studentTab(page:Page,id:string,tab:string){await page.goto(`/av8/students?student=${id}&tab=${encodeURIComponent(tab)}`);await ready(page);}\n> 132 | async function saveModal(page:Page,path:string){const response=page.waitForResponse(response=>new URL(response.url()).pathname==='/api'+path&&response.request().method()==='POST');const dialog=page.getByRole('dialog');await dialog.getByRole('button',{name:'Save',exact:true}).click();const result=await response;expect(result.ok(),await result.text()).toBe(true);const value=await result.json();await expect(dialog).toHaveCount(0);await ready(page);return value;}\n      |                                                                     ^\n  133 | async function reasonModal(page:Page,path:string){await page.getByRole('dialog').getByLabel('Reason / notes').fill('Synthetic browser acceptance; no external payment instruction');return saveModal(page,path);}\n  134 | async function bankInstruction(page:Page,fixture:any,caseFixture:any,amount:string,reference:string,kind='REFUND'){\n  135 |  const dialog=page.getByRole('dialog');await dialog.getByLabel('Original amount',{exact:true}).fill(amount);await dialog.getByLabel('Cash / bank account',{exact:true}).selectOption(fixture.bankAccountId);await dialog.getByLabel('Currency',{exact:true}).fill('USD');await dialog.getByLabel('Base currency per unit',{exact:true}).fill(fixture.baseRate);await dialog.getByLabel('Rate date',{exact:true}).fill(fixture.date);await dialog.getByLabel('Payment date',{exact:true}).fill(fixture.date);await dialog.getByLabel('Reference',{exact:true}).fill(reference);await dialog.getByLabel('Payer / counterparty',{exact:true}).fill('Synthetic counterparty');await dialog.getByLabel('Supporting attachment',{exact:true}).selectOption(caseFixture.evidenceId);if(kind==='ACADEMY_RECOVERY')await dialog.getByLabel('Original academy transfer').selectOption(caseFixture.originalRemittanceId);await dialog.getByLabel('Reason / notes').fill('Synthetic actual bank evidence in isolated acceptance');return saveModal(page,'/av8/funds');\n    at saveModal (/private/tmp/odin-erp-final-delivery-20261031/tests/final-delivery/browser.spec.ts:132:69)\n    at /private/tmp/odin-erp-final-delivery-20261031/tests/final-delivery/browser.spec.ts:161:748"
+                    },
+                    {
+                      "location": {
+                        "file": "/private/tmp/odin-erp-final-delivery-20261031/tests/final-delivery/browser.spec.ts",
+                        "column": 277,
+                        "line": 132
+                      },
+                      "message": "TimeoutError: locator.click: Timeout 20000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByRole('dialog').getByRole('button', { name: 'Save', exact: true })\u001b[22m\n\n\n  130 | async function application(page:Page,id:string){const response=await page.request.get(`/api/av8/applications/${id}`,{headers:await auth(page)});expect(response.ok(),await response.text()).toBe(true);return response.json();}\n  131 | async function studentTab(page:Page,id:string,tab:string){await page.goto(`/av8/students?student=${id}&tab=${encodeURIComponent(tab)}`);await ready(page);}\n> 132 | async function saveModal(page:Page,path:string){const response=page.waitForResponse(response=>new URL(response.url()).pathname==='/api'+path&&response.request().method()==='POST');const dialog=page.getByRole('dialog');await dialog.getByRole('button',{name:'Save',exact:true}).click();const result=await response;expect(result.ok(),await result.text()).toBe(true);const value=await result.json();await expect(dialog).toHaveCount(0);await ready(page);return value;}\n      |                                                                                                                                                                                                                                                                                     ^\n  133 | async function reasonModal(page:Page,path:string){await page.getByRole('dialog').getByLabel('Reason / notes').fill('Synthetic browser acceptance; no external payment instruction');return saveModal(page,path);}\n  134 | async function bankInstruction(page:Page,fixture:any,caseFixture:any,amount:string,reference:string,kind='REFUND'){\n  135 |  const dialog=page.getByRole('dialog');await dialog.getByLabel('Original amount',{exact:true}).fill(amount);await dialog.getByLabel('Cash / bank account',{exact:true}).selectOption(fixture.bankAccountId);await dialog.getByLabel('Currency',{exact:true}).fill('USD');await dialog.getByLabel('Base currency per unit',{exact:true}).fill(fixture.baseRate);await dialog.getByLabel('Rate date',{exact:true}).fill(fixture.date);await dialog.getByLabel('Payment date',{exact:true}).fill(fixture.date);await dialog.getByLabel('Reference',{exact:true}).fill(reference);await dialog.getByLabel('Payer / counterparty',{exact:true}).fill('Synthetic counterparty');await dialog.getByLabel('Supporting attachment',{exact:true}).selectOption(caseFixture.evidenceId);if(kind==='ACADEMY_RECOVERY')await dialog.getByLabel('Original academy transfer').selectOption(caseFixture.originalRemittanceId);await dialog.getByLabel('Reason / notes').fill('Synthetic actual bank evidence in isolated acceptance');return saveModal(page,'/av8/funds');\n    at saveModal (/private/tmp/odin-erp-final-delivery-20261031/tests/final-delivery/browser.spec.ts:132:277)\n    at /private/tmp/odin-erp-final-delivery-20261031/tests/final-delivery/browser.spec.ts:161:748"
+                    }
+                  ],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-31T18:53:17.246Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "screenshot",
+                      "contentType": "image/png",
+                      "path": "/private/tmp/odin-erp-final-delivery-20261031/output/playwright/final-delivery/artifacts/browser-finance-fee-reimbu-1bf05-t-approves-a-policy-version/test-failed-1.png"
+                    },
+                    {
+                      "name": "error-context",
+                      "contentType": "text/markdown",
+                      "path": "/private/tmp/odin-erp-final-delivery-20261031/output/playwright/final-delivery/artifacts/browser-finance-fee-reimbu-1bf05-t-approves-a-policy-version/error-context.md"
+                    }
+                  ],
+                  "errorLocation": {
+                    "file": "/private/tmp/odin-erp-final-delivery-20261031/tests/final-delivery/browser.spec.ts",
+                    "column": 69,
+                    "line": 132
+                  }
+                }
+              ],
+              "status": "unexpected"
+            }
+          ],
+          "id": "fbeac1b2decfba2c3acd-e859c6f5a7622017b77e",
+          "file": "browser.spec.ts",
+          "line": 157,
+          "column": 5
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "stats": {
+    "startTime": "2026-10-31T18:52:39.249Z",
+    "duration": 67223.822,
+    "expected": 1,
+    "skipped": 0,
+    "unexpected": 2,
+    "flaky": 0
+  }
+}

@@ -1,0 +1,42 @@
+{
+  "generatedAt": "2026-10-31T18:05:52.260Z",
+  "environment": "test",
+  "readOnly": true,
+  "scope": "Per tenant and owning company; no global account-code comparison",
+  "ok": false,
+  "companyCount": 9,
+  "fundCount": 463,
+  "issues": [
+    {
+      "tenantId": "1",
+      "companyId": "1",
+      "issues": [
+        {
+          "code": "HISTORICAL_SOURCE_OVERUSED",
+          "entity": "fund",
+          "entityId": "301",
+          "action": "Reconcile remittance/refund source consumption less actual source-attributed recoveries in both USD and original book basis"
+        },
+        {
+          "code": "HISTORICAL_SOURCE_OVERUSED",
+          "entity": "fund",
+          "entityId": "355",
+          "action": "Reconcile remittance/refund source consumption less actual source-attributed recoveries in both USD and original book basis"
+        },
+        {
+          "code": "HISTORICAL_SOURCE_OVERUSED",
+          "entity": "fund",
+          "entityId": "410",
+          "action": "Reconcile remittance/refund source consumption less actual source-attributed recoveries in both USD and original book basis"
+        },
+        {
+          "code": "HISTORICAL_SOURCE_OVERUSED",
+          "entity": "fund",
+          "entityId": "466",
+          "action": "Reconcile remittance/refund source consumption less actual source-attributed recoveries in both USD and original book basis"
+        }
+      ]
+    }
+  ],
+  "disposition": "Actual synthetic refund receipt-source attribution defect confirmed by finance; inspector retained, finance producer being corrected. Preserve this old database and run final acceptance in a new isolated fixture database."
+}

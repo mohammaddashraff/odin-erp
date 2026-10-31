@@ -3,6 +3,8 @@ import { resolve } from 'node:path';
 import { normalizeDatabaseUrl } from './database-url';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '@prisma/client';
+import { PrismaService } from './prisma.service';
+import * as isolation from './av8-isolation';
 
 config({ path: resolve(process.cwd(), '../../.env'), quiet: true });
 
@@ -20,6 +22,18 @@ describe('PostgreSQL accounting controls', () => {
   });
 
   afterAll(async () => { await admin.$disconnect(); await app.$disconnect(); });
+
+  it('validates actual PostgreSQL startup transport, marker and effective runtime RLS without mistaking inet masks for addresses', async () => {
+    const originalEnv=process.env;
+    const adminUrl=new URL(originalEnv.DATABASE_ADMIN_URL!);
+    const marker=await admin.$queryRaw<Array<{resource:string}>>`SELECT resource FROM av8_guard.av8_environment_identity`;
+    const identity=jest.spyOn(isolation,'av8HetznerIdentity').mockReturnValue({host:adminUrl.hostname,database:adminUrl.pathname.slice(1),adminRole:adminUrl.username,resource:marker[0].resource,deploymentId:'isolated-database-regression',transport:'PRIVATE_CONTAINER_NETWORK'});
+    const service=Object.create(PrismaService.prototype) as PrismaService;
+    Object.defineProperties(service,{admin:{value:admin},app:{value:app}});
+    process.env={...originalEnv,AV8_HOSTING:'hetzner',AV8_ENV:'staging'};
+    try { await expect(service.onModuleInit()).resolves.toBeUndefined(); }
+    finally {process.env=originalEnv;identity.mockRestore();}
+  });
 
   it('returns no tenant rows to the runtime role without a tenant scope', async () => {
     expect(await app.tenant.count()).toBe(0);
@@ -100,7 +114,7 @@ describe('PostgreSQL accounting controls', () => {
       FROM journal_lines jl JOIN journal_entries je ON je.id=jl.journal_entry_id
       JOIN accounts a ON a.id=jl.account_id WHERE je.status='POSTED' AND a.code='1200'`;
     const stock = await admin.stockBalance.aggregate({ _sum: { valueMinor: true } });
-    expect(ledger.value).toBe(stock._sum.valueMinor);
+    expect(ledger.value).toBe(stock._sum.valueMinor ?? 0n);
   });
 
   it('reconciles AR and AP control accounts after allocations and returns', async () => {

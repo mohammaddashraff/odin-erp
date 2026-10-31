@@ -2,7 +2,7 @@
 import { useRef, useState } from "react";
 import { useERP } from "../core/erp-context";
 import { Button, ErrorNotice, Table, type FieldSpec } from "../components/ui";
-import { Form } from "./av8-ui";
+import { Form, useAv8Actions } from "./av8-ui";
 import { canonicalLeadInput } from "../core/av8-report-schema";
 
 type PreviewRow = {
@@ -37,6 +37,7 @@ export default function LeadImport({
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const inFlight = useRef(false);
+  const commit = useAv8Actions(reload);
   const valid = Boolean(
     preview &&
       preview.rows.length > 0 &&
@@ -71,16 +72,12 @@ export default function LeadImport({
           throw new Error(
             "Resolve row errors and review duplicates before importing",
           );
-        const result = (await request("/av8/leads/import/commit", {
-          method: "POST",
-          headers: { "Idempotency-Key": crypto.randomUUID() },
-          body: JSON.stringify({
+        const result = (await commit("/leads/import/commit", {
             ...value,
             rows: preview!.rows.map((row) => ({
               ...canonicalLeadInput(row.data),
               duplicateReviewed: !!row.reviewed,
             })),
-          }),
         })) as { count: number };
         notify(`${tr("Imported leads")}: ${result.count}`);
         reload();

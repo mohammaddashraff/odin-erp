@@ -12,11 +12,11 @@ import {
   SearchField,
   Status,
   Fields,
-  Confirm,
   Details,
   useUnsaved,
 } from "../components/ui";
 import { FormPage } from "./finance";
+import { Form } from "./av8-ui";
 export default function Pos() {
   const {
     tr,
@@ -44,7 +44,14 @@ export default function Pos() {
   const [busy, setBusy] = useState("");
   const [mode, setMode] = useState("");
   const [action, setAction] = useState<any>(null);
-  const shift = data?.shifts.find((s: any) => s.status === "OPEN");
+  const [selectedShiftId,setSelectedShiftId]=useState('');
+  const checkoutIdentity = useRef({fingerprint:"",key:""});
+  const checkoutInFlight = useRef(false);
+  const openShifts=(data?.shifts||[]).filter((candidate:any)=>candidate.status==='OPEN');
+  const shift=openShifts.find((candidate:any)=>String(candidate.id)===selectedShiftId)||openShifts[0];
+  const originalShiftOpen=action?.sale.shift?.status==='OPEN';
+  const actionShifts=(data?.shifts||[]).filter((candidate:any)=>candidate.status==='OPEN'&&String(candidate.branchId)===String(action?.sale.shift?.branchId)&&String(candidate.warehouseId)===String(action?.sale.shift?.warehouseId));
+  const actionShiftKey=action?.type==='return'?'refundShiftId':'targetShiftId';
   const add = (id: string, delta = 1) =>
     setCart((c) => ({ ...c, [id]: Math.max(0, (c[id] || 0) + delta) }));
   const lines = refs.items
@@ -65,12 +72,11 @@ export default function Pos() {
     });
   const total = lines.reduce((s: bigint, l: any) => s + l.total, 0n);
   async function checkout(hold = false) {
-    if (!shift || busy) return;
+    if (!shift || busy || checkoutInFlight.current) return;
+    checkoutInFlight.current = true;
     setBusy(hold ? "hold" : "checkout");
     try {
-      const sale = await request("/pos/sales", {
-        method: "POST",
-        body: JSON.stringify({
+      const body = JSON.stringify({
           shiftId: shift.id,
           customerId: form.customerId || undefined,
           hold,
@@ -82,8 +88,14 @@ export default function Pos() {
           tenders: ["CASH", "CARD", "BANK"]
             .filter((m) => fixed((form as any)[m]) > 0n)
             .map((method) => ({ method, amount: (form as any)[method] })),
-        }),
+        });
+      if(checkoutIdentity.current.fingerprint!==body)checkoutIdentity.current={fingerprint:body,key:crypto.randomUUID()};
+      const sale = await request("/pos/sales", {
+        method: "POST",
+        headers: {"Idempotency-Key":checkoutIdentity.current.key},
+        body,
       });
+      checkoutIdentity.current={fingerprint:"",key:""};
       setCart({});
       setForm((f) => ({ ...f, CASH: "0.00", CARD: "0.00", BANK: "0.00" }));
       state.reload();
@@ -93,6 +105,7 @@ export default function Pos() {
     } catch (e: any) {
       notify(e.message, true);
     } finally {
+      checkoutInFlight.current=false;
       setBusy("");
     }
   }
@@ -138,10 +151,11 @@ export default function Pos() {
         ]}
         submitLabel="Open register shift"
         submit={async (d) => {
-          await request("/pos/shifts", {
+          const opened=await request("/pos/shifts", {
             method: "POST",
             body: JSON.stringify(d),
           });
+          setSelectedShiftId(String(opened.id));
           saved();
         }}
       />
@@ -181,18 +195,15 @@ export default function Pos() {
         {shift ? (
           <>
             <Status value="OPEN" />
-            <span>
-              <bdi>{shift.registerCode}</bdi>
-            </span>
-            <Button danger onClick={() => showShiftForm("close")}>
+            <select aria-label={tr('Active register shift')} value={shift.id} onChange={event=>{const id=event.target.value;guard(()=>{setCart({});setSelectedShiftId(id);});}}>{openShifts.map((candidate:any)=><option key={candidate.id} value={candidate.id}>{candidate.registerCode} · {name(refs.branches.find((branch:any)=>String(branch.id)===String(candidate.branchId)))}</option>)}</select>
+            {allowed('pos.shift.edit')?<Button danger onClick={() => showShiftForm("close")}>
               {tr("Close shift")}
-            </Button>
+            </Button>:null}
           </>
-        ) : (
-          <Button primary onClick={() => showShiftForm("open")}>
-            {tr("Open register shift")}
-          </Button>
-        )}
+        ) : null}
+        {allowed('pos.shift.create')?<Button primary={!shift} onClick={() => showShiftForm("open")}>
+          {tr("Open register shift")}
+        </Button>:null}
       </PageHeader>
       <Resource state={state}>
         {data ? (
@@ -345,7 +356,7 @@ export default function Pos() {
                   />
                   <div className="form-actions">
                     <Button
-                      disabled={!shift || !lines.length || !!busy}
+                      disabled={!allowed('pos.sale.create') || !shift || !lines.length || !!busy}
                       busy={busy === "hold"}
                       onClick={() => checkout(true)}
                     >
@@ -354,7 +365,7 @@ export default function Pos() {
                     <Button
                       primary
                       data-testid="pos-checkout"
-                      disabled={!shift || !lines.length || !!busy}
+                      disabled={!allowed('pos.sale.create') || !shift || !lines.length || !!busy}
                       busy={busy === "checkout"}
                       onClick={() => checkout()}
                     >
@@ -417,17 +428,10 @@ export default function Pos() {
                           >
                             {tr("Receipt")}
                           </Button>
-                        ) : (
-                          <Button
-                            className="small"
-                            onClick={() =>
-                              setAction({ sale: s, type: "resume" })
-                            }
-                          >
-                            {tr("Resume")}
-                          </Button>
-                        )}
-                        {s.status === "COMPLETED" ? (
+                        ) : allowed('pos.sale.create') ? (
+                          <Button className="small" onClick={() => setAction({sale:s,type:'resume'})}>{tr('Resume')}</Button>
+                        ) : null}
+                        {s.status === "COMPLETED" && allowed('pos.return.create') ? (
                           <Button
                             className="small"
                             onClick={() =>
@@ -480,32 +484,7 @@ export default function Pos() {
           </>
         ) : null}
       </Resource>
-      {action ? (
-        <Confirm
-          title={action.type === "return" ? "Return" : "Resume"}
-          reason={action.type === "return"}
-          close={() => setAction(null)}
-          action={async (reason) => {
-            await request(`/pos/sales/${action.sale.id}/${action.type}`, {
-              method: "POST",
-              body: JSON.stringify(
-                action.type === "return"
-                  ? { reason }
-                  : {
-                      tenders: [
-                        {
-                          method: "CASH",
-                          amount: decimal(action.sale.totalMinor),
-                        },
-                      ],
-                    },
-              ),
-            });
-            state.reload();
-            notify("Action completed");
-          }}
-        />
-      ) : null}
+      {action ? <Form title={action.type==='return'?'Return':'Resume'} submitLabel="Confirm" initial={{[actionShiftKey]:originalShiftOpen?'':actionShifts.length===1?actionShifts[0].id:'',CASH:decimal(action.sale.totalMinor),CARD:'0.00',BANK:'0.00'}} fields={[{key:actionShiftKey,label:action.type==='return'?'Open shift for refund':'Open shift to resume sale',required:!originalShiftOpen,options:[{value:'',label:originalShiftOpen?'Original sale shift':'Select an open matching shift'},...actionShifts.map((candidate:any)=>({value:candidate.id,label:candidate.registerCode}))]},...(action.type==='resume'?['CASH','CARD','BANK'].map(key=>({key,label:key,type:'decimal' as const})):[]),{key:'reason',label:'Reason',type:'textarea',required:action.type==='return'||!originalShiftOpen}]} close={()=>setAction(null)} save={async(value)=>{const body=action.type==='return'?{refundShiftId:value.refundShiftId||undefined,reason:value.reason}:{targetShiftId:value.targetShiftId||undefined,reason:value.reason,tenders:['CASH','CARD','BANK'].filter(method=>fixed(value[method])>0n).map(method=>({method,amount:value[method]}))};await request(`/pos/sales/${action.sale.id}/${action.type}`,{method:'POST',body:JSON.stringify(body)});state.reload();notify('Action completed');}}><p>{tr(action.type==='return'?'The refund preserves the original tender methods. A closed original shift requires an open shift in the same branch and warehouse.':'Review the tender amounts and chosen register. A closed original shift requires an explicit open shift in the same branch and warehouse.')}</p><p>{tr('Total including VAT')}: {money(action.sale.totalMinor)}</p></Form>:null}
     </>
   );
 }

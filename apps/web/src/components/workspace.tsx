@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import {useRouter} from "next/navigation";
 import {
   ArrowRight,
   Box,
@@ -117,7 +118,13 @@ export default function Workspace({ route }: { route: string }) {
     endSession,
     notices,
   } = useERP();
+  const router = useRouter();
   const current = routeEntry(route);
+  useEffect(() => {
+    if (route !== "/login" || status !== "authenticated" || !user || user.passwordChangeRequired) return;
+    const destination = allowed(routeEntry("/dashboard").child.permission) ? "/dashboard" : allRoutes.find(({child}) => allowed(child.permission))?.child.route || "/my-profile";
+    router.replace(destination);
+  }, [route, status, user, allowed, router]);
   const [expanded, setExpanded] = useState<string>(current.module.id);
   const [collapsed, setCollapsed] = useState(false);
   const [mobile, setMobile] = useState(false);
@@ -206,6 +213,8 @@ export default function Workspace({ route }: { route: string }) {
       </div>
     );
   }
+
+  if (route === "/login") return <Loading label="Restoring your session…" />;
 
   const moduleChildren = (module: ModuleDefinition) => {
     const children = allRoutes
@@ -460,7 +469,7 @@ export default function Workspace({ route }: { route: string }) {
               onClick={() => setSearchOpen(true)}
             >
               <Search size={17} />
-              <span>{tr("Search anything…")}</span>
+              <span>{tr("Search pages")}</span>
             </Button>
             <ThemeToggle compact />
             <Button

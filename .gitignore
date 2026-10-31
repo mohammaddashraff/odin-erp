@@ -25,8 +25,12 @@ deliverables/
 
 # AV8 private runtime
 .av8/
+/deploy/hetzner/private/
 .next-av8/
 .vercel
 .env*
 !.env.example
 !.env.av8.example
+
+# Runtime acceptance artifacts are packaged separately; commit sanitized evidence summaries only.
+output/

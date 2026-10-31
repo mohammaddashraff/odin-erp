@@ -360,6 +360,37 @@ describe('Accounting reference scenario PostgreSQL reconciliation', () => {
       { control: 'Accounts payable', ledgerMinor: 60_000n, subledgerMinor: 60_000n, differenceMinor: 0n },
       { control: 'Inventory', ledgerMinor: 60_000n, subledgerMinor: 60_000n, differenceMinor: 0n },
     ]);
+
+    // Exercise inherited POS against the same real stocked inventory and approved ledger.
+    const now=new Date(),monthStart=new Date(Date.UTC(now.getUTCFullYear(),now.getUTCMonth(),1)),monthEnd=new Date(Date.UTC(now.getUTCFullYear(),now.getUTCMonth()+1,0));
+    if(now.getUTCMonth()!==8||now.getUTCFullYear()!==2026)await admin.fiscalPeriod.create({data:{tenantId:tenant.id,year:now.getUTCFullYear(),month:now.getUTCMonth()+1,name:'Synthetic current POS period',startDate:monthStart,endDate:monthEnd,status:'OPEN'}});
+    for(const [code,type]of [['1000','ASSET'],['1020','ASSET'],['5200','EXPENSE']]as const)await admin.account.create({data:{tenantId:tenant.id,code,name:`Synthetic POS ${code}`,type}});
+    const shift:any=await erp.openShift(maker,{branchId:String(branch.id),warehouseId:String(warehouse.id),registerCode:'QA-POS',openingCash:'100'});
+    const input={shiftId:String(shift.id),hold:true,lines:[{itemId:String(item.id),quantity:'1',unitPrice:'150'}]},identity=`pos-${tenant.id}`;
+    const cashier:Actor={...maker,permissions:['pos.*','inventory.items.view'],legacyPermissions:[],companyAdminIds:[],dataScopes:[{resource:'pos_terminal',scope:'OWN',config:null},{resource:'item',scope:'ALL',config:null}] as any};
+    await expect(erp.createPosSale(cashier,{...input,lines:[{itemId:String(item.id),quantity:'1',unitPrice:'1'}]},`price-${tenant.id}`)).rejects.toThrow('override the selling price');
+    await expect(erp.createPosSale({...cashier,userId:checker.userId},input,`scope-${tenant.id}`)).rejects.toThrow('outside your access scope');
+    await expect(erp.posSaleDetail({...cashier,userId:checker.userId},-1n)).rejects.toThrow();
+    const hidden:any=await erp.posState({...cashier,userId:checker.userId});expect(hidden.shifts).toEqual([]);
+    const held:any=await erp.createPosSale(maker,input,identity);expect(await erp.createPosSale(maker,input,identity)).toEqual(held);
+    expect(await admin.stockBalance.findUniqueOrThrow({where:{tenantId_warehouseId_itemId:{tenantId:tenant.id,warehouseId:warehouse.id,itemId:item.id}}})).toMatchObject({quantityMilli:6000n});
+    const completed:any=await erp.resumePosSale(maker,BigInt(held.id),{tenders:[{method:'CASH',amount:'100'},{method:'CARD',amount:'50'}]});expect(completed.status).toBe('COMPLETED');
+    expect(await admin.posShift.findUniqueOrThrow({where:{id:BigInt(shift.id)}})).toMatchObject({expectedCashMinor:20000n});
+    await erp.closeShift(maker,BigInt(shift.id),{actualCash:'200'});
+    await expect(erp.returnPosSale(maker,BigInt(held.id),{reason:'Synthetic return'})).rejects.toThrow('open refund shift');
+    const refundShift:any=await erp.openShift(maker,{branchId:String(branch.id),warehouseId:String(warehouse.id),registerCode:'QA-REFUNDS',openingCash:'100'});
+    const outcomes=await Promise.allSettled([erp.returnPosSale(maker,BigInt(held.id),{refundShiftId:String(refundShift.id),reason:'Synthetic return'}),erp.returnPosSale(maker,BigInt(held.id),{refundShiftId:String(refundShift.id),reason:'Synthetic concurrent repeat'})]);
+    expect(outcomes.filter(r=>r.status==='fulfilled')).toHaveLength(1);
+    const refund=await admin.journalEntry.findFirstOrThrow({where:{tenantId:tenant.id,sourceType:'POS_RETURN',sourceId:BigInt(held.id)},include:{lines:{include:{account:true}}}});
+    expect(refund.lines.find(l=>l.account.code==='1000')?.creditMinor).toBe(10000n);expect(refund.lines.find(l=>l.account.code==='1020')?.creditMinor).toBe(5000n);
+    expect(await admin.posShift.findUniqueOrThrow({where:{id:BigInt(shift.id)}})).toMatchObject({status:'CLOSED',expectedCashMinor:20000n,actualCashMinor:20000n});
+    expect(await admin.posShift.findUniqueOrThrow({where:{id:BigInt(refundShift.id)}})).toMatchObject({expectedCashMinor:0n});
+    expect(await admin.stockBalance.findUniqueOrThrow({where:{tenantId_warehouseId_itemId:{tenantId:tenant.id,warehouseId:warehouse.id,itemId:item.id}}})).toMatchObject({quantityMilli:6000n,valueMinor:60000n});
+    const later:any=await erp.createPosSale(maker,{...input,shiftId:String(refundShift.id)},`held-${tenant.id}`);await erp.closeShift(maker,BigInt(refundShift.id),{actualCash:'0'});
+    await expect(erp.resumePosSale(maker,BigInt(later.id),{tenders:[{method:'CASH',amount:'150'}]})).rejects.toThrow('shift is closed');
+    const nextShift:any=await erp.openShift(maker,{branchId:String(branch.id),warehouseId:String(warehouse.id),registerCode:'QA-NEXT',openingCash:'0'});
+    const moved:any=await erp.resumePosSale(maker,BigInt(later.id),{targetShiftId:String(nextShift.id),tenders:[{method:'CASH',amount:'150'}]});expect(moved.status).toBe('COMPLETED');
+    expect((await admin.posSale.findUniqueOrThrow({where:{id:BigInt(later.id)}})).shiftId).toBe(BigInt(nextShift.id));
     expect(governance.enforceAuthorityLimit).toHaveBeenCalled();
   }, 30_000);
 });

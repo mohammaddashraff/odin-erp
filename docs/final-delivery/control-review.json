@@ -1,0 +1,357 @@
+{
+  "scope": "Semantic source review of current control declarations and their shared workflow handlers. Runtime actions are separately evidenced; no universal click pass.",
+  "reviewedAt": "2026-10-31",
+  "groups": [
+    {
+      "id": "access.tsx",
+      "title": "Access groups",
+      "review": "Creation, duplication, archival, explicit permissions, record scopes, field visibility and currency limits. Existing unsupported scopes are visibly read-only; save sends changed fields; archive blocks assigned users.",
+      "testCandidates": [
+        "apps/api/src/administration.database.spec.ts",
+        "apps/api/src/company-governance.database.spec.ts",
+        "apps/api/src/erp-authorization.database.spec.ts"
+      ],
+      "runtimeLimitation": "Individual control branches not listed in browser-action evidence remain NOT RUN at browser-action level."
+    },
+    {
+      "id": "administration.tsx",
+      "title": "Identity and access administration",
+      "review": "User creation/profile, account availability, password recovery, MFA reset, effective-access preview, role/branch/deny overrides and review records. Versioned updates and backend authorization remain authoritative; preview is explicitly unsaved.",
+      "testCandidates": [
+        "apps/api/src/administration.database.spec.ts",
+        "apps/api/src/company-governance.database.spec.ts"
+      ],
+      "runtimeLimitation": "Individual control branches not listed in browser-action evidence remain NOT RUN at browser-action level."
+    },
+    {
+      "id": "authority-limits.tsx",
+      "title": "Financial authority",
+      "review": "Explicit company/branch/currency limits, decimal precision, unsaved state guard and server save. No inferred currency conversion.",
+      "testCandidates": [
+        "apps/api/src/company-governance.database.spec.ts"
+      ],
+      "runtimeLimitation": "Individual control branches not listed in browser-action evidence remain NOT RUN at browser-action level."
+    },
+    {
+      "id": "accounting-journals.tsx",
+      "title": "Journal lifecycle",
+      "review": "Filter/apply/reset/paginate/detail links, balanced drafts, line editing, maker/checker submit/approve/reject/post and immutable reversal. Posting accounts and open-period prerequisites are explicit.",
+      "testCandidates": [
+        "apps/api/src/accounting-reference.database.spec.ts",
+        "apps/api/src/accounting-workspace.database.spec.ts"
+      ],
+      "runtimeLimitation": "Individual control branches not listed in browser-action evidence remain NOT RUN at browser-action level."
+    },
+    {
+      "id": "accounting-overview.tsx",
+      "title": "Accounting navigation",
+      "review": "Permission-filtered work queues and links to journals, chart, periods, ledger and reports. These controls navigate rather than mutate.",
+      "testCandidates": [
+        "apps/api/src/accounting-reference.database.spec.ts"
+      ],
+      "runtimeLimitation": "Individual control branches not listed in browser-action evidence remain NOT RUN at browser-action level."
+    },
+    {
+      "id": "accounting-periods.tsx",
+      "title": "Fiscal periods",
+      "review": "Year filtering, open-period creation, duplicate/date validation and authorized close/lock/reopen confirmation.",
+      "testCandidates": [
+        "apps/api/src/accounting-reference.database.spec.ts"
+      ],
+      "runtimeLimitation": "Individual control branches not listed in browser-action evidence remain NOT RUN at browser-action level."
+    },
+    {
+      "id": "accounting-reports.tsx",
+      "title": "Accounting reports",
+      "review": "Applied URL filters, scoped accounts/company/branch/cost center/date, report navigation, ledger drilldowns, pagination and permission-gated CSV/PDF/browser print. Report generation and browser print have different evidence.",
+      "testCandidates": [
+        "apps/api/src/accounting-reference.database.spec.ts",
+        "apps/api/src/accounting-workspace.database.spec.ts"
+      ],
+      "runtimeLimitation": "Individual control branches not listed in browser-action evidence remain NOT RUN at browser-action level."
+    },
+    {
+      "id": "chart-of-accounts.tsx",
+      "title": "Chart of accounts",
+      "review": "Tree expansion/search/type/status/company filtering; detail/ledger links; account/child creation and edits with server-issued codes and posting/header constraints.",
+      "testCandidates": [
+        "apps/api/src/accounting-reference.database.spec.ts"
+      ],
+      "runtimeLimitation": "Individual control branches not listed in browser-action evidence remain NOT RUN at browser-action level."
+    },
+    {
+      "id": "document-editor.tsx",
+      "title": "Document editor",
+      "review": "Type-specific context/party/warehouse/commercial fields, line item quantity/price/discount/direction, notes, draft persistence and eligible submit. Shared fields differ by document type and permission.",
+      "testCandidates": [
+        "apps/api/src/sales-workflow.database.spec.ts",
+        "apps/api/src/database-controls.spec.ts"
+      ],
+      "runtimeLimitation": "Individual control branches not listed in browser-action evidence remain NOT RUN at browser-action level."
+    },
+    {
+      "id": "documents.tsx",
+      "title": "Commercial document lifecycle",
+      "review": "List/detail/filter/paginate, edit/PDF, maker/checker submit/approve/reject/request changes/comment/post, bounded source conversion and private attachment upload/download-ticket. Controls are conditional on type, status and permissions.",
+      "testCandidates": [
+        "apps/api/src/sales-workflow.database.spec.ts",
+        "apps/api/src/database-controls.spec.ts",
+        "apps/api/src/private-attachments.spec.ts"
+      ],
+      "runtimeLimitation": "Individual control branches not listed in browser-action evidence remain NOT RUN at browser-action level."
+    },
+    {
+      "id": "employee-profile.tsx",
+      "title": "Employee profile",
+      "review": "Authorized details and leave/attendance/salary tabs, year selector, create actions and approve/reject/cancel leave with parent handler. Salary visibility respects field access.",
+      "testCandidates": [
+        "apps/api/src/hr-workspace.database.spec.ts"
+      ],
+      "runtimeLimitation": "Individual control branches not listed in browser-action evidence remain NOT RUN at browser-action level."
+    },
+    {
+      "id": "hr.tsx",
+      "title": "HR workflow",
+      "review": "Employee/department editing, attendance records, leave and salary preparation, independent review, cancellation, status/search/page filters and profile deep links. Shared forms preserve business-specific field requirements.",
+      "testCandidates": [
+        "apps/api/src/hr-workspace.database.spec.ts"
+      ],
+      "runtimeLimitation": "Individual control branches not listed in browser-action evidence remain NOT RUN at browser-action level."
+    },
+    {
+      "id": "masters.tsx",
+      "title": "Reference and resource administration",
+      "review": "Authorized customer/item/supplier/bank and other master creation, customer detail/edit/quotation link; resource active/inactive filters and edit with change reason; no balance overwrite.",
+      "testCandidates": [
+        "apps/api/src/sales-workflow.database.spec.ts",
+        "apps/api/src/treasury-delivery.database.spec.ts"
+      ],
+      "runtimeLimitation": "Individual control branches not listed in browser-action evidence remain NOT RUN at browser-action level."
+    },
+    {
+      "id": "finance.tsx",
+      "title": "Payments and treasury",
+      "review": "Document payment allocation and independent approval/rejection; actual resource movements; paired transfers with explicit source book rate/destination actual rate and evidence; statement preview/import and matching with no cash generation from statement import.",
+      "testCandidates": [
+        "apps/api/src/payment-approval.database.spec.ts",
+        "apps/api/src/treasury-delivery.database.spec.ts"
+      ],
+      "runtimeLimitation": "Individual control branches not listed in browser-action evidence remain NOT RUN at browser-action level."
+    },
+    {
+      "id": "overview.tsx",
+      "title": "Module overview navigation",
+      "review": "Permission-aware document/queue/module links and authorized diagnostic readout. No posting is implied by dashboard totals.",
+      "testCandidates": [
+        "apps/api/src/erp-authorization.database.spec.ts"
+      ],
+      "runtimeLimitation": "Individual control branches not listed in browser-action evidence remain NOT RUN at browser-action level."
+    },
+    {
+      "id": "pos.tsx",
+      "title": "Point of sale",
+      "review": "Explicit active register, scoped stock/cart, tender selection, stable retry identity, hold/resume with explicit open-register migration, exact original tender return and PDF. Closed shift counts remain historical.",
+      "testCandidates": [
+        "apps/api/src/accounting-reference.database.spec.ts"
+      ],
+      "runtimeLimitation": "Individual control branches not listed in browser-action evidence remain NOT RUN at browser-action level."
+    },
+    {
+      "id": "reports.tsx",
+      "title": "Reports and evidence",
+      "review": "Report selection, real CSV/PDF endpoints, browser print and evidence drilldown. Demo reset is conditional and unavailable in hosted delivery; its lexical controls are not production features.",
+      "testCandidates": [
+        "apps/api/src/database-controls.spec.ts",
+        "apps/api/src/erp-authorization.database.spec.ts"
+      ],
+      "runtimeLimitation": "Individual control branches not listed in browser-action evidence remain NOT RUN at browser-action level."
+    },
+    {
+      "id": "av8.tsx",
+      "title": "AV8 queues, leads and reports",
+      "review": "Queue/list search/filter/sort/page, lead activity/assignment/appointment/conversion and all report kinds with consistent applied filters/current-page export. Workflows remain permission scoped.",
+      "testCandidates": [
+        "apps/api/src/av8-workflow.database.spec.ts",
+        "apps/api/src/av8-confirmed-finance.spec.ts",
+        "apps/api/src/av8-operations.database.spec.ts"
+      ],
+      "runtimeLimitation": "Individual control branches not listed in browser-action evidence remain NOT RUN at browser-action level."
+    },
+    {
+      "id": "av8-ui.tsx",
+      "title": "Shared AV8 form and evidence",
+      "review": "Dynamic fields, actual error feedback, unsaved close guard, idempotent actions and scoped evidence record/upload/download. Reused templates do not establish every dynamic branch was clicked.",
+      "testCandidates": [
+        "apps/api/src/av8-workflow.database.spec.ts",
+        "apps/api/src/private-attachments.spec.ts"
+      ],
+      "runtimeLimitation": "Individual control branches not listed in browser-action evidence remain NOT RUN at browser-action level."
+    },
+    {
+      "id": "av8-student.tsx",
+      "title": "Student file",
+      "review": "18 tabs covering admission, medical, signed contract, documents, English, visa, travel, monthly progress, training, delivery, finance, guardian, services, tasks and history. Configured choices, actual evidence, immutable financial actions and displayed available funds are tied to APIs.",
+      "testCandidates": [
+        "apps/api/src/av8-workflow.database.spec.ts",
+        "apps/api/src/av8-confirmed-finance.spec.ts",
+        "apps/api/src/av8-operations.database.spec.ts"
+      ],
+      "runtimeLimitation": "Individual control branches not listed in browser-action evidence remain NOT RUN at browser-action level."
+    },
+    {
+      "id": "av8-operations.tsx",
+      "title": "Student operations",
+      "review": "Eligibility/admission evidence, monthly service versions/charges/AV8 or provider payments/reversals, actual paid expenses, training/suspension/resumption/graduation, reviewed report versions and independent recipient dispatch/retry/reconciliation. External delivery remains provider dependent.",
+      "testCandidates": [
+        "apps/api/src/av8-operations.database.spec.ts",
+        "apps/api/src/av8-academic-email.spec.ts"
+      ],
+      "runtimeLimitation": "Individual control branches not listed in browser-action evidence remain NOT RUN at browser-action level."
+    },
+    {
+      "id": "av8-financial-cases.tsx",
+      "title": "Refund and cheque cases",
+      "review": "Calculated termination/refund/imported-case review, independent approval, recovery/escalation/payout and cheque lifecycle including independent cleared return. Financial policies and actual evidence required; buttons do not directly imply settled cash.",
+      "testCandidates": [
+        "apps/api/src/av8-confirmed-finance.spec.ts"
+      ],
+      "runtimeLimitation": "Individual control branches not listed in browser-action evidence remain NOT RUN at browser-action level."
+    },
+    {
+      "id": "av8-bank-fees.tsx",
+      "title": "Actual bank fees",
+      "review": "Actual fee balances and exact reimbursement instruction/approve/reject/confirm plus official receipt/certification. Fee cash and student principal remain separate.",
+      "testCandidates": [
+        "apps/api/src/av8-confirmed-finance.spec.ts"
+      ],
+      "runtimeLimitation": "Individual control branches not listed in browser-action evidence remain NOT RUN at browser-action level."
+    },
+    {
+      "id": "av8-funds.tsx",
+      "title": "Academy transfer queue",
+      "review": "Explicit single/batch remittance instructions, reviewed student fee attribution, approved accounting policy for FX, independent approve/reject/confirm and student drilldown.",
+      "testCandidates": [
+        "apps/api/src/av8-confirmed-finance.spec.ts"
+      ],
+      "runtimeLimitation": "Individual control branches not listed in browser-action evidence remain NOT RUN at browser-action level."
+    },
+    {
+      "id": "av8-policies.tsx",
+      "title": "Business policy configuration",
+      "review": "Draft/version/approval lifecycle; fixed confirmed amounts with explicit unresolved policy choices and approved account mappings. No draft policy silently authorizes money.",
+      "testCandidates": [
+        "apps/api/src/av8-confirmed-finance.spec.ts"
+      ],
+      "runtimeLimitation": "Individual control branches not listed in browser-action evidence remain NOT RUN at browser-action level."
+    },
+    {
+      "id": "av8-lead-import.tsx",
+      "title": "Lead import",
+      "review": "File parsing, mappings, dry-run row review and replay-stable commit. Errors remain visible and imports use scoped server validation.",
+      "testCandidates": [
+        "apps/api/src/av8-workflow.database.spec.ts"
+      ],
+      "runtimeLimitation": "Individual control branches not listed in browser-action evidence remain NOT RUN at browser-action level."
+    },
+    {
+      "id": "av8-opening.tsx",
+      "title": "Opening data and supplier settlement",
+      "review": "Manifest upload/preview/reconciled commit with immutable source identity and existing opening journal. Supplier links existing posted movement or approved manual journal; no new cash or journal.",
+      "testCandidates": [
+        "apps/api/src/av8-opening.database.spec.ts",
+        "apps/api/src/av8-supplier-opening.database.spec.ts"
+      ],
+      "runtimeLimitation": "Individual control branches not listed in browser-action evidence remain NOT RUN at browser-action level."
+    },
+    {
+      "id": "accounting-navigation.tsx",
+      "title": "Accounting route links",
+      "review": "Permission-filtered registered accounting destinations and active route state.",
+      "testCandidates": [
+        "apps/api/src/erp-authorization.database.spec.ts"
+      ],
+      "runtimeLimitation": "Individual control branches not listed in browser-action evidence remain NOT RUN at browser-action level."
+    },
+    {
+      "id": "glass-dashboard.tsx",
+      "title": "Daily work queues",
+      "review": "Actual queue metric selectors, student drilldowns and quick action destinations. Buttons select queue state or navigate; no decorative success.",
+      "testCandidates": [
+        "apps/api/src/av8-workflow.database.spec.ts"
+      ],
+      "runtimeLimitation": "Individual control branches not listed in browser-action evidence remain NOT RUN at browser-action level."
+    },
+    {
+      "id": "login.tsx",
+      "title": "Authentication",
+      "review": "Named login/password/MFA input, show-password, remember-session duration, language and appearance. Authentication establishes server-verified in-memory bearer only.",
+      "testCandidates": [
+        "apps/api/src/mfa-security.spec.ts"
+      ],
+      "runtimeLimitation": "Individual control branches not listed in browser-action evidence remain NOT RUN at browser-action level."
+    },
+    {
+      "id": "revenue-chart.tsx",
+      "title": "Revenue display filters",
+      "review": "Currency and year selectors recalculate the displayed bounded data; currency totals are not silently combined.",
+      "testCandidates": [
+        "apps/api/src/database-controls.spec.ts"
+      ],
+      "runtimeLimitation": "Individual control branches not listed in browser-action evidence remain NOT RUN at browser-action level."
+    },
+    {
+      "id": "step-up-dialog.tsx",
+      "title": "Sensitive-action verification",
+      "review": "Native dialog password/MFA verification and cancellation returning credentials only to the scoped action handler. No persistence of step-up secrets.",
+      "testCandidates": [
+        "apps/api/src/mfa-security.spec.ts"
+      ],
+      "runtimeLimitation": "Individual control branches not listed in browser-action evidence remain NOT RUN at browser-action level."
+    },
+    {
+      "id": "theme-toggle.tsx",
+      "title": "Appearance preferences",
+      "review": "Explicit Light/Dark/System with stored nonsecret preference, media-query tracking and accessible selected state.",
+      "testCandidates": [
+        "tests/final-delivery/browser.spec.ts"
+      ],
+      "runtimeLimitation": "Individual control branches not listed in browser-action evidence remain NOT RUN at browser-action level."
+    },
+    {
+      "id": "ui.tsx",
+      "title": "Shared primitives",
+      "review": "Busy/disabled buttons, Back/Retry, sortable table/filter reset, page bounds, named dynamic fields, tabs, native dialog focus trap/Escape and confirmation/error handling. Download icon candidates are decorative, not separate actions.",
+      "testCandidates": [
+        "tests/final-delivery/browser.spec.ts"
+      ],
+      "runtimeLimitation": "Individual control branches not listed in browser-action evidence remain NOT RUN at browser-action level."
+    },
+    {
+      "id": "workspace.tsx",
+      "title": "Approved classic shell",
+      "review": "Scoped sidebar groups/links, desktop collapse/mobile drawer, breadcrumbs, page search, language/theme/profile/logout and skip-to-content. Authentication redirect and in-memory session restoration preserve permission boundaries.",
+      "testCandidates": [
+        "tests/final-delivery/browser.spec.ts"
+      ],
+      "runtimeLimitation": "Individual control branches not listed in browser-action evidence remain NOT RUN at browser-action level."
+    },
+    {
+      "id": "erp-context.tsx",
+      "title": "Scoped reference bootstrap",
+      "review": "Authenticated scoped reference loading with real request transport and lifecycle cancellation.",
+      "testCandidates": [
+        "apps/api/src/erp-authorization.database.spec.ts"
+      ],
+      "runtimeLimitation": "Individual control branches not listed in browser-action evidence remain NOT RUN at browser-action level."
+    },
+    {
+      "id": "index.tsx",
+      "title": "Route dispatch",
+      "review": "Registered route and daily-view dispatch; no dynamic query grants authorization.",
+      "testCandidates": [
+        "tests/final-delivery/browser.spec.ts"
+      ],
+      "runtimeLimitation": "Individual control branches not listed in browser-action evidence remain NOT RUN at browser-action level."
+    }
+  ]
+}

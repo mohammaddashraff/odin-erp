@@ -1,0 +1,2 @@
+staging: generated API and web configuration accepted; secrets omitted
+production: generated API and web configuration accepted; secrets omitted

@@ -1,0 +1,9 @@
+
+> @odin/api@1.0.0 test
+> jest --runInBand --runInBand av8-print.spec.ts
+
+Test Suites: 1 passed, 1 total
+Tests:       3 passed, 3 total
+Snapshots:   0 total
+Time:        0.998 s, estimated 1 s
+Ran all test suites matching av8-print.spec.ts.

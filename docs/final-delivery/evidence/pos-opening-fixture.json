@@ -1,0 +1,23 @@
+{
+  "ok": true,
+  "repeatedWithoutRestock": true,
+  "exactSingleOpeningJournal": true,
+  "stock": [
+    {
+      "item_id": "1",
+      "quantity_milli": "96000",
+      "value_minor": "960000",
+      "opening_movements": 1,
+      "opening_journals": 1
+    }
+  ],
+  "journal": [
+    {
+      "id": "12",
+      "status": "POSTED",
+      "independently_approved": true,
+      "debit_minor": "1000000",
+      "credit_minor": "1000000"
+    }
+  ]
+}

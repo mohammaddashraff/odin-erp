@@ -1,4 +1,5 @@
 "use client";
+import {FormPage} from "./finance";
 import {defaultBranch} from "../core/ui-presentation";
 import { useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
@@ -56,7 +57,7 @@ export default function Masters({
   kind: string;
   title: string;
 }) {
-  const { tr, refs, allowed, name, money, quantity } = useERP();
+  const { tr, refs, allowed, name, money, quantity, request, refreshRefs, notify } = useERP();
   const params = useSearchParams();
   const router = useRouter();
   const [query, setQuery] = useState("");
@@ -77,16 +78,16 @@ export default function Masters({
       ? `/sales/customers?${search}`
       : kind === "employee"
         ? `/hr/employees?${search}`
-        : null,
+        : kind === "bank" ? `/banking/resources?${search}` : null,
   );
   const all =
-    kind === "customer"
+    ["customer","bank"].includes(kind)
       ? remote.data?.rows || []
       : kind === "employee"
         ? remote.data || []
         : refs[collections[kind]] || [];
   const rows =
-    kind === "customer" || kind === "employee"
+    ["customer","employee","bank"].includes(kind)
       ? all
       : all.filter((r: any) =>
           [r.name, r.nameAr, r.code, r.sku, r.barcode, r.city]
@@ -111,6 +112,14 @@ export default function Masters({
         }}
       />
     );
+  if(selected&&kind==='bank'&&allowed('banking.account.edit')){
+    const bank=all.find((row:any)=>String(row.id)===String(selected));
+    if(bank)return <FormPage title="Edit financial resource" defaults={{name:bank.name,bankName:bank.bankName||'',accountNumber:bank.accountNumber||'',active:bank.active,resourceBranchId:bank.resourceBranchId||'',reason:''}} close={clear} specs={[
+      {key:'name',label:'Name',required:true},{key:'bankName',label:'Bank name'},
+      {key:'resourceBranchId',label:'Resource branch',options:[{value:'',label:tr('Shared company resource')},...refs.branches]},
+      {key:'active',label:'Active',type:'checkbox'},{key:'reason',label:'Change reason',required:true},
+    ]} submit={async(d)=>{await request(`/masters/bank-accounts/${bank.id}`,{method:'PATCH',body:JSON.stringify(d)});await refreshRefs();remote.reload();clear();notify('Action completed');}}>{()=> <p className="notice">{tr('Currency')}: {bank.currency} · {tr('Historical movements remain available after deactivation.')}</p>}</FormPage>;
+  }
   if (selected && kind === "customer")
     return <CustomerDetail id={selected} close={clear} />;
   const columns: any[] = [
@@ -157,7 +166,7 @@ export default function Masters({
       ),
     },
   ];
-  if (!["customer", "employee"].includes(kind))
+  if (!["customer", "employee", "bank"].includes(kind))
     columns.push({
       key: "reference",
       label:
@@ -195,6 +204,8 @@ export default function Masters({
         ),
       },
     );
+  if(kind==='bank')columns.push({key:'originalBalanceMinor',label:'Resource balance',numeric:true,render:(row:any)=><><strong>{money(row.originalBalanceMinor,row.currency)}</strong><small>{tr('Book value')}: {money(row.bookBalanceMinor,row.baseCurrency)}</small>{row.cutoverDate?<small>{tr('Opening date')}: {row.cutoverDate}</small>:null}</>});
+  if(kind==='bank'&&allowed('banking.account.edit'))columns.push({key:'actions',label:'Actions',render:(row:any)=><Button onClick={()=>setSelected(String(row.id))}>{tr('Edit')}</Button>});
   if (kind === "employee")
     columns.push(
       { key: "branch", label: "Branch", render: (r: any) => name(r.branch) },
@@ -230,7 +241,7 @@ export default function Masters({
               kind === "customer" ? "Search customers" : "Search master data…"
             }
           />
-          {["customer", "employee"].includes(kind) ? (
+          {["customer", "employee", "bank"].includes(kind) ? (
             <>
               <label className="field">
                 {tr("Status")}
@@ -275,7 +286,7 @@ export default function Masters({
         </div>
         <Resource
           state={
-            ["customer", "employee"].includes(kind)
+            ["customer", "employee", "bank"].includes(kind)
               ? remote
               : { loading: false, error: "" }
           }
@@ -286,7 +297,7 @@ export default function Masters({
               kind === "customer" ? "customer-table" : "master-data-table"
             }
             rows={
-              kind === "customer"
+              ["customer","bank"].includes(kind)
                 ? rows
                 : rows.slice((page - 1) * 15, page * 15)
             }
@@ -532,7 +543,7 @@ export function MasterEditor({
   }
   if (kind === "bank") {
     identity.push(
-      fieldSpec("type", "Type", { options: ["CASH", "BANK", "CARD_CLEARING"] }),
+      fieldSpec("type", "Type", { options: ["CASH", "BANK", "WALLET", "CARD_CLEARING"] }),
       fieldSpec("currency", "Currency", { required: true }),
       fieldSpec("bankName", "Bank name"),
     );

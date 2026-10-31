@@ -1,0 +1,256 @@
+{
+  "status": "PASS",
+  "reviewedAt": "2026-10-31T19:07:06.750998+00:00",
+  "scope": "All 12 current synthetic bilingual PDFs, 12 of 12 pages rendered at 130 DPI using Poppler 26.10.0 and individually visually inspected after the mixed Latin/Arabic punctuation correction.",
+  "renderer": "apps/api/src/av8-print.ts",
+  "rendererSha256": "38c1a5764fa34e05df8aec7f31d34891ef1c50609ceb0ceb60dccddae417e59d",
+  "regenerationCommand": "node --import tsx apps/api/src/scripts/render-delivery-pdfs.ts",
+  "checks": [
+    "Complete 8/8/2 contract schedule rows and USD64000.00/64000.00/54000.00 totals.",
+    "Joined, legible Arabic text; RTL column order; LTR exact amounts, dates, references and mixed Latin identifiers.",
+    "Arabic punctuation no longer reverses AV8 or mixed Latin identifiers; failing regression reproduced before the fix, 3/3 PDF tests passed afterward.",
+    "Receipt gross2000.00 less bankfee20.00 equals net/principal1980.00 USD; original/base rates1.000000/50.000000 remain distinct.",
+    "Student charge64000.00=paid31600.00+remaining32400.00; separate unapplied4100.00 and refunded0.00.",
+    "Academy full-payment obligation54000.00, paid0.00, remaining54000.00 due2026-04-30 for synthetic contract2026-01-31.",
+    "All pages have readable references/page numbers; no clipping, overlapping cells, missing glyph boxes, detached blank signature pages or fabricated signature/stamp.",
+    "Embedded font inspection and source-row/text arithmetic checks passed for every document."
+  ],
+  "documents": [
+    {
+      "file": "bank-fee-receipt-ar.pdf",
+      "artifact": "pdf-reviewed/bank-fee-receipt-ar.pdf",
+      "language": "ar",
+      "pages": 1,
+      "reviewedPages": [
+        1
+      ],
+      "sha256": "cf25ed75723a02f8e46611f4120a8f588ed2cdc644ee41beb4fa830b1655195b",
+      "previousSha256": "1eb85d8da4f1ef3efbf30b53d198f46e400129013e510be6feb052511f730e3b",
+      "bytes": 17784,
+      "source": "pdf-reviewed/bank-fee-receipt.source.json",
+      "sourceSha256": "8851c92b4a896b2182c7ace12a753834e883b610368d02ff08f312efbe1a2da0",
+      "sourceRows": 18,
+      "renderedPageSha256": [
+        "f60c8bbc54d8214cd4a05f7327a1d3458aeeed5b898724ed9707f84b1df66775"
+      ],
+      "visualStatus": "PASS"
+    },
+    {
+      "file": "bank-fee-receipt-en.pdf",
+      "artifact": "pdf-reviewed/bank-fee-receipt-en.pdf",
+      "language": "en",
+      "pages": 1,
+      "reviewedPages": [
+        1
+      ],
+      "sha256": "d8a32157500f66ea468334e6ea65f5ef155819ac1798d9717c2db37216c3615e",
+      "previousSha256": "a151573562a03e019a4da112fffbe9ce54ee8655210ec7e58be3e27af024b0c4",
+      "bytes": 8815,
+      "source": "pdf-reviewed/bank-fee-receipt.source.json",
+      "sourceSha256": "8851c92b4a896b2182c7ace12a753834e883b610368d02ff08f312efbe1a2da0",
+      "sourceRows": 18,
+      "renderedPageSha256": [
+        "45769e431f0cb03b8737bf18edf706381ef920412483026412389b3e13ccd501"
+      ],
+      "visualStatus": "PASS"
+    },
+    {
+      "file": "cash-academy-statement-ar.pdf",
+      "artifact": "pdf-reviewed/cash-academy-statement-ar.pdf",
+      "language": "ar",
+      "pages": 1,
+      "reviewedPages": [
+        1
+      ],
+      "sha256": "3cb4c500e305a2e46706b404700d2fed84a122be87d1b1d50915a602db206992",
+      "previousSha256": "9f9b1837d17323da415cdab282307e0a424fcedc60a32b4d9cda077527d1657c",
+      "bytes": 12168,
+      "source": "pdf-reviewed/cash-academy-statement.source.json",
+      "sourceSha256": "e92291e3b2fff6d4e02538a49019b15e43b519eb2d197f8233ad6f5573756f28",
+      "sourceRows": 1,
+      "renderedPageSha256": [
+        "bfd9999fec287288c76be2fbb3623103f212e0978ecb7b454263222a059a17af"
+      ],
+      "visualStatus": "PASS"
+    },
+    {
+      "file": "cash-academy-statement-en.pdf",
+      "artifact": "pdf-reviewed/cash-academy-statement-en.pdf",
+      "language": "en",
+      "pages": 1,
+      "reviewedPages": [
+        1
+      ],
+      "sha256": "337b0cba1d8be8cbe04674c990a37177e2e6f91fb175e065d68d9249eb809713",
+      "previousSha256": "1c437908a8bb5a03f3526f996b7ae7293308e85ddffb4925a34c540d5e2c25d9",
+      "bytes": 6913,
+      "source": "pdf-reviewed/cash-academy-statement.source.json",
+      "sourceSha256": "e92291e3b2fff6d4e02538a49019b15e43b519eb2d197f8233ad6f5573756f28",
+      "sourceRows": 1,
+      "renderedPageSha256": [
+        "555f3d0ce6ab23931419275c56d9ba0256aec0fd9a328b5e1af0660ae57bd4d5"
+      ],
+      "visualStatus": "PASS"
+    },
+    {
+      "file": "cash-contract-ar.pdf",
+      "artifact": "pdf-reviewed/cash-contract-ar.pdf",
+      "language": "ar",
+      "pages": 1,
+      "reviewedPages": [
+        1
+      ],
+      "sha256": "8fd9adc3f9f6ece2dc42132e5003ed68b9cc8fa39fd07bebeed9842e2c7ba50d",
+      "previousSha256": "c7dc822db9bbad75b246453b68498dfb69853406ecdd17159cc756e248caa053",
+      "bytes": 15359,
+      "source": "pdf-reviewed/cash-contract.source.json",
+      "sourceSha256": "4310761646c99b623b424a342dc410a713f068dfd462d4156e564790551abec6",
+      "sourceRows": 2,
+      "renderedPageSha256": [
+        "e9ecd127b0cbe79fcd9833aa99915a85b0f5d4b80c352ad8a0f3f2435c14fffe"
+      ],
+      "visualStatus": "PASS"
+    },
+    {
+      "file": "cash-contract-en.pdf",
+      "artifact": "pdf-reviewed/cash-contract-en.pdf",
+      "language": "en",
+      "pages": 1,
+      "reviewedPages": [
+        1
+      ],
+      "sha256": "050d914fe177ad3a9bad1d0b5807ef0ad44c2a4fe1313f0df137ff059b46d810",
+      "previousSha256": "21c3d091e98ae93bc28a2376bd93ce89dd43b4a4b1a72da6dfcfaab854c13733",
+      "bytes": 8116,
+      "source": "pdf-reviewed/cash-contract.source.json",
+      "sourceSha256": "4310761646c99b623b424a342dc410a713f068dfd462d4156e564790551abec6",
+      "sourceRows": 2,
+      "renderedPageSha256": [
+        "77b4d2fe8f939a9e01e02f325d96ad5c9eaee52b0a6e7d53623a00aa31ae38a0"
+      ],
+      "visualStatus": "PASS"
+    },
+    {
+      "file": "partial-student-statement-ar.pdf",
+      "artifact": "pdf-reviewed/partial-student-statement-ar.pdf",
+      "language": "ar",
+      "pages": 1,
+      "reviewedPages": [
+        1
+      ],
+      "sha256": "48b78d54a575ddf5bbaa3924902f3cf6308077286b65ebd0163c3b7f8ccdedd0",
+      "previousSha256": "ce468cc35309bfdee382fbf94a85606f9818c485858bb4c496e0028b232240d5",
+      "bytes": 14790,
+      "source": "pdf-reviewed/partial-student-statement.source.json",
+      "sourceSha256": "63163307e4136b9631a095e80ca95258c812ad6c177b3a1f08d393c5bdabb3f5",
+      "sourceRows": 8,
+      "renderedPageSha256": [
+        "1e607cdc54e5ea0f7b87675404cfd13cb62f03a1f8aa682624ec17ec12c6542a"
+      ],
+      "visualStatus": "PASS"
+    },
+    {
+      "file": "partial-student-statement-en.pdf",
+      "artifact": "pdf-reviewed/partial-student-statement-en.pdf",
+      "language": "en",
+      "pages": 1,
+      "reviewedPages": [
+        1
+      ],
+      "sha256": "b9177f83a31074753f6cfa23c715273b9bd863c653d4677d2d62e8f56d4689b5",
+      "previousSha256": "8be52c2f539b5de2d1fbee352af0f0f7c2f89135d66d2181a3cd469ad8deb152",
+      "bytes": 7913,
+      "source": "pdf-reviewed/partial-student-statement.source.json",
+      "sourceSha256": "63163307e4136b9631a095e80ca95258c812ad6c177b3a1f08d393c5bdabb3f5",
+      "sourceRows": 8,
+      "renderedPageSha256": [
+        "2b91f35fdad8218b42a81c504b96f078cc4ea4433ff4a473ac77ecd57aad9eb9"
+      ],
+      "visualStatus": "PASS"
+    },
+    {
+      "file": "plan-a-contract-ar.pdf",
+      "artifact": "pdf-reviewed/plan-a-contract-ar.pdf",
+      "language": "ar",
+      "pages": 1,
+      "reviewedPages": [
+        1
+      ],
+      "sha256": "e68eb3832cf43e913651b6d147ad660a26fb416be479a504f6f185812004ce14",
+      "previousSha256": "ca79e0f87b1d5a8e3e6538ceeee38e38cac2e730d4670d4f728553a35da9ffa0",
+      "bytes": 16719,
+      "source": "pdf-reviewed/plan-a-contract.source.json",
+      "sourceSha256": "646bc87680ce8f30c2bb7d435c239d3e2357b2128d3c0a1928f6d44208ad02e1",
+      "sourceRows": 8,
+      "renderedPageSha256": [
+        "d840d54c62d857f841cfb829379881188a2450310c432304a0086234a9d711ee"
+      ],
+      "visualStatus": "PASS"
+    },
+    {
+      "file": "plan-a-contract-en.pdf",
+      "artifact": "pdf-reviewed/plan-a-contract-en.pdf",
+      "language": "en",
+      "pages": 1,
+      "reviewedPages": [
+        1
+      ],
+      "sha256": "866e3527a32d636910cc3c54dd654d25885ab45631a522cc9b46867fdbbe155d",
+      "previousSha256": "60d64caffd661ce368ab16db516880bf617134482b5d8ee0457c2d3d77068583",
+      "bytes": 8577,
+      "source": "pdf-reviewed/plan-a-contract.source.json",
+      "sourceSha256": "646bc87680ce8f30c2bb7d435c239d3e2357b2128d3c0a1928f6d44208ad02e1",
+      "sourceRows": 8,
+      "renderedPageSha256": [
+        "79fa885f6bae940f4164de9945569e0e17b78c5b5443ba3d4470a6f7983e1cad"
+      ],
+      "visualStatus": "PASS"
+    },
+    {
+      "file": "plan-b-contract-ar.pdf",
+      "artifact": "pdf-reviewed/plan-b-contract-ar.pdf",
+      "language": "ar",
+      "pages": 1,
+      "reviewedPages": [
+        1
+      ],
+      "sha256": "472518c0904d1421ed916c3ba27743e512f86f0f4f51c4e6ea24c05a50633e98",
+      "previousSha256": "10b278268ed907d0faa9dd9c65de1c39619115764bdbf3d2238dd342e5ab1bcf",
+      "bytes": 16102,
+      "source": "pdf-reviewed/plan-b-contract.source.json",
+      "sourceSha256": "3deec35818046199e8be95a94c95cc95d9c103accf76a6ececd597afd3e948f1",
+      "sourceRows": 8,
+      "renderedPageSha256": [
+        "13bd5d012f72b9aa9f834d3309b67921a39e2bb501032ea0ac7475aecc7b9c35"
+      ],
+      "visualStatus": "PASS"
+    },
+    {
+      "file": "plan-b-contract-en.pdf",
+      "artifact": "pdf-reviewed/plan-b-contract-en.pdf",
+      "language": "en",
+      "pages": 1,
+      "reviewedPages": [
+        1
+      ],
+      "sha256": "d859e1a2cbaad8ac82b676759bb551e4680bc731f1243a9c916cc20cd3ccb295",
+      "previousSha256": "5af83c5f05bd965c25052b7d8f832d74fef1d2e77107d9bbef498b5feb04e747",
+      "bytes": 8427,
+      "source": "pdf-reviewed/plan-b-contract.source.json",
+      "sourceSha256": "3deec35818046199e8be95a94c95cc95d9c103accf76a6ececd597afd3e948f1",
+      "sourceRows": 8,
+      "renderedPageSha256": [
+        "30bc6192cccec4b6f1063f35fec97e95bf2ac2958e737af3802c81263f866286"
+      ],
+      "visualStatus": "PASS"
+    }
+  ],
+  "previousReview": "pdf-visual-review.previous.json",
+  "hashComparison": "All twelve regenerated file hashes differ from the previous manifest; the previous review is retained as superseded evidence. Current artifact hashes are recomputed from the copied PDF bytes. PDF creation metadata means regeneration may change hashes.",
+  "limitations": [
+    "These are saved synthetic fixtures, not current live student documents or legal wording approvals.",
+    "Synthetic historical contract dates deliberately exercise January-end +3-month anchors and can precede the fixture application-fee date; this review does not certify real chronological data.",
+    "All twelve reviewed artifacts are one page each. Multi-page repeated-header/all-row behavior is covered separately by the passing50-row bilingual automated PDF test; no multi-page visual inspection is claimed for this bundle.",
+    "No client signature or company stamp is asserted by blank evidence spaces; actual evidence authorization/certification is a separate workflow."
+  ]
+}
