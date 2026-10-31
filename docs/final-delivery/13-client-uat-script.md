@@ -27,7 +27,7 @@ Before starting, the business owner confirms the remaining decisions in [02-busi
 
 ## Controlled provider rehearsal
 
-The current delivery's automated provider tests are mocks. The administrator must first authorize two controlled test addresses, configure a verified sender and provider key privately, and restrict nonproduction to those exact addresses. Use a synthetic academic report only. Follow the states and retry/reconcile guidance in [08-admin-and-support-runbook.md](08-admin-and-support-runbook.md). Never infer delivered/read from HTTP acceptance. If credentials, hosting scheduler or real alert destination are unavailable, mark the relevant external result BLOCKED with owner/action; continue the remaining cases.
+Automated provider edge-case tests use mocks. Separate actual staging acceptance has already delivered both authorized reports and DOWN/RECOVERED alerts; see the hosted email evidence. Before a new client rehearsal, verify the configured sender, private key and exact authorized test-recipient allowlist. Production sending remains disabled pending its separate private provider key. Use a synthetic academic report only. Follow the states and retry/reconcile guidance in [08-admin-and-support-runbook.md](08-admin-and-support-runbook.md). Never infer delivered/read from HTTP acceptance. If credentials, hosting scheduler or real alert destination are unavailable, mark the relevant external result BLOCKED with owner/action; continue the remaining cases.
 
 ## Sign-off record
 
