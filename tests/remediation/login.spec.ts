@@ -133,3 +133,55 @@ test("login retains the MFA challenge workflow", async ({ page, context }) => {
   await expect(page.getByTestId("mfa-code")).toBeVisible();
   await expect(page.getByTestId("login-submit")).toHaveText(/Verify/);
 });
+
+test("MFA enrollment offers a scannable QR code and manual fallback", async ({
+  page,
+  context,
+}) => {
+  await context.addCookies([
+    { name: "av8_language", value: "en", url: "http://127.0.0.1:8180" },
+  ]);
+  await page.route("**/api/auth/login", (route) =>
+    route.fulfill({
+      json: {
+        mfaEnrollmentRequired: true,
+        challengeToken: "challenge-enrollment-review",
+        secret: "JBSWY3DPEHPK3PXP",
+        otpAuthUri:
+          "otpauth://totp/ODIN%20ERP:review@example.test?secret=JBSWY3DPEHPK3PXP&issuer=ODIN%20ERP&algorithm=SHA1&digits=6&period=30",
+        recoveryCodes: ["RECOVERY-ONE", "RECOVERY-TWO"],
+      },
+    }),
+  );
+  await page.goto("/dashboard");
+  await page.getByTestId("login-email").fill("review@example.test");
+  await page.getByTestId("login-password").fill("review-password");
+  await page.getByTestId("login-submit").click();
+
+  await expect(page.getByTestId("mfa-qr-code")).toBeVisible();
+  await expect(
+    page.getByText("Authenticator setup key", { exact: true }),
+  ).toBeHidden();
+  await hideDevelopmentChrome(page);
+  await page.screenshot({
+    path: evidencePath("after", "mfa-enrollment-qr-en-1440.png"),
+    fullPage: true,
+  });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.getByTestId("language-toggle").click();
+  await expect(page.locator("html")).toHaveAttribute("dir", "rtl");
+  await expect(page.getByTestId("mfa-qr-code")).toBeVisible();
+  expect(
+    await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
+  ).toBe(true);
+  await page.screenshot({
+    path: evidencePath("after", "mfa-enrollment-qr-ar-390.png"),
+    fullPage: true,
+  });
+  await page.getByTestId("language-toggle").click();
+  await page.getByText("Use a setup key instead", { exact: true }).click();
+  await expect(
+    page.getByText("Authenticator setup key", { exact: true }),
+  ).toBeVisible();
+  await expect(page.getByTestId("mfa-code")).toBeVisible();
+});

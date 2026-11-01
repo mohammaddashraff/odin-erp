@@ -80,6 +80,11 @@ test("MFA enrollment, authenticator login and single-use recovery preserve the a
     const challenge = await (await challengeResponse).json();
     expect(challenge.mfaEnrollmentRequired).toBe(true);
     expect(challenge.recoveryCodes.length).toBeGreaterThan(0);
+    await expect(mfa.getByTestId("mfa-qr-code")).toBeVisible();
+    await expect(
+      mfa.getByText("Authenticator setup key", { exact: true }),
+    ).toBeHidden();
+    await mfa.getByText("Use a setup key instead", { exact: true }).click();
     await expect(
       mfa.getByText("Authenticator setup key", { exact: true }),
     ).toBeVisible();

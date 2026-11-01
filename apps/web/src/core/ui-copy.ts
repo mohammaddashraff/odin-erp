@@ -19,9 +19,16 @@ export const uiCopy: Record<string, string> = {
   Activity: "النشاط",
   Ageing: "أعمار الديون",
   All: "الكل",
+  "All accounts": "كل الحسابات",
   Assign: "تعيين",
   Attachments: "المرفقات",
   "Authenticator setup key": "مفتاح إعداد تطبيق المصادقة",
+  "Scan to set up your authenticator": "امسح الرمز لإعداد تطبيق المصادقة",
+  "Scan this QR code with your authenticator app.":
+    "امسح رمز QR هذا باستخدام تطبيق المصادقة.",
+  "Then enter the six-digit code below.":
+    "ثم أدخل الرمز المكوّن من ستة أرقام أدناه.",
+  "Use a setup key instead": "استخدام مفتاح الإعداد بدلاً من ذلك",
   Back: "رجوع",
   "Balanced entries with linked source evidence":
     "قيود متوازنة مرتبطة بمستنداتها المصدرية",
@@ -35,6 +42,7 @@ export const uiCopy: Record<string, string> = {
   "Document details, product lines and commercial terms":
     "تفاصيل المستند وبنود الأصناف والشروط التجارية",
   "Document information": "بيانات المستند",
+  "Date basis": "أساس التاريخ",
   "Duplicate role": "نسخ الدور",
   Effect: "الأثر",
   Enabled: "مفعّل",
@@ -409,3 +417,4 @@ export const employeeProfileCopy: Record<string, string> = {
   'Book value':'القيمة الدفترية',
   'Opening date':'تاريخ الرصيد الافتتاحي',
 };
+
