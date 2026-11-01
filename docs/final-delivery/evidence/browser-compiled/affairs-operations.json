@@ -1,0 +1,8 @@
+{
+  "synthetic": true,
+  "reportVersions": 2,
+  "recipientRecords": 4,
+  "delivery": "BLOCKED_CONFIGURATION",
+  "graduation": "GRADUATED",
+  "preservedOutstandingMinor": "200000"
+}

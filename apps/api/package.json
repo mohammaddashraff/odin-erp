@@ -6,7 +6,7 @@
     "dev": "nest start --watch",
     "prebuild": "prisma generate",
     "build": "nest build",
-    "release:migrate": "prisma migrate deploy && tsx prisma/av8-seed.ts",
+    "release:migrate": "prisma migrate deploy",
     "start:prod": "node ../../.av8/api/src/main.js",
     "lint": "tsc --noEmit",
     "test": "jest --runInBand",
@@ -14,8 +14,9 @@
     "db:migrate": "prisma migrate deploy",
     "db:seed": "tsx prisma/av8-seed.ts",
     "db:reset": "node -e \"throw new Error('Reset is disabled; use a new isolated AV8 test database')\"",
-    "integrity": "tsx src/scripts/integrity.ts",
-    "build:vercel": "prisma generate"
+    "integrity": "tsx src/scripts/av8-integrity.ts",
+    "build:vercel": "prisma generate",
+    "integrity:legacy": "tsx src/scripts/integrity.ts"
   },
   "dependencies": {
     "@nestjs/common": "latest",

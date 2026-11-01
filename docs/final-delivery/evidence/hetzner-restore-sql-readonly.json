@@ -1,0 +1,1 @@
+{"status":"PASS","readonly":true,"tables":71,"sequences":57,"documents":[{"table":"av8_attachments","count":518,"bytes":"24864","invalid":0},{"table":"private_attachments","count":0,"bytes":"0","invalid":0}],"unbalanced":0}

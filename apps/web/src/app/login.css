@@ -453,6 +453,118 @@
   overflow-wrap: anywhere;
 }
 
+.auth-mfa-enrollment {
+  display: grid;
+  justify-items: center;
+  gap: 16px;
+  margin-block-end: 24px;
+  padding: 20px;
+  background: var(--auth-input);
+  border: 1px solid var(--auth-border);
+  border-radius: 10px;
+}
+
+.auth-mfa-intro {
+  text-align: center;
+}
+
+.auth-mfa-intro h3 {
+  margin: 0 0 6px;
+  color: var(--auth-text);
+  font-size: 18px;
+}
+
+.auth-mfa-intro p,
+.auth-mfa-next,
+.auth-mfa-details p {
+  margin: 0;
+  color: var(--auth-muted);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.auth-mfa-qr {
+  display: grid;
+  width: 220px;
+  height: 220px;
+  place-items: center;
+  background: #ffffff;
+  border: 1px solid #d7deea;
+  border-radius: 12px;
+  box-shadow: 0 8px 24px #10274714;
+}
+
+.auth-mfa-qr svg {
+  display: block;
+  max-width: 100%;
+  height: auto;
+}
+
+.auth-mfa-next {
+  color: var(--auth-text);
+  font-weight: 700;
+  text-align: center;
+}
+
+.auth-mfa-details {
+  width: 100%;
+  padding-block-start: 12px;
+  border-block-start: 1px solid var(--auth-border);
+}
+
+.auth-mfa-details summary {
+  color: var(--auth-accent);
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.auth-mfa-details[open] summary {
+  margin-block-end: 10px;
+}
+
+.auth-mfa-details > code {
+  display: block;
+  padding: 10px;
+  color: var(--auth-text);
+  background: var(--auth-surface);
+  border: 1px solid var(--auth-border);
+  border-radius: 7px;
+  text-align: center;
+  user-select: all;
+}
+
+.auth-recovery-codes {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 7px;
+}
+
+.auth-recovery-codes .recovery-code {
+  padding: 7px;
+  color: var(--auth-text);
+  background: var(--auth-surface);
+  border: 1px solid var(--auth-border);
+  border-radius: 6px;
+  text-align: center;
+  user-select: all;
+}
+
+@media (max-width: 480px) {
+  .auth-mfa-enrollment {
+    padding: 16px;
+  }
+
+  .auth-mfa-qr {
+    width: 208px;
+    height: 208px;
+  }
+
+  .auth-recovery-codes {
+    grid-template-columns: 1fr;
+  }
+}
+
 @media (max-width: 1050px) {
   .auth-layout {
     grid-template-columns: minmax(320px, 37%) minmax(0, 1fr);

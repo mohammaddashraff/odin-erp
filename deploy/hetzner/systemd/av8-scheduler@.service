@@ -1,0 +1,15 @@
+[Unit]
+Description=AV8 %i health, scoped scheduler and controlled alerts
+Requires=docker.service
+After=docker.service network-online.target
+ConditionPathExists=/srv/av8-erp-final/%i/private/compose.env
+ConditionPathExists=/srv/av8-erp-final/current-%i/deploy/hetzner/compose.yaml
+
+[Service]
+Type=oneshot
+User=root
+WorkingDirectory=/srv/av8-erp-final/current-%i
+ExecStart=/usr/bin/docker compose --env-file /srv/av8-erp-final/%i/private/compose.env -f /srv/av8-erp-final/current-%i/deploy/hetzner/compose.yaml run --rm --no-deps monitor monitor
+TimeoutStartSec=110
+TimeoutStopSec=15
+Nice=10

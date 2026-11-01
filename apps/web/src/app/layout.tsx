@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import { headers } from "next/headers";
 import { SessionProvider } from "../core/session-provider";
 import { ERPProvider } from "../core/erp-context";
 import { getRequestLanguage } from "../core/i18n-server";
@@ -27,6 +28,7 @@ export default async function Layout({
   children: React.ReactNode;
 }) {
   const language = await getRequestLanguage();
+  const nonce=(await headers()).get("x-nonce")||undefined;
   return (
     <html
       lang={language}
@@ -37,6 +39,7 @@ export default async function Layout({
     >
       <head>
         <script
+          nonce={nonce}
           dangerouslySetInnerHTML={{
             __html:
               "try{var r=document.documentElement,p=localStorage.getItem('odin-theme');p=p==='light'||p==='dark'||p==='system'?p:'system';var d=p==='system'?(matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light'):p;r.dataset.theme=d;r.dataset.themePreference=p;r.style.colorScheme=d;var m=document.querySelector('meta[name=theme-color]');if(m)m.content=d==='dark'?'#0b1220':'#f5f7fb'}catch(e){}",

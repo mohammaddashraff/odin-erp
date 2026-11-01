@@ -1,0 +1,90 @@
+[
+  {
+    "report": "applications",
+    "status": 200
+  },
+  {
+    "report": "documents",
+    "status": 200
+  },
+  {
+    "report": "visa",
+    "status": 200
+  },
+  {
+    "report": "departures",
+    "status": 200
+  },
+  {
+    "report": "progress",
+    "status": 200
+  },
+  {
+    "report": "academic-delivery",
+    "status": 200
+  },
+  {
+    "report": "training",
+    "status": 200
+  },
+  {
+    "report": "graduation",
+    "status": 200
+  },
+  {
+    "report": "leads",
+    "status": 200
+  },
+  {
+    "report": "response",
+    "status": 200
+  },
+  {
+    "report": "source-performance",
+    "status": 200
+  },
+  {
+    "report": "owner-performance",
+    "status": 200
+  },
+  {
+    "report": "medical",
+    "status": 200
+  },
+  {
+    "report": "student-balances",
+    "status": 200
+  },
+  {
+    "report": "collections",
+    "status": 200
+  },
+  {
+    "report": "academy",
+    "status": 200
+  },
+  {
+    "report": "commission",
+    "status": 200
+  },
+  {
+    "report": "services",
+    "status": 200
+  },
+  {
+    "report": "insurance",
+    "status": 200
+  },
+  {
+    "report": "refunds",
+    "status": 200
+  },
+  {
+    "report": "cheques",
+    "status": 200
+  },
+  {
+    "report": "bank-fees",
+    "status": 200
+  }
+]

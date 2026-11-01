@@ -1,0 +1,2128 @@
+{
+  "generatedAt": "2026-10-31T19:45:52.426Z",
+  "environment": "dev",
+  "readOnly": true,
+  "scope": "Per tenant and owning company; no global account-code comparison",
+  "ok": true,
+  "reports": [
+    {
+      "tenantId": "1",
+      "companyId": "1",
+      "ok": true,
+      "issues": [],
+      "notes": [],
+      "summary": {
+        "clearedReceiptPrincipalMinor": "7750000",
+        "returnedReceiptMinor": "300000",
+        "pendingInstructionMinor": "0",
+        "studentNetPaidMinor": "6000000",
+        "studentRemainingMinor": "67440000",
+        "serviceAllocationMinor": "0",
+        "unappliedReceiptMinor": "150000",
+        "academyEntitlementMinor": "12750000",
+        "academyTransferredMinor": "1650000",
+        "academyUnallocatedTransferMinor": "0",
+        "academyRemainingMinor": "11100000",
+        "academyFundingExposureMinor": "0",
+        "actualRefundMinor": "1600000",
+        "actualRecoveryMinor": "300000",
+        "actualBankFeeMinor": "10000",
+        "actualFeeReimbursementMinor": "10000"
+      },
+      "funds": [
+        {
+          "id": "1",
+          "kind": "RECEIPT",
+          "status": "CLEARED",
+          "originalCurrency": "USD",
+          "originalMinor": "200000",
+          "usdMinor": "200000",
+          "netAllocatedMinor": "200000",
+          "serviceMinor": "0",
+          "grossUnallocatedMinor": "0",
+          "refundReservedFromUnallocatedMinor": "0",
+          "unappliedMinor": "0",
+          "openingHistory": false
+        },
+        {
+          "id": "2",
+          "kind": "RECEIPT",
+          "status": "CLEARED",
+          "originalCurrency": "USD",
+          "originalMinor": "200000",
+          "usdMinor": "200000",
+          "netAllocatedMinor": "200000",
+          "serviceMinor": "0",
+          "grossUnallocatedMinor": "0",
+          "refundReservedFromUnallocatedMinor": "0",
+          "unappliedMinor": "0",
+          "openingHistory": false
+        },
+        {
+          "id": "3",
+          "kind": "RECEIPT",
+          "status": "CLEARED",
+          "originalCurrency": "USD",
+          "originalMinor": "200000",
+          "usdMinor": "200000",
+          "netAllocatedMinor": "200000",
+          "serviceMinor": "0",
+          "grossUnallocatedMinor": "0",
+          "refundReservedFromUnallocatedMinor": "0",
+          "unappliedMinor": "0",
+          "openingHistory": false
+        },
+        {
+          "id": "4",
+          "kind": "RECEIPT",
+          "status": "CLEARED",
+          "originalCurrency": "USD",
+          "originalMinor": "600000",
+          "usdMinor": "600000",
+          "netAllocatedMinor": "600000",
+          "serviceMinor": "0",
+          "grossUnallocatedMinor": "0",
+          "refundReservedFromUnallocatedMinor": "0",
+          "unappliedMinor": "0",
+          "openingHistory": false
+        },
+        {
+          "id": "5",
+          "kind": "REMITTANCE",
+          "status": "CLEARED",
+          "originalCurrency": "USD",
+          "originalMinor": "150000",
+          "usdMinor": "150000",
+          "netAllocatedMinor": "150000",
+          "serviceMinor": "0",
+          "grossUnallocatedMinor": "0",
+          "refundReservedFromUnallocatedMinor": "0",
+          "unappliedMinor": "0",
+          "openingHistory": false
+        },
+        {
+          "id": "6",
+          "kind": "RECEIPT",
+          "status": "CLEARED",
+          "originalCurrency": "USD",
+          "originalMinor": "200000",
+          "usdMinor": "200000",
+          "netAllocatedMinor": "200000",
+          "serviceMinor": "0",
+          "grossUnallocatedMinor": "0",
+          "refundReservedFromUnallocatedMinor": "0",
+          "unappliedMinor": "0",
+          "openingHistory": false
+        },
+        {
+          "id": "7",
+          "kind": "REMITTANCE",
+          "status": "CLEARED",
+          "originalCurrency": "USD",
+          "originalMinor": "150000",
+          "usdMinor": "150000",
+          "netAllocatedMinor": "150000",
+          "serviceMinor": "0",
+          "grossUnallocatedMinor": "0",
+          "refundReservedFromUnallocatedMinor": "0",
+          "unappliedMinor": "0",
+          "openingHistory": false
+        },
+        {
+          "id": "8",
+          "kind": "RECEIPT",
+          "status": "RETURNED",
+          "originalCurrency": "USD",
+          "originalMinor": "100000",
+          "usdMinor": "100000",
+          "netAllocatedMinor": "0",
+          "serviceMinor": "0",
+          "grossUnallocatedMinor": "0",
+          "refundReservedFromUnallocatedMinor": "0",
+          "unappliedMinor": "0",
+          "openingHistory": false
+        },
+        {
+          "id": "9",
+          "kind": "RECEIPT",
+          "status": "CLEARED",
+          "originalCurrency": "USD",
+          "originalMinor": "100000",
+          "usdMinor": "100000",
+          "netAllocatedMinor": "100000",
+          "serviceMinor": "0",
+          "grossUnallocatedMinor": "0",
+          "refundReservedFromUnallocatedMinor": "0",
+          "unappliedMinor": "0",
+          "openingHistory": false
+        },
+        {
+          "id": "50",
+          "kind": "RECEIPT",
+          "status": "CLEARED",
+          "originalCurrency": "USD",
+          "originalMinor": "200000",
+          "usdMinor": "200000",
+          "netAllocatedMinor": "200000",
+          "serviceMinor": "0",
+          "grossUnallocatedMinor": "0",
+          "refundReservedFromUnallocatedMinor": "0",
+          "unappliedMinor": "0",
+          "openingHistory": false
+        },
+        {
+          "id": "10",
+          "kind": "FEE_REIMBURSEMENT",
+          "status": "CLEARED",
+          "originalCurrency": "USD",
+          "originalMinor": "2000",
+          "usdMinor": "2000",
+          "netAllocatedMinor": "0",
+          "serviceMinor": "0",
+          "grossUnallocatedMinor": "0",
+          "refundReservedFromUnallocatedMinor": "0",
+          "unappliedMinor": "0",
+          "openingHistory": false
+        },
+        {
+          "id": "11",
+          "kind": "RECEIPT",
+          "status": "CLEARED",
+          "originalCurrency": "USD",
+          "originalMinor": "200000",
+          "usdMinor": "200000",
+          "netAllocatedMinor": "200000",
+          "serviceMinor": "0",
+          "grossUnallocatedMinor": "0",
+          "refundReservedFromUnallocatedMinor": "0",
+          "unappliedMinor": "0",
+          "openingHistory": false
+        },
+        {
+          "id": "12",
+          "kind": "RECEIPT",
+          "status": "CLEARED",
+          "originalCurrency": "USD",
+          "originalMinor": "600000",
+          "usdMinor": "600000",
+          "netAllocatedMinor": "600000",
+          "serviceMinor": "0",
+          "grossUnallocatedMinor": "0",
+          "refundReservedFromUnallocatedMinor": "0",
+          "unappliedMinor": "0",
+          "openingHistory": false
+        },
+        {
+          "id": "13",
+          "kind": "REMITTANCE",
+          "status": "CLEARED",
+          "originalCurrency": "USD",
+          "originalMinor": "150000",
+          "usdMinor": "150000",
+          "netAllocatedMinor": "150000",
+          "serviceMinor": "0",
+          "grossUnallocatedMinor": "0",
+          "refundReservedFromUnallocatedMinor": "0",
+          "unappliedMinor": "0",
+          "openingHistory": false
+        },
+        {
+          "id": "14",
+          "kind": "RECEIPT",
+          "status": "CLEARED",
+          "originalCurrency": "USD",
+          "originalMinor": "200000",
+          "usdMinor": "200000",
+          "netAllocatedMinor": "200000",
+          "serviceMinor": "0",
+          "grossUnallocatedMinor": "0",
+          "refundReservedFromUnallocatedMinor": "0",
+          "unappliedMinor": "0",
+          "openingHistory": false
+        },
+        {
+          "id": "15",
+          "kind": "REMITTANCE",
+          "status": "CLEARED",
+          "originalCurrency": "USD",
+          "originalMinor": "150000",
+          "usdMinor": "150000",
+          "netAllocatedMinor": "150000",
+          "serviceMinor": "0",
+          "grossUnallocatedMinor": "0",
+          "refundReservedFromUnallocatedMinor": "0",
+          "unappliedMinor": "0",
+          "openingHistory": false
+        },
+        {
+          "id": "16",
+          "kind": "RECEIPT",
+          "status": "CLEARED",
+          "originalCurrency": "USD",
+          "originalMinor": "200000",
+          "usdMinor": "200000",
+          "netAllocatedMinor": "200000",
+          "serviceMinor": "0",
+          "grossUnallocatedMinor": "0",
+          "refundReservedFromUnallocatedMinor": "0",
+          "unappliedMinor": "0",
+          "openingHistory": false
+        },
+        {
+          "id": "17",
+          "kind": "REFUND",
+          "status": "CLEARED",
+          "originalCurrency": "USD",
+          "originalMinor": "50000",
+          "usdMinor": "50000",
+          "netAllocatedMinor": "-50000",
+          "serviceMinor": "0",
+          "grossUnallocatedMinor": "0",
+          "refundReservedFromUnallocatedMinor": "0",
+          "unappliedMinor": "0",
+          "openingHistory": false
+        },
+        {
+          "id": "18",
+          "kind": "ACADEMY_RECOVERY",
+          "status": "CLEARED",
+          "originalCurrency": "USD",
+          "originalMinor": "150000",
+          "usdMinor": "150000",
+          "netAllocatedMinor": "0",
+          "serviceMinor": "0",
+          "grossUnallocatedMinor": "0",
+          "refundReservedFromUnallocatedMinor": "0",
+          "unappliedMinor": "0",
+          "openingHistory": false
+        },
+        {
+          "id": "19",
+          "kind": "REFUND",
+          "status": "CLEARED",
+          "originalCurrency": "USD",
+          "originalMinor": "750000",
+          "usdMinor": "750000",
+          "netAllocatedMinor": "-750000",
+          "serviceMinor": "0",
+          "grossUnallocatedMinor": "0",
+          "refundReservedFromUnallocatedMinor": "0",
+          "unappliedMinor": "0",
+          "openingHistory": false
+        },
+        {
+          "id": "54",
+          "kind": "RECEIPT",
+          "status": "RETURNED",
+          "originalCurrency": "USD",
+          "originalMinor": "100000",
+          "usdMinor": "100000",
+          "netAllocatedMinor": "0",
+          "serviceMinor": "0",
+          "grossUnallocatedMinor": "0",
+          "refundReservedFromUnallocatedMinor": "0",
+          "unappliedMinor": "0",
+          "openingHistory": false
+        },
+        {
+          "id": "20",
+          "kind": "RECEIPT",
+          "status": "RETURNED",
+          "originalCurrency": "USD",
+          "originalMinor": "100000",
+          "usdMinor": "100000",
+          "netAllocatedMinor": "0",
+          "serviceMinor": "0",
+          "grossUnallocatedMinor": "0",
+          "refundReservedFromUnallocatedMinor": "0",
+          "unappliedMinor": "0",
+          "openingHistory": false
+        },
+        {
+          "id": "21",
+          "kind": "RECEIPT",
+          "status": "CLEARED",
+          "originalCurrency": "USD",
+          "originalMinor": "100000",
+          "usdMinor": "100000",
+          "netAllocatedMinor": "100000",
+          "serviceMinor": "0",
+          "grossUnallocatedMinor": "0",
+          "refundReservedFromUnallocatedMinor": "0",
+          "unappliedMinor": "0",
+          "openingHistory": false
+        },
+        {
+          "id": "22",
+          "kind": "FEE_REIMBURSEMENT",
+          "status": "CLEARED",
+          "originalCurrency": "USD",
+          "originalMinor": "2000",
+          "usdMinor": "2000",
+          "netAllocatedMinor": "0",
+          "serviceMinor": "0",
+          "grossUnallocatedMinor": "0",
+          "refundReservedFromUnallocatedMinor": "0",
+          "unappliedMinor": "0",
+          "openingHistory": false
+        },
+        {
+          "id": "23",
+          "kind": "RECEIPT",
+          "status": "CLEARED",
+          "originalCurrency": "USD",
+          "originalMinor": "200000",
+          "usdMinor": "200000",
+          "netAllocatedMinor": "200000",
+          "serviceMinor": "0",
+          "grossUnallocatedMinor": "0",
+          "refundReservedFromUnallocatedMinor": "0",
+          "unappliedMinor": "0",
+          "openingHistory": false
+        },
+        {
+          "id": "24",
+          "kind": "RECEIPT",
+          "status": "CLEARED",
+          "originalCurrency": "USD",
+          "originalMinor": "600000",
+          "usdMinor": "600000",
+          "netAllocatedMinor": "600000",
+          "serviceMinor": "0",
+          "grossUnallocatedMinor": "0",
+          "refundReservedFromUnallocatedMinor": "0",
+          "unappliedMinor": "0",
+          "openingHistory": false
+        },
+        {
+          "id": "25",
+          "kind": "REMITTANCE",
+          "status": "CLEARED",
+          "originalCurrency": "USD",
+          "originalMinor": "150000",
+          "usdMinor": "150000",
+          "netAllocatedMinor": "150000",
+          "serviceMinor": "0",
+          "grossUnallocatedMinor": "0",
+          "refundReservedFromUnallocatedMinor": "0",
+          "unappliedMinor": "0",
+          "openingHistory": false
+        },
+        {
+          "id": "26",
+          "kind": "RECEIPT",
+          "status": "CLEARED",
+          "originalCurrency": "USD",
+          "originalMinor": "200000",
+          "usdMinor": "200000",
+          "netAllocatedMinor": "200000",
+          "serviceMinor": "0",
+          "grossUnallocatedMinor": "0",
+          "refundReservedFromUnallocatedMinor": "0",
+          "unappliedMinor": "0",
+          "openingHistory": false
+        },
+        {
+          "id": "43",
+          "kind": "RECEIPT",
+          "status": "CLEARED",
+          "originalCurrency": "USD",
+          "originalMinor": "600000",
+          "usdMinor": "600000",
+          "netAllocatedMinor": "600000",
+          "serviceMinor": "0",
+          "grossUnallocatedMinor": "0",
+          "refundReservedFromUnallocatedMinor": "0",
+          "unappliedMinor": "0",
+          "openingHistory": false
+        },
+        {
+          "id": "44",
+          "kind": "REMITTANCE",
+          "status": "CLEARED",
+          "originalCurrency": "USD",
+          "originalMinor": "150000",
+          "usdMinor": "150000",
+          "netAllocatedMinor": "150000",
+          "serviceMinor": "0",
+          "grossUnallocatedMinor": "0",
+          "refundReservedFromUnallocatedMinor": "0",
+          "unappliedMinor": "0",
+          "openingHistory": false
+        },
+        {
+          "id": "51",
+          "kind": "REFUND",
+          "status": "CLEARED",
+          "originalCurrency": "USD",
+          "originalMinor": "50000",
+          "usdMinor": "50000",
+          "netAllocatedMinor": "-50000",
+          "serviceMinor": "0",
+          "grossUnallocatedMinor": "0",
+          "refundReservedFromUnallocatedMinor": "0",
+          "unappliedMinor": "0",
+          "openingHistory": false
+        },
+        {
+          "id": "27",
+          "kind": "REMITTANCE",
+          "status": "CLEARED",
+          "originalCurrency": "USD",
+          "originalMinor": "150000",
+          "usdMinor": "150000",
+          "netAllocatedMinor": "150000",
+          "serviceMinor": "0",
+          "grossUnallocatedMinor": "0",
+          "refundReservedFromUnallocatedMinor": "0",
+          "unappliedMinor": "0",
+          "openingHistory": false
+        },
+        {
+          "id": "28",
+          "kind": "FEE_REIMBURSEMENT",
+          "status": "CLEARED",
+          "originalCurrency": "USD",
+          "originalMinor": "2000",
+          "usdMinor": "2000",
+          "netAllocatedMinor": "0",
+          "serviceMinor": "0",
+          "grossUnallocatedMinor": "0",
+          "refundReservedFromUnallocatedMinor": "0",
+          "unappliedMinor": "0",
+          "openingHistory": false
+        },
+        {
+          "id": "29",
+          "kind": "RECEIPT",
+          "status": "CLEARED",
+          "originalCurrency": "USD",
+          "originalMinor": "200000",
+          "usdMinor": "200000",
+          "netAllocatedMinor": "200000",
+          "serviceMinor": "0",
+          "grossUnallocatedMinor": "0",
+          "refundReservedFromUnallocatedMinor": "0",
+          "unappliedMinor": "0",
+          "openingHistory": false
+        },
+        {
+          "id": "30",
+          "kind": "RECEIPT",
+          "status": "CLEARED",
+          "originalCurrency": "USD",
+          "originalMinor": "200000",
+          "usdMinor": "200000",
+          "netAllocatedMinor": "200000",
+          "serviceMinor": "0",
+          "grossUnallocatedMinor": "0",
+          "refundReservedFromUnallocatedMinor": "0",
+          "unappliedMinor": "0",
+          "openingHistory": false
+        },
+        {
+          "id": "31",
+          "kind": "RECEIPT",
+          "status": "CLEARED",
+          "originalCurrency": "USD",
+          "originalMinor": "600000",
+          "usdMinor": "600000",
+          "netAllocatedMinor": "600000",
+          "serviceMinor": "0",
+          "grossUnallocatedMinor": "0",
+          "refundReservedFromUnallocatedMinor": "0",
+          "unappliedMinor": "0",
+          "openingHistory": false
+        },
+        {
+          "id": "32",
+          "kind": "REMITTANCE",
+          "status": "CLEARED",
+          "originalCurrency": "USD",
+          "originalMinor": "150000",
+          "usdMinor": "150000",
+          "netAllocatedMinor": "150000",
+          "serviceMinor": "0",
+          "grossUnallocatedMinor": "0",
+          "refundReservedFromUnallocatedMinor": "0",
+          "unappliedMinor": "0",
+          "openingHistory": false
+        },
+        {
+          "id": "33",
+          "kind": "RECEIPT",
+          "status": "CLEARED",
+          "originalCurrency": "USD",
+          "originalMinor": "200000",
+          "usdMinor": "200000",
+          "netAllocatedMinor": "200000",
+          "serviceMinor": "0",
+          "grossUnallocatedMinor": "0",
+          "refundReservedFromUnallocatedMinor": "0",
+          "unappliedMinor": "0",
+          "openingHistory": false
+        },
+        {
+          "id": "45",
+          "kind": "RECEIPT",
+          "status": "CLEARED",
+          "originalCurrency": "USD",
+          "originalMinor": "200000",
+          "usdMinor": "200000",
+          "netAllocatedMinor": "200000",
+          "serviceMinor": "0",
+          "grossUnallocatedMinor": "0",
+          "refundReservedFromUnallocatedMinor": "0",
+          "unappliedMinor": "0",
+          "openingHistory": false
+        },
+        {
+          "id": "34",
+          "kind": "REMITTANCE",
+          "status": "CLEARED",
+          "originalCurrency": "USD",
+          "originalMinor": "150000",
+          "usdMinor": "150000",
+          "netAllocatedMinor": "150000",
+          "serviceMinor": "0",
+          "grossUnallocatedMinor": "0",
+          "refundReservedFromUnallocatedMinor": "0",
+          "unappliedMinor": "0",
+          "openingHistory": false
+        },
+        {
+          "id": "35",
+          "kind": "RECEIPT",
+          "status": "CLEARED",
+          "originalCurrency": "USD",
+          "originalMinor": "200000",
+          "usdMinor": "200000",
+          "netAllocatedMinor": "200000",
+          "serviceMinor": "0",
+          "grossUnallocatedMinor": "0",
+          "refundReservedFromUnallocatedMinor": "0",
+          "unappliedMinor": "0",
+          "openingHistory": false
+        },
+        {
+          "id": "36",
+          "kind": "RECEIPT",
+          "status": "CLEARED",
+          "originalCurrency": "USD",
+          "originalMinor": "200000",
+          "usdMinor": "200000",
+          "netAllocatedMinor": "200000",
+          "serviceMinor": "0",
+          "grossUnallocatedMinor": "0",
+          "refundReservedFromUnallocatedMinor": "0",
+          "unappliedMinor": "0",
+          "openingHistory": false
+        },
+        {
+          "id": "37",
+          "kind": "FEE_REIMBURSEMENT",
+          "status": "CLEARED",
+          "originalCurrency": "USD",
+          "originalMinor": "2000",
+          "usdMinor": "2000",
+          "netAllocatedMinor": "0",
+          "serviceMinor": "0",
+          "grossUnallocatedMinor": "0",
+          "refundReservedFromUnallocatedMinor": "0",
+          "unappliedMinor": "0",
+          "openingHistory": false
+        },
+        {
+          "id": "38",
+          "kind": "RECEIPT",
+          "status": "CLEARED",
+          "originalCurrency": "USD",
+          "originalMinor": "150000",
+          "usdMinor": "150000",
+          "netAllocatedMinor": "100000",
+          "serviceMinor": "0",
+          "grossUnallocatedMinor": "50000",
+          "refundReservedFromUnallocatedMinor": "0",
+          "unappliedMinor": "50000",
+          "openingHistory": true
+        },
+        {
+          "id": "39",
+          "kind": "REMITTANCE",
+          "status": "CLEARED",
+          "originalCurrency": "USD",
+          "originalMinor": "50000",
+          "usdMinor": "50000",
+          "netAllocatedMinor": "50000",
+          "serviceMinor": "0",
+          "grossUnallocatedMinor": "0",
+          "refundReservedFromUnallocatedMinor": "0",
+          "unappliedMinor": "0",
+          "openingHistory": true
+        },
+        {
+          "id": "40",
+          "kind": "RECEIPT",
+          "status": "CLEARED",
+          "originalCurrency": "USD",
+          "originalMinor": "150000",
+          "usdMinor": "150000",
+          "netAllocatedMinor": "100000",
+          "serviceMinor": "0",
+          "grossUnallocatedMinor": "50000",
+          "refundReservedFromUnallocatedMinor": "0",
+          "unappliedMinor": "50000",
+          "openingHistory": true
+        },
+        {
+          "id": "41",
+          "kind": "REMITTANCE",
+          "status": "CLEARED",
+          "originalCurrency": "USD",
+          "originalMinor": "50000",
+          "usdMinor": "50000",
+          "netAllocatedMinor": "50000",
+          "serviceMinor": "0",
+          "grossUnallocatedMinor": "0",
+          "refundReservedFromUnallocatedMinor": "0",
+          "unappliedMinor": "0",
+          "openingHistory": true
+        },
+        {
+          "id": "42",
+          "kind": "RECEIPT",
+          "status": "CLEARED",
+          "originalCurrency": "USD",
+          "originalMinor": "200000",
+          "usdMinor": "200000",
+          "netAllocatedMinor": "200000",
+          "serviceMinor": "0",
+          "grossUnallocatedMinor": "0",
+          "refundReservedFromUnallocatedMinor": "0",
+          "unappliedMinor": "0",
+          "openingHistory": false
+        },
+        {
+          "id": "46",
+          "kind": "REMITTANCE",
+          "status": "CLEARED",
+          "originalCurrency": "USD",
+          "originalMinor": "150000",
+          "usdMinor": "150000",
+          "netAllocatedMinor": "150000",
+          "serviceMinor": "0",
+          "grossUnallocatedMinor": "0",
+          "refundReservedFromUnallocatedMinor": "0",
+          "unappliedMinor": "0",
+          "openingHistory": false
+        },
+        {
+          "id": "52",
+          "kind": "ACADEMY_RECOVERY",
+          "status": "CLEARED",
+          "originalCurrency": "USD",
+          "originalMinor": "150000",
+          "usdMinor": "150000",
+          "netAllocatedMinor": "0",
+          "serviceMinor": "0",
+          "grossUnallocatedMinor": "0",
+          "refundReservedFromUnallocatedMinor": "0",
+          "unappliedMinor": "0",
+          "openingHistory": false
+        },
+        {
+          "id": "47",
+          "kind": "RECEIPT",
+          "status": "CLEARED",
+          "originalCurrency": "USD",
+          "originalMinor": "200000",
+          "usdMinor": "200000",
+          "netAllocatedMinor": "200000",
+          "serviceMinor": "0",
+          "grossUnallocatedMinor": "0",
+          "refundReservedFromUnallocatedMinor": "0",
+          "unappliedMinor": "0",
+          "openingHistory": false
+        },
+        {
+          "id": "48",
+          "kind": "RECEIPT",
+          "status": "CLEARED",
+          "originalCurrency": "USD",
+          "originalMinor": "200000",
+          "usdMinor": "200000",
+          "netAllocatedMinor": "200000",
+          "serviceMinor": "0",
+          "grossUnallocatedMinor": "0",
+          "refundReservedFromUnallocatedMinor": "0",
+          "unappliedMinor": "0",
+          "openingHistory": false
+        },
+        {
+          "id": "49",
+          "kind": "RECEIPT",
+          "status": "CLEARED",
+          "originalCurrency": "USD",
+          "originalMinor": "200000",
+          "usdMinor": "200000",
+          "netAllocatedMinor": "200000",
+          "serviceMinor": "0",
+          "grossUnallocatedMinor": "0",
+          "refundReservedFromUnallocatedMinor": "0",
+          "unappliedMinor": "0",
+          "openingHistory": false
+        },
+        {
+          "id": "53",
+          "kind": "REFUND",
+          "status": "CLEARED",
+          "originalCurrency": "USD",
+          "originalMinor": "750000",
+          "usdMinor": "750000",
+          "netAllocatedMinor": "-750000",
+          "serviceMinor": "0",
+          "grossUnallocatedMinor": "0",
+          "refundReservedFromUnallocatedMinor": "0",
+          "unappliedMinor": "0",
+          "openingHistory": false
+        },
+        {
+          "id": "55",
+          "kind": "RECEIPT",
+          "status": "CLEARED",
+          "originalCurrency": "USD",
+          "originalMinor": "100000",
+          "usdMinor": "100000",
+          "netAllocatedMinor": "100000",
+          "serviceMinor": "0",
+          "grossUnallocatedMinor": "0",
+          "refundReservedFromUnallocatedMinor": "0",
+          "unappliedMinor": "0",
+          "openingHistory": false
+        },
+        {
+          "id": "56",
+          "kind": "FEE_REIMBURSEMENT",
+          "status": "CLEARED",
+          "originalCurrency": "USD",
+          "originalMinor": "2000",
+          "usdMinor": "2000",
+          "netAllocatedMinor": "0",
+          "serviceMinor": "0",
+          "grossUnallocatedMinor": "0",
+          "refundReservedFromUnallocatedMinor": "0",
+          "unappliedMinor": "0",
+          "openingHistory": false
+        },
+        {
+          "id": "57",
+          "kind": "RECEIPT",
+          "status": "CLEARED",
+          "originalCurrency": "USD",
+          "originalMinor": "150000",
+          "usdMinor": "150000",
+          "netAllocatedMinor": "100000",
+          "serviceMinor": "0",
+          "grossUnallocatedMinor": "50000",
+          "refundReservedFromUnallocatedMinor": "0",
+          "unappliedMinor": "50000",
+          "openingHistory": true
+        },
+        {
+          "id": "58",
+          "kind": "REMITTANCE",
+          "status": "CLEARED",
+          "originalCurrency": "USD",
+          "originalMinor": "50000",
+          "usdMinor": "50000",
+          "netAllocatedMinor": "50000",
+          "serviceMinor": "0",
+          "grossUnallocatedMinor": "0",
+          "refundReservedFromUnallocatedMinor": "0",
+          "unappliedMinor": "0",
+          "openingHistory": true
+        }
+      ],
+      "charges": [
+        {
+          "id": "1",
+          "applicationId": "1",
+          "netObligationMinor": "200000",
+          "paidMinor": "0",
+          "remainingMinor": "200000"
+        },
+        {
+          "id": "2",
+          "applicationId": "2",
+          "netObligationMinor": "200000",
+          "paidMinor": "0",
+          "remainingMinor": "200000"
+        },
+        {
+          "id": "3",
+          "applicationId": "3",
+          "netObligationMinor": "200000",
+          "paidMinor": "0",
+          "remainingMinor": "200000"
+        },
+        {
+          "id": "4",
+          "applicationId": "4",
+          "netObligationMinor": "200000",
+          "paidMinor": "0",
+          "remainingMinor": "200000"
+        },
+        {
+          "id": "5",
+          "applicationId": "5",
+          "netObligationMinor": "200000",
+          "paidMinor": "200000",
+          "remainingMinor": "0"
+        },
+        {
+          "id": "6",
+          "applicationId": "6",
+          "netObligationMinor": "10000",
+          "paidMinor": "0",
+          "remainingMinor": "10000"
+        },
+        {
+          "id": "7",
+          "applicationId": "7",
+          "netObligationMinor": "10000",
+          "paidMinor": "0",
+          "remainingMinor": "10000"
+        },
+        {
+          "id": "8",
+          "applicationId": "8",
+          "netObligationMinor": "200000",
+          "paidMinor": "200000",
+          "remainingMinor": "0"
+        },
+        {
+          "id": "9",
+          "applicationId": "9",
+          "netObligationMinor": "200000",
+          "paidMinor": "200000",
+          "remainingMinor": "0"
+        },
+        {
+          "id": "10",
+          "applicationId": "9",
+          "netObligationMinor": "600000",
+          "paidMinor": "600000",
+          "remainingMinor": "0"
+        },
+        {
+          "id": "17",
+          "applicationId": "10",
+          "netObligationMinor": "200000",
+          "paidMinor": "100000",
+          "remainingMinor": "100000"
+        },
+        {
+          "id": "18",
+          "applicationId": "11",
+          "netObligationMinor": "200000",
+          "paidMinor": "200000",
+          "remainingMinor": "0"
+        },
+        {
+          "id": "19",
+          "applicationId": "11",
+          "netObligationMinor": "600000",
+          "paidMinor": "0",
+          "remainingMinor": "600000"
+        },
+        {
+          "id": "20",
+          "applicationId": "11",
+          "netObligationMinor": "800000",
+          "paidMinor": "0",
+          "remainingMinor": "800000"
+        },
+        {
+          "id": "21",
+          "applicationId": "11",
+          "netObligationMinor": "960000",
+          "paidMinor": "0",
+          "remainingMinor": "960000"
+        },
+        {
+          "id": "22",
+          "applicationId": "11",
+          "netObligationMinor": "960000",
+          "paidMinor": "0",
+          "remainingMinor": "960000"
+        },
+        {
+          "id": "23",
+          "applicationId": "11",
+          "netObligationMinor": "960000",
+          "paidMinor": "0",
+          "remainingMinor": "960000"
+        },
+        {
+          "id": "24",
+          "applicationId": "11",
+          "netObligationMinor": "960000",
+          "paidMinor": "0",
+          "remainingMinor": "960000"
+        },
+        {
+          "id": "25",
+          "applicationId": "11",
+          "netObligationMinor": "960000",
+          "paidMinor": "0",
+          "remainingMinor": "960000"
+        },
+        {
+          "id": "11",
+          "applicationId": "9",
+          "netObligationMinor": "0",
+          "paidMinor": "0",
+          "remainingMinor": "0"
+        },
+        {
+          "id": "12",
+          "applicationId": "9",
+          "netObligationMinor": "0",
+          "paidMinor": "0",
+          "remainingMinor": "0"
+        },
+        {
+          "id": "13",
+          "applicationId": "9",
+          "netObligationMinor": "0",
+          "paidMinor": "0",
+          "remainingMinor": "0"
+        },
+        {
+          "id": "14",
+          "applicationId": "9",
+          "netObligationMinor": "0",
+          "paidMinor": "0",
+          "remainingMinor": "0"
+        },
+        {
+          "id": "15",
+          "applicationId": "9",
+          "netObligationMinor": "0",
+          "paidMinor": "0",
+          "remainingMinor": "0"
+        },
+        {
+          "id": "16",
+          "applicationId": "9",
+          "netObligationMinor": "0",
+          "paidMinor": "0",
+          "remainingMinor": "0"
+        },
+        {
+          "id": "34",
+          "applicationId": "13",
+          "netObligationMinor": "200000",
+          "paidMinor": "100000",
+          "remainingMinor": "100000"
+        },
+        {
+          "id": "35",
+          "applicationId": "14",
+          "netObligationMinor": "200000",
+          "paidMinor": "200000",
+          "remainingMinor": "0"
+        },
+        {
+          "id": "36",
+          "applicationId": "14",
+          "netObligationMinor": "600000",
+          "paidMinor": "0",
+          "remainingMinor": "600000"
+        },
+        {
+          "id": "37",
+          "applicationId": "14",
+          "netObligationMinor": "800000",
+          "paidMinor": "0",
+          "remainingMinor": "800000"
+        },
+        {
+          "id": "38",
+          "applicationId": "14",
+          "netObligationMinor": "960000",
+          "paidMinor": "0",
+          "remainingMinor": "960000"
+        },
+        {
+          "id": "39",
+          "applicationId": "14",
+          "netObligationMinor": "960000",
+          "paidMinor": "0",
+          "remainingMinor": "960000"
+        },
+        {
+          "id": "40",
+          "applicationId": "14",
+          "netObligationMinor": "960000",
+          "paidMinor": "0",
+          "remainingMinor": "960000"
+        },
+        {
+          "id": "41",
+          "applicationId": "14",
+          "netObligationMinor": "960000",
+          "paidMinor": "0",
+          "remainingMinor": "960000"
+        },
+        {
+          "id": "42",
+          "applicationId": "14",
+          "netObligationMinor": "960000",
+          "paidMinor": "0",
+          "remainingMinor": "960000"
+        },
+        {
+          "id": "43",
+          "applicationId": "15",
+          "netObligationMinor": "200000",
+          "paidMinor": "200000",
+          "remainingMinor": "0"
+        },
+        {
+          "id": "44",
+          "applicationId": "16",
+          "netObligationMinor": "200000",
+          "paidMinor": "0",
+          "remainingMinor": "200000"
+        },
+        {
+          "id": "28",
+          "applicationId": "12",
+          "netObligationMinor": "0",
+          "paidMinor": "0",
+          "remainingMinor": "0"
+        },
+        {
+          "id": "29",
+          "applicationId": "12",
+          "netObligationMinor": "0",
+          "paidMinor": "0",
+          "remainingMinor": "0"
+        },
+        {
+          "id": "30",
+          "applicationId": "12",
+          "netObligationMinor": "0",
+          "paidMinor": "0",
+          "remainingMinor": "0"
+        },
+        {
+          "id": "31",
+          "applicationId": "12",
+          "netObligationMinor": "0",
+          "paidMinor": "0",
+          "remainingMinor": "0"
+        },
+        {
+          "id": "32",
+          "applicationId": "12",
+          "netObligationMinor": "0",
+          "paidMinor": "0",
+          "remainingMinor": "0"
+        },
+        {
+          "id": "33",
+          "applicationId": "12",
+          "netObligationMinor": "0",
+          "paidMinor": "0",
+          "remainingMinor": "0"
+        },
+        {
+          "id": "54",
+          "applicationId": "19",
+          "netObligationMinor": "200000",
+          "paidMinor": "200000",
+          "remainingMinor": "0"
+        },
+        {
+          "id": "26",
+          "applicationId": "12",
+          "netObligationMinor": "0",
+          "paidMinor": "0",
+          "remainingMinor": "0"
+        },
+        {
+          "id": "27",
+          "applicationId": "12",
+          "netObligationMinor": "0",
+          "paidMinor": "0",
+          "remainingMinor": "0"
+        },
+        {
+          "id": "45",
+          "applicationId": "17",
+          "netObligationMinor": "200000",
+          "paidMinor": "200000",
+          "remainingMinor": "0"
+        },
+        {
+          "id": "46",
+          "applicationId": "17",
+          "netObligationMinor": "600000",
+          "paidMinor": "600000",
+          "remainingMinor": "0"
+        },
+        {
+          "id": "47",
+          "applicationId": "17",
+          "netObligationMinor": "800000",
+          "paidMinor": "0",
+          "remainingMinor": "800000"
+        },
+        {
+          "id": "48",
+          "applicationId": "17",
+          "netObligationMinor": "960000",
+          "paidMinor": "0",
+          "remainingMinor": "960000"
+        },
+        {
+          "id": "49",
+          "applicationId": "17",
+          "netObligationMinor": "960000",
+          "paidMinor": "0",
+          "remainingMinor": "960000"
+        },
+        {
+          "id": "50",
+          "applicationId": "17",
+          "netObligationMinor": "960000",
+          "paidMinor": "0",
+          "remainingMinor": "960000"
+        },
+        {
+          "id": "51",
+          "applicationId": "17",
+          "netObligationMinor": "960000",
+          "paidMinor": "0",
+          "remainingMinor": "960000"
+        },
+        {
+          "id": "52",
+          "applicationId": "17",
+          "netObligationMinor": "960000",
+          "paidMinor": "0",
+          "remainingMinor": "960000"
+        },
+        {
+          "id": "53",
+          "applicationId": "18",
+          "netObligationMinor": "200000",
+          "paidMinor": "0",
+          "remainingMinor": "200000"
+        },
+        {
+          "id": "55",
+          "applicationId": "19",
+          "netObligationMinor": "600000",
+          "paidMinor": "0",
+          "remainingMinor": "600000"
+        },
+        {
+          "id": "56",
+          "applicationId": "19",
+          "netObligationMinor": "800000",
+          "paidMinor": "0",
+          "remainingMinor": "800000"
+        },
+        {
+          "id": "57",
+          "applicationId": "19",
+          "netObligationMinor": "960000",
+          "paidMinor": "0",
+          "remainingMinor": "960000"
+        },
+        {
+          "id": "58",
+          "applicationId": "19",
+          "netObligationMinor": "960000",
+          "paidMinor": "0",
+          "remainingMinor": "960000"
+        },
+        {
+          "id": "59",
+          "applicationId": "19",
+          "netObligationMinor": "960000",
+          "paidMinor": "0",
+          "remainingMinor": "960000"
+        },
+        {
+          "id": "60",
+          "applicationId": "19",
+          "netObligationMinor": "960000",
+          "paidMinor": "0",
+          "remainingMinor": "960000"
+        },
+        {
+          "id": "61",
+          "applicationId": "19",
+          "netObligationMinor": "960000",
+          "paidMinor": "0",
+          "remainingMinor": "960000"
+        },
+        {
+          "id": "62",
+          "applicationId": "20",
+          "netObligationMinor": "200000",
+          "paidMinor": "200000",
+          "remainingMinor": "0"
+        },
+        {
+          "id": "63",
+          "applicationId": "21",
+          "netObligationMinor": "200000",
+          "paidMinor": "0",
+          "remainingMinor": "200000"
+        },
+        {
+          "id": "64",
+          "applicationId": "22",
+          "netObligationMinor": "200000",
+          "paidMinor": "200000",
+          "remainingMinor": "0"
+        },
+        {
+          "id": "65",
+          "applicationId": "22",
+          "netObligationMinor": "600000",
+          "paidMinor": "600000",
+          "remainingMinor": "0"
+        },
+        {
+          "id": "66",
+          "applicationId": "22",
+          "netObligationMinor": "800000",
+          "paidMinor": "0",
+          "remainingMinor": "800000"
+        },
+        {
+          "id": "67",
+          "applicationId": "22",
+          "netObligationMinor": "960000",
+          "paidMinor": "0",
+          "remainingMinor": "960000"
+        },
+        {
+          "id": "68",
+          "applicationId": "22",
+          "netObligationMinor": "960000",
+          "paidMinor": "0",
+          "remainingMinor": "960000"
+        },
+        {
+          "id": "69",
+          "applicationId": "22",
+          "netObligationMinor": "960000",
+          "paidMinor": "0",
+          "remainingMinor": "960000"
+        },
+        {
+          "id": "70",
+          "applicationId": "22",
+          "netObligationMinor": "960000",
+          "paidMinor": "0",
+          "remainingMinor": "960000"
+        },
+        {
+          "id": "71",
+          "applicationId": "22",
+          "netObligationMinor": "960000",
+          "paidMinor": "0",
+          "remainingMinor": "960000"
+        },
+        {
+          "id": "72",
+          "applicationId": "23",
+          "netObligationMinor": "200000",
+          "paidMinor": "0",
+          "remainingMinor": "200000"
+        },
+        {
+          "id": "73",
+          "applicationId": "24",
+          "netObligationMinor": "200000",
+          "paidMinor": "200000",
+          "remainingMinor": "0"
+        },
+        {
+          "id": "74",
+          "applicationId": "24",
+          "netObligationMinor": "600000",
+          "paidMinor": "0",
+          "remainingMinor": "600000"
+        },
+        {
+          "id": "75",
+          "applicationId": "24",
+          "netObligationMinor": "800000",
+          "paidMinor": "0",
+          "remainingMinor": "800000"
+        },
+        {
+          "id": "76",
+          "applicationId": "24",
+          "netObligationMinor": "960000",
+          "paidMinor": "0",
+          "remainingMinor": "960000"
+        },
+        {
+          "id": "77",
+          "applicationId": "24",
+          "netObligationMinor": "960000",
+          "paidMinor": "0",
+          "remainingMinor": "960000"
+        },
+        {
+          "id": "78",
+          "applicationId": "24",
+          "netObligationMinor": "960000",
+          "paidMinor": "0",
+          "remainingMinor": "960000"
+        },
+        {
+          "id": "79",
+          "applicationId": "24",
+          "netObligationMinor": "960000",
+          "paidMinor": "0",
+          "remainingMinor": "960000"
+        },
+        {
+          "id": "80",
+          "applicationId": "24",
+          "netObligationMinor": "960000",
+          "paidMinor": "0",
+          "remainingMinor": "960000"
+        },
+        {
+          "id": "81",
+          "applicationId": "25",
+          "netObligationMinor": "200000",
+          "paidMinor": "200000",
+          "remainingMinor": "0"
+        },
+        {
+          "id": "82",
+          "applicationId": "26",
+          "netObligationMinor": "200000",
+          "paidMinor": "200000",
+          "remainingMinor": "0"
+        },
+        {
+          "id": "83",
+          "applicationId": "25",
+          "netObligationMinor": "1400000",
+          "paidMinor": "0",
+          "remainingMinor": "1400000"
+        },
+        {
+          "id": "84",
+          "applicationId": "25",
+          "netObligationMinor": "800000",
+          "paidMinor": "0",
+          "remainingMinor": "800000"
+        },
+        {
+          "id": "85",
+          "applicationId": "25",
+          "netObligationMinor": "800000",
+          "paidMinor": "0",
+          "remainingMinor": "800000"
+        },
+        {
+          "id": "86",
+          "applicationId": "25",
+          "netObligationMinor": "800000",
+          "paidMinor": "0",
+          "remainingMinor": "800000"
+        },
+        {
+          "id": "87",
+          "applicationId": "25",
+          "netObligationMinor": "800000",
+          "paidMinor": "0",
+          "remainingMinor": "800000"
+        },
+        {
+          "id": "88",
+          "applicationId": "25",
+          "netObligationMinor": "800000",
+          "paidMinor": "0",
+          "remainingMinor": "800000"
+        },
+        {
+          "id": "89",
+          "applicationId": "25",
+          "netObligationMinor": "800000",
+          "paidMinor": "0",
+          "remainingMinor": "800000"
+        },
+        {
+          "id": "90",
+          "applicationId": "26",
+          "netObligationMinor": "5200000",
+          "paidMinor": "0",
+          "remainingMinor": "5200000"
+        },
+        {
+          "id": "91",
+          "applicationId": "27",
+          "netObligationMinor": "10000",
+          "paidMinor": "0",
+          "remainingMinor": "10000"
+        },
+        {
+          "id": "92",
+          "applicationId": "28",
+          "netObligationMinor": "200000",
+          "paidMinor": "100000",
+          "remainingMinor": "100000"
+        },
+        {
+          "id": "93",
+          "applicationId": "29",
+          "netObligationMinor": "200000",
+          "paidMinor": "100000",
+          "remainingMinor": "100000"
+        },
+        {
+          "id": "94",
+          "applicationId": "30",
+          "netObligationMinor": "10000",
+          "paidMinor": "0",
+          "remainingMinor": "10000"
+        },
+        {
+          "id": "103",
+          "applicationId": "32",
+          "netObligationMinor": "200000",
+          "paidMinor": "100000",
+          "remainingMinor": "100000"
+        },
+        {
+          "id": "104",
+          "applicationId": "33",
+          "netObligationMinor": "200000",
+          "paidMinor": "200000",
+          "remainingMinor": "0"
+        },
+        {
+          "id": "105",
+          "applicationId": "33",
+          "netObligationMinor": "600000",
+          "paidMinor": "0",
+          "remainingMinor": "600000"
+        },
+        {
+          "id": "106",
+          "applicationId": "33",
+          "netObligationMinor": "800000",
+          "paidMinor": "0",
+          "remainingMinor": "800000"
+        },
+        {
+          "id": "107",
+          "applicationId": "33",
+          "netObligationMinor": "960000",
+          "paidMinor": "0",
+          "remainingMinor": "960000"
+        },
+        {
+          "id": "108",
+          "applicationId": "33",
+          "netObligationMinor": "960000",
+          "paidMinor": "0",
+          "remainingMinor": "960000"
+        },
+        {
+          "id": "109",
+          "applicationId": "33",
+          "netObligationMinor": "960000",
+          "paidMinor": "0",
+          "remainingMinor": "960000"
+        },
+        {
+          "id": "110",
+          "applicationId": "33",
+          "netObligationMinor": "960000",
+          "paidMinor": "0",
+          "remainingMinor": "960000"
+        },
+        {
+          "id": "111",
+          "applicationId": "33",
+          "netObligationMinor": "960000",
+          "paidMinor": "0",
+          "remainingMinor": "960000"
+        },
+        {
+          "id": "112",
+          "applicationId": "34",
+          "netObligationMinor": "200000",
+          "paidMinor": "200000",
+          "remainingMinor": "0"
+        },
+        {
+          "id": "113",
+          "applicationId": "35",
+          "netObligationMinor": "200000",
+          "paidMinor": "200000",
+          "remainingMinor": "0"
+        },
+        {
+          "id": "114",
+          "applicationId": "36",
+          "netObligationMinor": "200000",
+          "paidMinor": "200000",
+          "remainingMinor": "0"
+        },
+        {
+          "id": "115",
+          "applicationId": "37",
+          "netObligationMinor": "200000",
+          "paidMinor": "0",
+          "remainingMinor": "200000"
+        },
+        {
+          "id": "116",
+          "applicationId": "38",
+          "netObligationMinor": "200000",
+          "paidMinor": "200000",
+          "remainingMinor": "0"
+        },
+        {
+          "id": "97",
+          "applicationId": "31",
+          "netObligationMinor": "0",
+          "paidMinor": "0",
+          "remainingMinor": "0"
+        },
+        {
+          "id": "98",
+          "applicationId": "31",
+          "netObligationMinor": "0",
+          "paidMinor": "0",
+          "remainingMinor": "0"
+        },
+        {
+          "id": "99",
+          "applicationId": "31",
+          "netObligationMinor": "0",
+          "paidMinor": "0",
+          "remainingMinor": "0"
+        },
+        {
+          "id": "100",
+          "applicationId": "31",
+          "netObligationMinor": "0",
+          "paidMinor": "0",
+          "remainingMinor": "0"
+        },
+        {
+          "id": "101",
+          "applicationId": "31",
+          "netObligationMinor": "0",
+          "paidMinor": "0",
+          "remainingMinor": "0"
+        },
+        {
+          "id": "102",
+          "applicationId": "31",
+          "netObligationMinor": "0",
+          "paidMinor": "0",
+          "remainingMinor": "0"
+        },
+        {
+          "id": "117",
+          "applicationId": "34",
+          "netObligationMinor": "1400000",
+          "paidMinor": "0",
+          "remainingMinor": "1400000"
+        },
+        {
+          "id": "95",
+          "applicationId": "31",
+          "netObligationMinor": "0",
+          "paidMinor": "0",
+          "remainingMinor": "0"
+        },
+        {
+          "id": "96",
+          "applicationId": "31",
+          "netObligationMinor": "0",
+          "paidMinor": "0",
+          "remainingMinor": "0"
+        },
+        {
+          "id": "118",
+          "applicationId": "34",
+          "netObligationMinor": "800000",
+          "paidMinor": "0",
+          "remainingMinor": "800000"
+        },
+        {
+          "id": "119",
+          "applicationId": "34",
+          "netObligationMinor": "800000",
+          "paidMinor": "0",
+          "remainingMinor": "800000"
+        },
+        {
+          "id": "120",
+          "applicationId": "34",
+          "netObligationMinor": "800000",
+          "paidMinor": "0",
+          "remainingMinor": "800000"
+        },
+        {
+          "id": "121",
+          "applicationId": "34",
+          "netObligationMinor": "800000",
+          "paidMinor": "0",
+          "remainingMinor": "800000"
+        },
+        {
+          "id": "122",
+          "applicationId": "34",
+          "netObligationMinor": "800000",
+          "paidMinor": "0",
+          "remainingMinor": "800000"
+        },
+        {
+          "id": "123",
+          "applicationId": "34",
+          "netObligationMinor": "800000",
+          "paidMinor": "0",
+          "remainingMinor": "800000"
+        },
+        {
+          "id": "124",
+          "applicationId": "35",
+          "netObligationMinor": "5200000",
+          "paidMinor": "0",
+          "remainingMinor": "5200000"
+        },
+        {
+          "id": "125",
+          "applicationId": "39",
+          "netObligationMinor": "200000",
+          "paidMinor": "100000",
+          "remainingMinor": "100000"
+        }
+      ],
+      "academy": [
+        {
+          "id": "5",
+          "applicationId": "17",
+          "originalMinor": "150000",
+          "adjustmentMinor": "0",
+          "netObligationMinor": "150000",
+          "remittedMinor": "150000",
+          "remainingMinor": "0"
+        },
+        {
+          "id": "1",
+          "applicationId": "9",
+          "originalMinor": "150000",
+          "adjustmentMinor": "0",
+          "netObligationMinor": "150000",
+          "remittedMinor": "150000",
+          "remainingMinor": "0"
+        },
+        {
+          "id": "2",
+          "applicationId": "11",
+          "originalMinor": "150000",
+          "adjustmentMinor": "0",
+          "netObligationMinor": "150000",
+          "remittedMinor": "150000",
+          "remainingMinor": "0"
+        },
+        {
+          "id": "9",
+          "applicationId": "25",
+          "originalMinor": "150000",
+          "adjustmentMinor": "0",
+          "netObligationMinor": "150000",
+          "remittedMinor": "0",
+          "remainingMinor": "150000"
+        },
+        {
+          "id": "3",
+          "applicationId": "12",
+          "originalMinor": "150000",
+          "adjustmentMinor": "0",
+          "netObligationMinor": "150000",
+          "remittedMinor": "150000",
+          "remainingMinor": "0"
+        },
+        {
+          "id": "4",
+          "applicationId": "14",
+          "originalMinor": "150000",
+          "adjustmentMinor": "0",
+          "netObligationMinor": "150000",
+          "remittedMinor": "150000",
+          "remainingMinor": "0"
+        },
+        {
+          "id": "6",
+          "applicationId": "19",
+          "originalMinor": "150000",
+          "adjustmentMinor": "0",
+          "netObligationMinor": "150000",
+          "remittedMinor": "150000",
+          "remainingMinor": "0"
+        },
+        {
+          "id": "10",
+          "applicationId": "26",
+          "originalMinor": "5400000",
+          "adjustmentMinor": "0",
+          "netObligationMinor": "5400000",
+          "remittedMinor": "0",
+          "remainingMinor": "5400000"
+        },
+        {
+          "id": "7",
+          "applicationId": "22",
+          "originalMinor": "150000",
+          "adjustmentMinor": "0",
+          "netObligationMinor": "150000",
+          "remittedMinor": "150000",
+          "remainingMinor": "0"
+        },
+        {
+          "id": "11",
+          "applicationId": "28",
+          "originalMinor": "50000",
+          "adjustmentMinor": "0",
+          "netObligationMinor": "50000",
+          "remittedMinor": "50000",
+          "remainingMinor": "0"
+        },
+        {
+          "id": "12",
+          "applicationId": "29",
+          "originalMinor": "50000",
+          "adjustmentMinor": "0",
+          "netObligationMinor": "50000",
+          "remittedMinor": "50000",
+          "remainingMinor": "0"
+        },
+        {
+          "id": "8",
+          "applicationId": "24",
+          "originalMinor": "150000",
+          "adjustmentMinor": "0",
+          "netObligationMinor": "150000",
+          "remittedMinor": "150000",
+          "remainingMinor": "0"
+        },
+        {
+          "id": "13",
+          "applicationId": "31",
+          "originalMinor": "150000",
+          "adjustmentMinor": "0",
+          "netObligationMinor": "150000",
+          "remittedMinor": "150000",
+          "remainingMinor": "0"
+        },
+        {
+          "id": "14",
+          "applicationId": "33",
+          "originalMinor": "150000",
+          "adjustmentMinor": "0",
+          "netObligationMinor": "150000",
+          "remittedMinor": "150000",
+          "remainingMinor": "0"
+        },
+        {
+          "id": "15",
+          "applicationId": "34",
+          "originalMinor": "150000",
+          "adjustmentMinor": "0",
+          "netObligationMinor": "150000",
+          "remittedMinor": "0",
+          "remainingMinor": "150000"
+        },
+        {
+          "id": "16",
+          "applicationId": "35",
+          "originalMinor": "5400000",
+          "adjustmentMinor": "0",
+          "netObligationMinor": "5400000",
+          "remittedMinor": "0",
+          "remainingMinor": "5400000"
+        },
+        {
+          "id": "17",
+          "applicationId": "39",
+          "originalMinor": "50000",
+          "adjustmentMinor": "0",
+          "netObligationMinor": "50000",
+          "remittedMinor": "50000",
+          "remainingMinor": "0"
+        }
+      ],
+      "services": [
+        {
+          "id": "34",
+          "currency": "USD",
+          "collectionParty": "PROVIDER",
+          "amountMinor": "10000",
+          "paidMinor": "10000",
+          "remainingMinor": "0"
+        },
+        {
+          "id": "54",
+          "currency": "USD",
+          "collectionParty": "PROVIDER",
+          "amountMinor": "10000",
+          "paidMinor": "10000",
+          "remainingMinor": "0"
+        },
+        {
+          "id": "74",
+          "currency": "USD",
+          "collectionParty": "PROVIDER",
+          "amountMinor": "10000",
+          "paidMinor": "10000",
+          "remainingMinor": "0"
+        },
+        {
+          "id": "94",
+          "currency": "USD",
+          "collectionParty": "PROVIDER",
+          "amountMinor": "10000",
+          "paidMinor": "10000",
+          "remainingMinor": "0"
+        },
+        {
+          "id": "119",
+          "currency": "USD",
+          "collectionParty": "PROVIDER",
+          "amountMinor": "10000",
+          "paidMinor": "10000",
+          "remainingMinor": "0"
+        },
+        {
+          "id": "758",
+          "currency": "USD",
+          "collectionParty": "PROVIDER",
+          "amountMinor": "10000",
+          "paidMinor": "10000",
+          "remainingMinor": "0"
+        },
+        {
+          "id": "574",
+          "currency": "USD",
+          "collectionParty": "PROVIDER",
+          "amountMinor": "5000",
+          "paidMinor": "0",
+          "remainingMinor": "5000"
+        },
+        {
+          "id": "579",
+          "currency": "USD",
+          "collectionParty": "PROVIDER",
+          "amountMinor": "5000",
+          "paidMinor": "0",
+          "remainingMinor": "5000"
+        },
+        {
+          "id": "793",
+          "currency": "USD",
+          "collectionParty": "PROVIDER",
+          "amountMinor": "5000",
+          "paidMinor": "0",
+          "remainingMinor": "5000"
+        }
+      ],
+      "supplierOpenings": [
+        {
+          "sourceSystem": "SYNTHETIC-SUPPLIER-2608a161-051b-441d-a783-f446a76b8f5c",
+          "batchSourceId": "2026-01-01:10",
+          "balanceIndex": 0,
+          "supplierId": "2",
+          "currency": "EGP",
+          "originalMinor": "100000",
+          "paidMinor": "40000",
+          "remainingMinor": "60000",
+          "originalBookMinor": "100000",
+          "paidBookMinor": "40000",
+          "remainingBookMinor": "60000"
+        },
+        {
+          "sourceSystem": "SYNTHETIC-SUPPLIER-5bc162c8-c247-4086-85d6-1457d11e8305",
+          "batchSourceId": "2026-01-01:63",
+          "balanceIndex": 0,
+          "supplierId": "4",
+          "currency": "EGP",
+          "originalMinor": "100000",
+          "paidMinor": "40000",
+          "remainingMinor": "60000",
+          "originalBookMinor": "100000",
+          "paidBookMinor": "40000",
+          "remainingBookMinor": "60000"
+        },
+        {
+          "sourceSystem": "SYNTHETIC-SUPPLIER-5d443138-f0b4-4f26-8f57-286858162793",
+          "batchSourceId": "2026-01-01:68",
+          "balanceIndex": 0,
+          "supplierId": "5",
+          "currency": "EGP",
+          "originalMinor": "100000",
+          "paidMinor": "40000",
+          "remainingMinor": "60000",
+          "originalBookMinor": "100000",
+          "paidBookMinor": "40000",
+          "remainingBookMinor": "60000"
+        },
+        {
+          "sourceSystem": "SYNTHETIC-SUPPLIER-b0e094fa-c0bf-49c3-baa4-e0cb5bfb3559",
+          "batchSourceId": "2026-01-01:13",
+          "balanceIndex": 0,
+          "supplierId": "3",
+          "currency": "EGP",
+          "originalMinor": "100000",
+          "paidMinor": "40000",
+          "remainingMinor": "60000",
+          "originalBookMinor": "100000",
+          "paidBookMinor": "40000",
+          "remainingBookMinor": "60000"
+        }
+      ],
+      "fees": [
+        {
+          "id": "180",
+          "feeUsdMinor": "2000",
+          "reimbursedMinor": "2000",
+          "remainingMinor": "0"
+        },
+        {
+          "id": "250",
+          "feeUsdMinor": "2000",
+          "reimbursedMinor": "2000",
+          "remainingMinor": "0"
+        },
+        {
+          "id": "383",
+          "feeUsdMinor": "2000",
+          "reimbursedMinor": "2000",
+          "remainingMinor": "0"
+        },
+        {
+          "id": "514",
+          "feeUsdMinor": "2000",
+          "reimbursedMinor": "2000",
+          "remainingMinor": "0"
+        },
+        {
+          "id": "640",
+          "feeUsdMinor": "2000",
+          "reimbursedMinor": "2000",
+          "remainingMinor": "0"
+        }
+      ],
+      "sourceConsumption": [
+        {
+          "fundId": "3",
+          "consumedUsdMinor": "150000",
+          "consumedBookMinor": "7500000",
+          "sourceUsdMinor": "200000",
+          "sourceBookMinor": "10000000"
+        },
+        {
+          "fundId": "6",
+          "consumedUsdMinor": "150000",
+          "consumedBookMinor": "7500000",
+          "sourceUsdMinor": "200000",
+          "sourceBookMinor": "10000000"
+        },
+        {
+          "fundId": "11",
+          "consumedUsdMinor": "200000",
+          "consumedBookMinor": "10000000",
+          "sourceUsdMinor": "200000",
+          "sourceBookMinor": "10000000"
+        },
+        {
+          "fundId": "14",
+          "consumedUsdMinor": "150000",
+          "consumedBookMinor": "7500000",
+          "sourceUsdMinor": "200000",
+          "sourceBookMinor": "10000000"
+        },
+        {
+          "fundId": "23",
+          "consumedUsdMinor": "150000",
+          "consumedBookMinor": "7500000",
+          "sourceUsdMinor": "200000",
+          "sourceBookMinor": "10000000"
+        },
+        {
+          "fundId": "26",
+          "consumedUsdMinor": "150000",
+          "consumedBookMinor": "7500000",
+          "sourceUsdMinor": "200000",
+          "sourceBookMinor": "10000000"
+        },
+        {
+          "fundId": "30",
+          "consumedUsdMinor": "150000",
+          "consumedBookMinor": "7500000",
+          "sourceUsdMinor": "200000",
+          "sourceBookMinor": "10000000"
+        },
+        {
+          "fundId": "33",
+          "consumedUsdMinor": "150000",
+          "consumedBookMinor": "7500000",
+          "sourceUsdMinor": "200000",
+          "sourceBookMinor": "10000000"
+        },
+        {
+          "fundId": "42",
+          "consumedUsdMinor": "200000",
+          "consumedBookMinor": "10000000",
+          "sourceUsdMinor": "200000",
+          "sourceBookMinor": "10000000"
+        },
+        {
+          "fundId": "45",
+          "consumedUsdMinor": "150000",
+          "consumedBookMinor": "7500000",
+          "sourceUsdMinor": "200000",
+          "sourceBookMinor": "10000000"
+        },
+        {
+          "fundId": "12",
+          "consumedUsdMinor": "600000",
+          "consumedBookMinor": "30000000",
+          "sourceUsdMinor": "600000",
+          "sourceBookMinor": "30000000"
+        },
+        {
+          "fundId": "43",
+          "consumedUsdMinor": "600000",
+          "consumedBookMinor": "30000000",
+          "sourceUsdMinor": "600000",
+          "sourceBookMinor": "30000000"
+        }
+      ],
+      "postedJournalCount": 91,
+      "basis": "USD principal and obligations; original cash/fees and posted book GL independently validated. Unapplied/pending/advance states are legitimate."
+    }
+  ]
+}

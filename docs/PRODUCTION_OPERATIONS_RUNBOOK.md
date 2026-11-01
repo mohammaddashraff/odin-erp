@@ -73,3 +73,6 @@ P2: degraded report/export/integration with safe transactional core. Queue/retry
 ## Maintenance and close
 
 Announce windows, drain jobs, verify backup, execute the release runbook, run reconciliations, observe stabilization and record outcomes. Period close requires finance checklist, reconciliation, maker-checker approval and a governed reopen path; the current simple status toggle is not sufficient for enterprise close.
+
+
+AV8 Hetzner delivery clarification: tenant business transactions use the restricted RLS runtime connection. The existing authentication, bootstrap and migration code also uses a separate privileged admin pool; do not describe the entire API process as lacking that credential. Keep this pool private and never give its role to the runtime login. See `final-delivery/hetzner-deployment.md` for the explicit trust boundary.

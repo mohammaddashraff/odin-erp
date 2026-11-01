@@ -1,0 +1,37 @@
+{
+  "status": "PASS",
+  "environment": "production",
+  "counts": {
+    "tenants": 1,
+    "users": 2,
+    "companies": 1,
+    "branches": 1,
+    "applications": 0,
+    "customers": 0,
+    "suppliers": 0,
+    "bankTransactions": 0,
+    "journals": 0
+  },
+  "policies": {
+    "count": 12,
+    "allDraft": true
+  },
+  "runtimeRoleRestricted": true,
+  "unscopedRuntimeTenants": 0,
+  "healthStatus": 200,
+  "namedOwnerLoginStatus": 201,
+  "mfaEnrollmentRequired": true,
+  "accessTokenIssued": false,
+  "passwordChangeRequired": true,
+  "temporaryCredentialExpiresAt": "2026-11-01T19:58:58.645Z",
+  "scheduler": {
+    "authenticated": 200,
+    "unauthenticated": 401,
+    "maintenance": "PROCESSED",
+    "academic": "DISABLED"
+  },
+  "emailEnabled": false,
+  "alertsEnabled": false,
+  "secretsPrinted": false,
+  "sourceCommit": "170b929bd4749e3ae53c7dcb0155e90d617210d9"
+}

@@ -1,0 +1,191 @@
+{
+  "config": {
+    "argv": [
+      "/private/tmp/odin-erp-final-delivery-20261031/.av8/node/bin/node",
+      "/private/tmp/odin-erp-final-delivery-20261031/node_modules/@playwright/test/cli.js",
+      "test",
+      "--config=playwright.delivery.config.ts",
+      "--grep",
+      "memory-only session|treasury resource"
+    ],
+    "configFile": "/private/tmp/odin-erp-final-delivery-20261031/playwright.delivery.config.ts",
+    "rootDir": "/private/tmp/odin-erp-final-delivery-20261031/tests/final-delivery",
+    "failOnFlakyTests": false,
+    "forbidOnly": false,
+    "fullyParallel": false,
+    "globalSetup": null,
+    "globalTeardown": null,
+    "globalTimeout": 0,
+    "grep": {},
+    "grepInvert": null,
+    "maxFailures": 0,
+    "metadata": {
+      "actualWorkers": 1
+    },
+    "preserveOutput": "always",
+    "projects": [
+      {
+        "outputDir": "/private/tmp/odin-erp-final-delivery-20261031/output/playwright/final-delivery/artifacts",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "",
+        "name": "",
+        "testDir": "/private/tmp/odin-erp-final-delivery-20261031/tests/final-delivery",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 900000
+      }
+    ],
+    "quiet": false,
+    "reporter": [
+      [
+        "list",
+        null
+      ],
+      [
+        "json",
+        {
+          "outputFile": "output/playwright/final-delivery/results.json"
+        }
+      ]
+    ],
+    "reportSlowTests": {
+      "max": 5,
+      "threshold": 300000
+    },
+    "shard": null,
+    "tags": [],
+    "updateSnapshots": "missing",
+    "updateSourceMethod": "patch",
+    "version": "1.61.1",
+    "workers": 1,
+    "webServer": null
+  },
+  "suites": [
+    {
+      "title": "browser.spec.ts",
+      "file": "browser.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "treasury resource edit lifecycle and statement preview preserve actual bank movements",
+          "ok": false,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 900000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "failed",
+                  "duration": 24263,
+                  "error": {
+                    "message": "TimeoutError: locator.click: Timeout 20000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByRole('button', { name: 'Save', exact: true })\u001b[22m\n",
+                    "stack": "TimeoutError: locator.click: Timeout 20000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByRole('button', { name: 'Save', exact: true })\u001b[22m\n\n    at /private/tmp/odin-erp-final-delivery-20261031/tests/final-delivery/browser.spec.ts:57:412",
+                    "location": {
+                      "file": "/private/tmp/odin-erp-final-delivery-20261031/tests/final-delivery/browser.spec.ts",
+                      "column": 412,
+                      "line": 57
+                    },
+                    "snippet": "  55 |  await login(page);let headers=await auth(page);let data=await (await page.request.get('/api/bootstrap',{headers})).json();const bank=data.bankAccounts.find((row:any)=>row.currency==='USD');expect(bank).toBeTruthy();const originalName=bank.name,renamed=`${originalName} · SYNTHETIC lifecycle`;\n  56 |  try{\n> 57 |   await page.goto('/banking/accounts');await ready(page);await page.getByRole('row').filter({hasText:originalName}).getByRole('button',{name:'Edit',exact:true}).click();await page.getByRole('textbox',{name:'Name',exact:true}).fill(renamed);await page.getByLabel('Active').uncheck();await page.getByLabel('Change reason').fill('Synthetic QA deactivation');await page.getByRole('button',{name:'Save',exact:true}).click();await expect(page.getByRole('heading',{name:'Edit financial resource'})).toHaveCount(0);\n     |                                                                                                                                                                                                                                                                                                                                                                                                                            ^\n  58 |   await page.getByLabel('Status').selectOption('INACTIVE');await expect(page.getByRole('row').filter({hasText:renamed})).toBeVisible();await page.getByRole('row').filter({hasText:renamed}).getByRole('button',{name:'Edit',exact:true}).click();await page.getByLabel('Active').check();await page.getByRole('textbox',{name:'Name',exact:true}).fill(originalName);await page.getByLabel('Change reason').fill('Synthetic QA restore active resource');await page.getByRole('button',{name:'Save',exact:true}).click();await page.getByLabel('Status').selectOption('ACTIVE');await expect(page.getByRole('row').filter({hasText:originalName})).toBeVisible();\n  59 |  }finally{headers=await auth(page);await page.request.patch(`/api/masters/bank-accounts/${bank.id}`,{headers,data:{name:originalName,bankName:bank.bankName||'',active:true,resourceBranchId:bank.resourceBranchId||'',reason:'Restore synthetic QA resource after browser test'}});}\n  60 |  await page.goto('/banking/statements');await ready(page);const before=await (await page.request.get('/api/banking',{headers:await auth(page)})).json();await page.getByRole('button',{name:'Preview bank statement import',exact:true}).click();await page.getByLabel('Bank account').selectOption(String(bank.id));await page.getByLabel('Opening balance').fill('0');await page.getByLabel('Closing balance').fill('10');await page.getByLabel('Statement CSV').fill(`date,amount,description,reference\\n2026-10-30,10.00,Synthetic bank evidence,BROWSER-${Date.now()}`);await page.getByRole('button',{name:'Preview import',exact:true}).click();await expect(page.getByRole('heading',{name:'Statement preview',exact:true})).toBeVisible();await expect(page.locator('.error-notice')).toHaveCount(0);await page.getByRole('button',{name:'Import validated statement',exact:true}).click();await expect(page.getByRole('heading',{name:'Preview bank statement import'})).toHaveCount(0);const after=await (await page.request.get('/api/banking',{headers:await auth(page)})).json();expect(after.transactions.length).toBe(before.transactions.length);await page.screenshot({path:`${out}/treasury-statement-import-en.png`,fullPage:true});"
+                  },
+                  "errors": [
+                    {
+                      "location": {
+                        "file": "/private/tmp/odin-erp-final-delivery-20261031/tests/final-delivery/browser.spec.ts",
+                        "column": 412,
+                        "line": 57
+                      },
+                      "message": "TimeoutError: locator.click: Timeout 20000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByRole('button', { name: 'Save', exact: true })\u001b[22m\n\n\n  55 |  await login(page);let headers=await auth(page);let data=await (await page.request.get('/api/bootstrap',{headers})).json();const bank=data.bankAccounts.find((row:any)=>row.currency==='USD');expect(bank).toBeTruthy();const originalName=bank.name,renamed=`${originalName} · SYNTHETIC lifecycle`;\n  56 |  try{\n> 57 |   await page.goto('/banking/accounts');await ready(page);await page.getByRole('row').filter({hasText:originalName}).getByRole('button',{name:'Edit',exact:true}).click();await page.getByRole('textbox',{name:'Name',exact:true}).fill(renamed);await page.getByLabel('Active').uncheck();await page.getByLabel('Change reason').fill('Synthetic QA deactivation');await page.getByRole('button',{name:'Save',exact:true}).click();await expect(page.getByRole('heading',{name:'Edit financial resource'})).toHaveCount(0);\n     |                                                                                                                                                                                                                                                                                                                                                                                                                            ^\n  58 |   await page.getByLabel('Status').selectOption('INACTIVE');await expect(page.getByRole('row').filter({hasText:renamed})).toBeVisible();await page.getByRole('row').filter({hasText:renamed}).getByRole('button',{name:'Edit',exact:true}).click();await page.getByLabel('Active').check();await page.getByRole('textbox',{name:'Name',exact:true}).fill(originalName);await page.getByLabel('Change reason').fill('Synthetic QA restore active resource');await page.getByRole('button',{name:'Save',exact:true}).click();await page.getByLabel('Status').selectOption('ACTIVE');await expect(page.getByRole('row').filter({hasText:originalName})).toBeVisible();\n  59 |  }finally{headers=await auth(page);await page.request.patch(`/api/masters/bank-accounts/${bank.id}`,{headers,data:{name:originalName,bankName:bank.bankName||'',active:true,resourceBranchId:bank.resourceBranchId||'',reason:'Restore synthetic QA resource after browser test'}});}\n  60 |  await page.goto('/banking/statements');await ready(page);const before=await (await page.request.get('/api/banking',{headers:await auth(page)})).json();await page.getByRole('button',{name:'Preview bank statement import',exact:true}).click();await page.getByLabel('Bank account').selectOption(String(bank.id));await page.getByLabel('Opening balance').fill('0');await page.getByLabel('Closing balance').fill('10');await page.getByLabel('Statement CSV').fill(`date,amount,description,reference\\n2026-10-30,10.00,Synthetic bank evidence,BROWSER-${Date.now()}`);await page.getByRole('button',{name:'Preview import',exact:true}).click();await expect(page.getByRole('heading',{name:'Statement preview',exact:true})).toBeVisible();await expect(page.locator('.error-notice')).toHaveCount(0);await page.getByRole('button',{name:'Import validated statement',exact:true}).click();await expect(page.getByRole('heading',{name:'Preview bank statement import'})).toHaveCount(0);const after=await (await page.request.get('/api/banking',{headers:await auth(page)})).json();expect(after.transactions.length).toBe(before.transactions.length);await page.screenshot({path:`${out}/treasury-statement-import-en.png`,fullPage:true});\n    at /private/tmp/odin-erp-final-delivery-20261031/tests/final-delivery/browser.spec.ts:57:412"
+                    }
+                  ],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-31T17:29:17.662Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "screenshot",
+                      "contentType": "image/png",
+                      "path": "/private/tmp/odin-erp-final-delivery-20261031/output/playwright/final-delivery/artifacts/browser-treasury-resource--bac62-serve-actual-bank-movements/test-failed-1.png"
+                    },
+                    {
+                      "name": "error-context",
+                      "contentType": "text/markdown",
+                      "path": "/private/tmp/odin-erp-final-delivery-20261031/output/playwright/final-delivery/artifacts/browser-treasury-resource--bac62-serve-actual-bank-movements/error-context.md"
+                    }
+                  ],
+                  "errorLocation": {
+                    "file": "/private/tmp/odin-erp-final-delivery-20261031/tests/final-delivery/browser.spec.ts",
+                    "column": 412,
+                    "line": 57
+                  }
+                }
+              ],
+              "status": "unexpected"
+            }
+          ],
+          "id": "fbeac1b2decfba2c3acd-4cb6250d33d801f5ff11",
+          "file": "browser.spec.ts",
+          "line": 54,
+          "column": 5
+        },
+        {
+          "title": "memory-only session restores with HttpOnly cookie, synchronizes tabs and fails closed on restoration errors",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 900000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 7030,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-31T17:29:42.606Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "fbeac1b2decfba2c3acd-6de151cd8bfe198f8c55",
+          "file": "browser.spec.ts",
+          "line": 73,
+          "column": 5
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "stats": {
+    "startTime": "2026-10-31T17:29:17.310Z",
+    "duration": 32698.182999999997,
+    "expected": 1,
+    "skipped": 0,
+    "unexpected": 1,
+    "flaky": 0
+  }
+}

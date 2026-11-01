@@ -1,0 +1,583 @@
+{
+  "capturedAt": "2026-10-31T20:33:11.164542+00:00",
+  "sourceCommit": "170b929bd4749e3ae53c7dcb0155e90d617210d9",
+  "environments": {
+    "staging": {
+      "project": "av8-delivery-staging",
+      "migrations": [
+        {
+          "name": "20260716011351_initial",
+          "checksum": "907395d337205b4d3a6e5f9368dd37148c53b00f5dce7862dc6e97bf324710a2",
+          "finishedAt": "2026-10-31T18:46:03.806471+00:00",
+          "rolledBackAt": null
+        },
+        {
+          "name": "20260716011500_hardening",
+          "checksum": "a0809043394e5b353a34a15bf83de37a2b13d43dc1a6d6657d0d6fd20f167451",
+          "finishedAt": "2026-10-31T18:46:03.86521+00:00",
+          "rolledBackAt": null
+        },
+        {
+          "name": "20260716054000_payment_allocation_state",
+          "checksum": "936b037ce4cf6a0734fd4833bd87df60fb4e6cab5292e14c5c1e4996b9d826ee",
+          "finishedAt": "2026-10-31T18:46:03.870275+00:00",
+          "rolledBackAt": null
+        },
+        {
+          "name": "20260717090000_add_purchase_rfq",
+          "checksum": "0bee32c69c77c3e44a9947c971a75ea5f5c151bae27e2afb72a244b32954f737",
+          "finishedAt": "2026-10-31T18:46:03.875352+00:00",
+          "rolledBackAt": null
+        },
+        {
+          "name": "20260719090000_sales_workflow_foundation",
+          "checksum": "16013fc7f154652d7cce8609fec6f6ac06905357cc218f6cf10b0fba21167e3f",
+          "finishedAt": "2026-10-31T18:46:03.937869+00:00",
+          "rolledBackAt": null
+        },
+        {
+          "name": "20260719103000_refresh_session_persistence",
+          "checksum": "da10bf8e6a81327c130a3443fd9a70b0978d6ce22979551811ab05f238e849e3",
+          "finishedAt": "2026-10-31T18:46:03.944036+00:00",
+          "rolledBackAt": null
+        },
+        {
+          "name": "20260727081500_neon_reset_mode",
+          "checksum": "645da4cf7990653a62b4d6dbfa104bc13534ff7c0728f9ef85e04fda92ea479d",
+          "finishedAt": "2026-10-31T18:46:03.95445+00:00",
+          "rolledBackAt": null
+        },
+        {
+          "name": "20260728220000_override_demo_password",
+          "checksum": "03106a407a124e7381588c366891af9d4f7945cd0c420994b6c662ee54c31fcd",
+          "finishedAt": "2026-10-31T18:46:03.959919+00:00",
+          "rolledBackAt": null
+        },
+        {
+          "name": "20260731120000_enterprise_access_control",
+          "checksum": "5f6335bf756995276d408028b17bac7086072f1df8c62d4edc1b0d2a3c705e2e",
+          "finishedAt": "2026-10-31T18:46:04.065884+00:00",
+          "rolledBackAt": null
+        },
+        {
+          "name": "20260803132000_add_none_data_scope",
+          "checksum": "53abbf035fdf23952ae3cfdb9816d869e229ccf450b152713e7b614693e8308b",
+          "finishedAt": "2026-10-31T18:46:04.07185+00:00",
+          "rolledBackAt": null
+        },
+        {
+          "name": "20260803132100_backfill_explicit_data_scopes",
+          "checksum": "f3ecc7caf3db0d8a699c6d80d7f71b916fd579f226c8af8fea19872aba77971e",
+          "finishedAt": "2026-10-31T18:46:04.086855+00:00",
+          "rolledBackAt": null
+        },
+        {
+          "name": "20260803140000_central_authorization_denials",
+          "checksum": "de6b04a9a6c1f6ce61af068a0878acf551a47ae5e7febad0505bb57bcd591109",
+          "finishedAt": "2026-10-31T18:46:04.110168+00:00",
+          "rolledBackAt": null
+        },
+        {
+          "name": "20260803143000_mfa_session_hardening",
+          "checksum": "1a785cc657f709b68d0c3ce1adfc99c69455fb26c6ae534e5dc46765d35aa4bc",
+          "finishedAt": "2026-10-31T18:46:04.159794+00:00",
+          "rolledBackAt": null
+        },
+        {
+          "name": "20260803150000_disable_legacy_demo_accounts",
+          "checksum": "956a2588967c3bdc660daf4afd1ce1e76543ad5a59fec5fd15c46c6f719148b7",
+          "finishedAt": "2026-10-31T18:46:04.16911+00:00",
+          "rolledBackAt": null
+        },
+        {
+          "name": "20260809120000_company_access_governance",
+          "checksum": "63083483ec13fdcf1c32ef99f2d7e689397c71e2021eb18f4415c47d995cd4d1",
+          "finishedAt": "2026-10-31T18:46:04.336579+00:00",
+          "rolledBackAt": null
+        },
+        {
+          "name": "20260811120000_payment_approval_workflow",
+          "checksum": "a174fa5e2c9c9cd785da9a5704a3dbc38c7155387b188c244d21a6c0d7915c75",
+          "finishedAt": "2026-10-31T18:46:04.368897+00:00",
+          "rolledBackAt": null
+        },
+        {
+          "name": "20260811123000_report_dependency_scopes",
+          "checksum": "9ccbfe3089d7b6c630acdce8fc1c9fe8908474a3f36638a2e117afab2c6ac774",
+          "finishedAt": "2026-10-31T18:46:04.374619+00:00",
+          "rolledBackAt": null
+        },
+        {
+          "name": "20261002130000_hr_workspace",
+          "checksum": "ac824ec3d15d181d2717d5592d530a21c738cfb0739f4b7fa0fe051b1175c070",
+          "finishedAt": "2026-10-31T18:46:04.411102+00:00",
+          "rolledBackAt": null
+        },
+        {
+          "name": "20261002131000_hr_permissions",
+          "checksum": "6e2d524dbd8b5ea1001070957eae2b3ad47a45ac1d3b2e064153ff3ae909cc95",
+          "finishedAt": "2026-10-31T18:46:04.420115+00:00",
+          "rolledBackAt": null
+        },
+        {
+          "name": "20261002132000_employee_profiles",
+          "checksum": "dc1c26c102159dc2554be335f86e1f66da7bdf9f3b4997251ab795e1d2a04c53",
+          "finishedAt": "2026-10-31T18:46:04.438721+00:00",
+          "rolledBackAt": null
+        },
+        {
+          "name": "20261024180000_av8_workflows",
+          "checksum": "5b7e37eb692e2d5830f08b93c41b98cebfbdc49e8994306bad29879ecab50941",
+          "finishedAt": "2026-10-31T18:46:04.562852+00:00",
+          "rolledBackAt": null
+        },
+        {
+          "name": "20261024210000_av8_integrity",
+          "checksum": "d6f1674becf0ccf33c3c34c87735b66792a53d30f3cfdcad6c58a05c2f48ab05",
+          "finishedAt": "2026-10-31T18:46:04.582968+00:00",
+          "rolledBackAt": null
+        },
+        {
+          "name": "20261024213000_av8_binding_dispatch",
+          "checksum": "b8783d4c22c932ae5ef75b45254349ed51d4c7a62a8b517fefae0bdec8c2e836",
+          "finishedAt": "2026-10-31T18:46:04.588194+00:00",
+          "rolledBackAt": null
+        },
+        {
+          "name": "20261024220000_av8_approval_snapshots",
+          "checksum": "bd429d8e650627e1d066557c57dbb3ef502560cd1ff9f32e3c2b30c96a55cbea",
+          "finishedAt": "2026-10-31T18:46:04.596364+00:00",
+          "rolledBackAt": null
+        },
+        {
+          "name": "20261025120000_av8_simplified_receipts",
+          "checksum": "9a8a1d75796639eee707eebf5dd4971a1e043e6c3688456f3b0eefbecf155afa",
+          "finishedAt": "2026-10-31T18:46:04.613662+00:00",
+          "rolledBackAt": null
+        },
+        {
+          "name": "20261025121000_av8_plain_setting_names",
+          "checksum": "e2417f3473f9ba1e4abba1492a2bbbd74fc7824dad2ff9fa90e1dbb9a8141e7b",
+          "finishedAt": "2026-10-31T18:46:04.622975+00:00",
+          "rolledBackAt": null
+        },
+        {
+          "name": "20261026160000_account_profiles",
+          "checksum": "ba7dedd7ce175847c20d942f6a6ed8c31e326ddf09b3b673236869a6aba93673",
+          "finishedAt": "2026-10-31T18:46:04.643309+00:00",
+          "rolledBackAt": null
+        },
+        {
+          "name": "20261031120000_av8_confirmed_finance",
+          "checksum": "5b3d0964d48a5da7e1fdbbae3300d87c85f9dcf175ef3f2525fc2ac1cf1d1fc6",
+          "finishedAt": "2026-10-31T18:46:04.662605+00:00",
+          "rolledBackAt": null
+        },
+        {
+          "name": "20261031130000_av8_receipt_metadata",
+          "checksum": "67eab6a9a96f01c174475da8601dfad0a28f6c378ded839c6b363d27fa180bdb",
+          "finishedAt": "2026-10-31T18:46:04.670213+00:00",
+          "rolledBackAt": null
+        },
+        {
+          "name": "20261031140000_av8_financial_evidence",
+          "checksum": "0da6169e8a34fc09ece5619c545eec9ce896d7eb2ccc7a73c343d702f0adfeef",
+          "finishedAt": "2026-10-31T18:46:04.678626+00:00",
+          "rolledBackAt": null
+        },
+        {
+          "name": "20261031140000_treasury_wallets",
+          "checksum": "596ba55ca61d90318221108ab2c5089afd4656d04cf03b27622cd68fe9e033fd",
+          "finishedAt": "2026-10-31T18:46:04.684492+00:00",
+          "rolledBackAt": null
+        },
+        {
+          "name": "20261031150000_statement_import_identity",
+          "checksum": "6b795943709aa25103351a7f6dbc44b5fa16863fa7a605a010e27c3da8c5c089",
+          "finishedAt": "2026-10-31T18:46:04.69537+00:00",
+          "rolledBackAt": null
+        },
+        {
+          "name": "20261031220000_av8_operational_evidence",
+          "checksum": "c276c4354ffd101b9b772fb6014539824f28ae6d117ff95616646ff0c609a0ae",
+          "finishedAt": "2026-10-31T18:46:04.709287+00:00",
+          "rolledBackAt": null
+        },
+        {
+          "name": "20261031230000_av8_opening_history",
+          "checksum": "afe9163a6f872c724386f2051000fa3c3a5015088f0e48a22e5ddc68038adc2e",
+          "finishedAt": "2026-10-31T18:46:04.744789+00:00",
+          "rolledBackAt": null
+        },
+        {
+          "name": "20261031231000_av8_service_reversal_identity",
+          "checksum": "6c1c311dbca160356422df3daacfbec30a794e00f530dc1b3a4b08e8cc099b30",
+          "finishedAt": "2026-10-31T18:46:04.75265+00:00",
+          "rolledBackAt": null
+        },
+        {
+          "name": "20261031233000_av8_financial_allocation_controls",
+          "checksum": "d8f6ead6c07e8d2e9f5f1b7e23c18e029cbd2cc44db2391331551ae9d3ebde43",
+          "finishedAt": "2026-10-31T18:46:04.766236+00:00",
+          "rolledBackAt": null
+        },
+        {
+          "name": "20261031234000_contact_search_keys",
+          "checksum": "6f0b809fe3e0d587db6ecc6715b75144c9a2e7bf1ea212a3aa4c8270c611e54a",
+          "finishedAt": "2026-10-31T18:46:04.78909+00:00",
+          "rolledBackAt": null
+        },
+        {
+          "name": "20261031235000_av8_student_bank_fees",
+          "checksum": "5e8920b26899a1b1b027fdfa6ae7363312b629d63123ea15e83b811181485754",
+          "finishedAt": "2026-10-31T18:46:04.800203+00:00",
+          "rolledBackAt": null
+        },
+        {
+          "name": "20261101001000_av8_remittance_basis",
+          "checksum": "b6095ced0b80b649235423056f5ef3cacaf6d3ae4885c457720027fb9835ec31",
+          "finishedAt": "2026-10-31T18:46:04.811036+00:00",
+          "rolledBackAt": null
+        },
+        {
+          "name": "20261101002000_av8_unallocated_refund_reserve",
+          "checksum": "5b1f241542a71a489e503dc79780f06b43e3fc6e835f2bbea8384ebd12b101dd",
+          "finishedAt": "2026-10-31T18:46:04.821677+00:00",
+          "rolledBackAt": null
+        },
+        {
+          "name": "20261101003000_av8_supplier_opening_settlement",
+          "checksum": "8e26c00f2ea3f102ad3f6babca97dcd2e60013404640785a7965ff8ae0f5f8fe",
+          "finishedAt": "2026-10-31T18:46:04.84002+00:00",
+          "rolledBackAt": null
+        },
+        {
+          "name": "20261101004000_av8_scheduler_checkpoint",
+          "checksum": "68122d4faf131d0de81713f2f730ce3eae86e31d3c914691147582877211822c",
+          "finishedAt": "2026-10-31T18:46:04.848247+00:00",
+          "rolledBackAt": null
+        },
+        {
+          "name": "20261101005000_av8_lead_customer_join",
+          "checksum": "179b252a61061bd4648d8ece2bf7fbb3e6cf1ed32146cf3e3bcb1c0ef5cb79d8",
+          "finishedAt": "2026-10-31T18:46:04.856446+00:00",
+          "rolledBackAt": null
+        }
+      ],
+      "checksumsMatch": true,
+      "postgresVersion": "17.11",
+      "images": {
+        "api": {
+          "imageId": "sha256:f451d7fc74979cfe70efbca41fe1dee0509e39404bd63ff92942b5f2600f507d",
+          "revision": "170b929bd4749e3ae53c7dcb0155e90d617210d9",
+          "healthy": true
+        },
+        "web": {
+          "imageId": "sha256:425ff680c0f7b9b3ebab6ac9d625ee1145c2c1f3384fa58eaa64416ce6d945a9",
+          "revision": "170b929bd4749e3ae53c7dcb0155e90d617210d9",
+          "healthy": true
+        }
+      },
+      "schedulerTimerActive": "active",
+      "backupTimerActive": "active",
+      "backupLatest": "/srv/av8-erp-final/backups/staging/av8-2026-10-31T19-51-39-524Z.dump.enc",
+      "backupLatestBytes": 559319,
+      "backupMode": "0o600",
+      "emailEnabled": true,
+      "academicWorkerEnabled": true,
+      "operationsWorkerEnabled": true,
+      "alertsEnabled": true
+    },
+    "production": {
+      "project": "av8-delivery-prod",
+      "migrations": [
+        {
+          "name": "20260716011351_initial",
+          "checksum": "907395d337205b4d3a6e5f9368dd37148c53b00f5dce7862dc6e97bf324710a2",
+          "finishedAt": "2026-10-31T19:58:56.407973+00:00",
+          "rolledBackAt": null
+        },
+        {
+          "name": "20260716011500_hardening",
+          "checksum": "a0809043394e5b353a34a15bf83de37a2b13d43dc1a6d6657d0d6fd20f167451",
+          "finishedAt": "2026-10-31T19:58:56.455898+00:00",
+          "rolledBackAt": null
+        },
+        {
+          "name": "20260716054000_payment_allocation_state",
+          "checksum": "936b037ce4cf6a0734fd4833bd87df60fb4e6cab5292e14c5c1e4996b9d826ee",
+          "finishedAt": "2026-10-31T19:58:56.461573+00:00",
+          "rolledBackAt": null
+        },
+        {
+          "name": "20260717090000_add_purchase_rfq",
+          "checksum": "0bee32c69c77c3e44a9947c971a75ea5f5c151bae27e2afb72a244b32954f737",
+          "finishedAt": "2026-10-31T19:58:56.466691+00:00",
+          "rolledBackAt": null
+        },
+        {
+          "name": "20260719090000_sales_workflow_foundation",
+          "checksum": "16013fc7f154652d7cce8609fec6f6ac06905357cc218f6cf10b0fba21167e3f",
+          "finishedAt": "2026-10-31T19:58:56.529843+00:00",
+          "rolledBackAt": null
+        },
+        {
+          "name": "20260719103000_refresh_session_persistence",
+          "checksum": "da10bf8e6a81327c130a3443fd9a70b0978d6ce22979551811ab05f238e849e3",
+          "finishedAt": "2026-10-31T19:58:56.534028+00:00",
+          "rolledBackAt": null
+        },
+        {
+          "name": "20260727081500_neon_reset_mode",
+          "checksum": "645da4cf7990653a62b4d6dbfa104bc13534ff7c0728f9ef85e04fda92ea479d",
+          "finishedAt": "2026-10-31T19:58:56.544291+00:00",
+          "rolledBackAt": null
+        },
+        {
+          "name": "20260728220000_override_demo_password",
+          "checksum": "03106a407a124e7381588c366891af9d4f7945cd0c420994b6c662ee54c31fcd",
+          "finishedAt": "2026-10-31T19:58:56.54921+00:00",
+          "rolledBackAt": null
+        },
+        {
+          "name": "20260731120000_enterprise_access_control",
+          "checksum": "5f6335bf756995276d408028b17bac7086072f1df8c62d4edc1b0d2a3c705e2e",
+          "finishedAt": "2026-10-31T19:58:56.651127+00:00",
+          "rolledBackAt": null
+        },
+        {
+          "name": "20260803132000_add_none_data_scope",
+          "checksum": "53abbf035fdf23952ae3cfdb9816d869e229ccf450b152713e7b614693e8308b",
+          "finishedAt": "2026-10-31T19:58:56.656904+00:00",
+          "rolledBackAt": null
+        },
+        {
+          "name": "20260803132100_backfill_explicit_data_scopes",
+          "checksum": "f3ecc7caf3db0d8a699c6d80d7f71b916fd579f226c8af8fea19872aba77971e",
+          "finishedAt": "2026-10-31T19:58:56.666605+00:00",
+          "rolledBackAt": null
+        },
+        {
+          "name": "20260803140000_central_authorization_denials",
+          "checksum": "de6b04a9a6c1f6ce61af068a0878acf551a47ae5e7febad0505bb57bcd591109",
+          "finishedAt": "2026-10-31T19:58:56.679806+00:00",
+          "rolledBackAt": null
+        },
+        {
+          "name": "20260803143000_mfa_session_hardening",
+          "checksum": "1a785cc657f709b68d0c3ce1adfc99c69455fb26c6ae534e5dc46765d35aa4bc",
+          "finishedAt": "2026-10-31T19:58:56.729985+00:00",
+          "rolledBackAt": null
+        },
+        {
+          "name": "20260803150000_disable_legacy_demo_accounts",
+          "checksum": "956a2588967c3bdc660daf4afd1ce1e76543ad5a59fec5fd15c46c6f719148b7",
+          "finishedAt": "2026-10-31T19:58:56.736899+00:00",
+          "rolledBackAt": null
+        },
+        {
+          "name": "20260809120000_company_access_governance",
+          "checksum": "63083483ec13fdcf1c32ef99f2d7e689397c71e2021eb18f4415c47d995cd4d1",
+          "finishedAt": "2026-10-31T19:58:56.918404+00:00",
+          "rolledBackAt": null
+        },
+        {
+          "name": "20260811120000_payment_approval_workflow",
+          "checksum": "a174fa5e2c9c9cd785da9a5704a3dbc38c7155387b188c244d21a6c0d7915c75",
+          "finishedAt": "2026-10-31T19:58:56.954794+00:00",
+          "rolledBackAt": null
+        },
+        {
+          "name": "20260811123000_report_dependency_scopes",
+          "checksum": "9ccbfe3089d7b6c630acdce8fc1c9fe8908474a3f36638a2e117afab2c6ac774",
+          "finishedAt": "2026-10-31T19:58:56.961877+00:00",
+          "rolledBackAt": null
+        },
+        {
+          "name": "20261002130000_hr_workspace",
+          "checksum": "ac824ec3d15d181d2717d5592d530a21c738cfb0739f4b7fa0fe051b1175c070",
+          "finishedAt": "2026-10-31T19:58:56.996962+00:00",
+          "rolledBackAt": null
+        },
+        {
+          "name": "20261002131000_hr_permissions",
+          "checksum": "6e2d524dbd8b5ea1001070957eae2b3ad47a45ac1d3b2e064153ff3ae909cc95",
+          "finishedAt": "2026-10-31T19:58:57.0029+00:00",
+          "rolledBackAt": null
+        },
+        {
+          "name": "20261002132000_employee_profiles",
+          "checksum": "dc1c26c102159dc2554be335f86e1f66da7bdf9f3b4997251ab795e1d2a04c53",
+          "finishedAt": "2026-10-31T19:58:57.020071+00:00",
+          "rolledBackAt": null
+        },
+        {
+          "name": "20261024180000_av8_workflows",
+          "checksum": "5b7e37eb692e2d5830f08b93c41b98cebfbdc49e8994306bad29879ecab50941",
+          "finishedAt": "2026-10-31T19:58:57.138092+00:00",
+          "rolledBackAt": null
+        },
+        {
+          "name": "20261024210000_av8_integrity",
+          "checksum": "d6f1674becf0ccf33c3c34c87735b66792a53d30f3cfdcad6c58a05c2f48ab05",
+          "finishedAt": "2026-10-31T19:58:57.148808+00:00",
+          "rolledBackAt": null
+        },
+        {
+          "name": "20261024213000_av8_binding_dispatch",
+          "checksum": "b8783d4c22c932ae5ef75b45254349ed51d4c7a62a8b517fefae0bdec8c2e836",
+          "finishedAt": "2026-10-31T19:58:57.153794+00:00",
+          "rolledBackAt": null
+        },
+        {
+          "name": "20261024220000_av8_approval_snapshots",
+          "checksum": "bd429d8e650627e1d066557c57dbb3ef502560cd1ff9f32e3c2b30c96a55cbea",
+          "finishedAt": "2026-10-31T19:58:57.160176+00:00",
+          "rolledBackAt": null
+        },
+        {
+          "name": "20261025120000_av8_simplified_receipts",
+          "checksum": "9a8a1d75796639eee707eebf5dd4971a1e043e6c3688456f3b0eefbecf155afa",
+          "finishedAt": "2026-10-31T19:58:57.174192+00:00",
+          "rolledBackAt": null
+        },
+        {
+          "name": "20261025121000_av8_plain_setting_names",
+          "checksum": "e2417f3473f9ba1e4abba1492a2bbbd74fc7824dad2ff9fa90e1dbb9a8141e7b",
+          "finishedAt": "2026-10-31T19:58:57.18309+00:00",
+          "rolledBackAt": null
+        },
+        {
+          "name": "20261026160000_account_profiles",
+          "checksum": "ba7dedd7ce175847c20d942f6a6ed8c31e326ddf09b3b673236869a6aba93673",
+          "finishedAt": "2026-10-31T19:58:57.195645+00:00",
+          "rolledBackAt": null
+        },
+        {
+          "name": "20261031120000_av8_confirmed_finance",
+          "checksum": "5b3d0964d48a5da7e1fdbbae3300d87c85f9dcf175ef3f2525fc2ac1cf1d1fc6",
+          "finishedAt": "2026-10-31T19:58:57.207516+00:00",
+          "rolledBackAt": null
+        },
+        {
+          "name": "20261031130000_av8_receipt_metadata",
+          "checksum": "67eab6a9a96f01c174475da8601dfad0a28f6c378ded839c6b363d27fa180bdb",
+          "finishedAt": "2026-10-31T19:58:57.2117+00:00",
+          "rolledBackAt": null
+        },
+        {
+          "name": "20261031140000_av8_financial_evidence",
+          "checksum": "0da6169e8a34fc09ece5619c545eec9ce896d7eb2ccc7a73c343d702f0adfeef",
+          "finishedAt": "2026-10-31T19:58:57.216279+00:00",
+          "rolledBackAt": null
+        },
+        {
+          "name": "20261031140000_treasury_wallets",
+          "checksum": "596ba55ca61d90318221108ab2c5089afd4656d04cf03b27622cd68fe9e033fd",
+          "finishedAt": "2026-10-31T19:58:57.221431+00:00",
+          "rolledBackAt": null
+        },
+        {
+          "name": "20261031150000_statement_import_identity",
+          "checksum": "6b795943709aa25103351a7f6dbc44b5fa16863fa7a605a010e27c3da8c5c089",
+          "finishedAt": "2026-10-31T19:58:57.231746+00:00",
+          "rolledBackAt": null
+        },
+        {
+          "name": "20261031220000_av8_operational_evidence",
+          "checksum": "c276c4354ffd101b9b772fb6014539824f28ae6d117ff95616646ff0c609a0ae",
+          "finishedAt": "2026-10-31T19:58:57.239911+00:00",
+          "rolledBackAt": null
+        },
+        {
+          "name": "20261031230000_av8_opening_history",
+          "checksum": "afe9163a6f872c724386f2051000fa3c3a5015088f0e48a22e5ddc68038adc2e",
+          "finishedAt": "2026-10-31T19:58:57.257972+00:00",
+          "rolledBackAt": null
+        },
+        {
+          "name": "20261031231000_av8_service_reversal_identity",
+          "checksum": "6c1c311dbca160356422df3daacfbec30a794e00f530dc1b3a4b08e8cc099b30",
+          "finishedAt": "2026-10-31T19:58:57.262515+00:00",
+          "rolledBackAt": null
+        },
+        {
+          "name": "20261031233000_av8_financial_allocation_controls",
+          "checksum": "d8f6ead6c07e8d2e9f5f1b7e23c18e029cbd2cc44db2391331551ae9d3ebde43",
+          "finishedAt": "2026-10-31T19:58:57.269275+00:00",
+          "rolledBackAt": null
+        },
+        {
+          "name": "20261031234000_contact_search_keys",
+          "checksum": "6f0b809fe3e0d587db6ecc6715b75144c9a2e7bf1ea212a3aa4c8270c611e54a",
+          "finishedAt": "2026-10-31T19:58:57.280929+00:00",
+          "rolledBackAt": null
+        },
+        {
+          "name": "20261031235000_av8_student_bank_fees",
+          "checksum": "5e8920b26899a1b1b027fdfa6ae7363312b629d63123ea15e83b811181485754",
+          "finishedAt": "2026-10-31T19:58:57.291304+00:00",
+          "rolledBackAt": null
+        },
+        {
+          "name": "20261101001000_av8_remittance_basis",
+          "checksum": "b6095ced0b80b649235423056f5ef3cacaf6d3ae4885c457720027fb9835ec31",
+          "finishedAt": "2026-10-31T19:58:57.300689+00:00",
+          "rolledBackAt": null
+        },
+        {
+          "name": "20261101002000_av8_unallocated_refund_reserve",
+          "checksum": "5b1f241542a71a489e503dc79780f06b43e3fc6e835f2bbea8384ebd12b101dd",
+          "finishedAt": "2026-10-31T19:58:57.309174+00:00",
+          "rolledBackAt": null
+        },
+        {
+          "name": "20261101003000_av8_supplier_opening_settlement",
+          "checksum": "8e26c00f2ea3f102ad3f6babca97dcd2e60013404640785a7965ff8ae0f5f8fe",
+          "finishedAt": "2026-10-31T19:58:57.325425+00:00",
+          "rolledBackAt": null
+        },
+        {
+          "name": "20261101004000_av8_scheduler_checkpoint",
+          "checksum": "68122d4faf131d0de81713f2f730ce3eae86e31d3c914691147582877211822c",
+          "finishedAt": "2026-10-31T19:58:57.333228+00:00",
+          "rolledBackAt": null
+        },
+        {
+          "name": "20261101005000_av8_lead_customer_join",
+          "checksum": "179b252a61061bd4648d8ece2bf7fbb3e6cf1ed32146cf3e3bcb1c0ef5cb79d8",
+          "finishedAt": "2026-10-31T19:58:57.340738+00:00",
+          "rolledBackAt": null
+        }
+      ],
+      "checksumsMatch": true,
+      "postgresVersion": "17.11",
+      "images": {
+        "api": {
+          "imageId": "sha256:f451d7fc74979cfe70efbca41fe1dee0509e39404bd63ff92942b5f2600f507d",
+          "revision": "170b929bd4749e3ae53c7dcb0155e90d617210d9",
+          "healthy": true
+        },
+        "web": {
+          "imageId": "sha256:425ff680c0f7b9b3ebab6ac9d625ee1145c2c1f3384fa58eaa64416ce6d945a9",
+          "revision": "170b929bd4749e3ae53c7dcb0155e90d617210d9",
+          "healthy": true
+        }
+      },
+      "schedulerTimerActive": "active",
+      "backupTimerActive": "active",
+      "backupLatest": "/srv/av8-erp-final/backups/production/av8-2026-10-31T20-30-13-773Z.dump.enc",
+      "backupLatestBytes": 547785,
+      "backupMode": "0o600",
+      "emailEnabled": false,
+      "academicWorkerEnabled": false,
+      "operationsWorkerEnabled": true,
+      "alertsEnabled": false
+    }
+  },
+  "originalNginxSitesUnchanged": true,
+  "originalNginxSiteCount": 6,
+  "otherExistingContainersUnchanged": true,
+  "otherExistingContainerCount": 21,
+  "freeDiskBytes": 2433474560
+}

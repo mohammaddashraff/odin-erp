@@ -1,0 +1,13 @@
+{
+  "synthetic": true,
+  "journalId": "93",
+  "movementsCreated": 2,
+  "sourcePrincipalMinor": "1000",
+  "feeMinor": "100",
+  "sourceDebitedMinor": "1100",
+  "destinationCreditedMinor": "1000",
+  "sameResponseOnRetry": true,
+  "historySearchAndPagination": true,
+  "statementSearchAndPagination": true,
+  "statementMatchedBySourceId": true
+}

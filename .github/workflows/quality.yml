@@ -1,199 +1,91 @@
-name: Quality gate
-
+name: AV8 delivery gates
 on:
   pull_request:
   push:
     branches: [main]
-
+permissions:
+  contents: read
 jobs:
   verify:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 45
     services:
       postgres:
         image: postgres:17-alpine
         env:
-          POSTGRES_DB: odin_erp
-          POSTGRES_USER: odin
-          POSTGRES_PASSWORD: odin_local_only
-        ports:
-          - 5432:5432
+          POSTGRES_DB: av8_test
+          POSTGRES_USER: av8_owner
+          POSTGRES_PASSWORD: ephemeral-ci-owner-only
+        ports: ['5549:5432']
         options: >-
-          --health-cmd "pg_isready -U odin -d odin_erp"
-          --health-interval 5s
-          --health-timeout 3s
-          --health-retries 12
+          --health-cmd "pg_isready -U av8_owner -d av8_test"
+          --health-interval 5s --health-timeout 3s --health-retries 12
     env:
-      CI: true
-      DATABASE_ADMIN_URL: postgresql://odin:odin_local_only@127.0.0.1:5432/odin_erp
-      DATABASE_URL: postgresql://odin_app:odin_app_local_only@127.0.0.1:5432/odin_erp
-      ODIN_TOKEN_SECRET: ci-only-signing-secret-with-at-least-32-characters
-      ODIN_ALLOWED_ORIGINS: http://127.0.0.1:8080
+      CI: 'true'
+      AV8_CI_ADMIN_URL: postgresql://av8_owner:ephemeral-ci-owner-only@127.0.0.1:5549/av8_test
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 24
           cache: npm
-      - run: npm ci
-      - run: npm run db:generate
-      - run: npm run db:validate
-      - run: npm run db:migrate
-      - run: npm run db:seed
+      - run: npm ci --ignore-scripts
+      - name: Install PDF and matching PostgreSQL recovery tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y poppler-utils curl ca-certificates gpg
+          sudo install -d /usr/share/postgresql-common/pgdg
+          sudo curl --fail --silent --show-error -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc https://www.postgresql.org/media/keys/ACCC4CF8.asc
+          test "$(gpg --show-keys --with-colons /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc | awk -F: '$1=="fpr" {print $10; exit}')" = B97B0AFCAA1A47F044F244A07FCC7D46ACCC4CF8
+          . /etc/os-release
+          echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt ${VERSION_CODENAME}-pgdg main" | sudo tee /etc/apt/sources.list.d/pgdg.list >/dev/null
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client-17
+      - run: node scripts/av8/init-ci.mjs
+      - run: node scripts/av8/run.mjs test npm run db:generate
+      - run: node scripts/av8/run.mjs test npm run db:validate
+      - run: node scripts/av8/run.mjs test npm run db:migrate
+      - run: node scripts/av8/run.mjs test npm run db:seed
       - run: npm run lint
-      - run: npm run typecheck
+      - run: node scripts/av8/run.mjs test npm run typecheck
       - run: npm run i18n:audit
-      - run: npm test
-      - run: npm run integrity
-      - run: npm run build
-
-  security:
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    env:
-      CI: true
-      NEXT_PUBLIC_ODIN_DEMO_MODE: 'false'
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 24
-          cache: npm
-      - run: npm ci
-      - run: npm run db:generate
-      - run: npm run db:validate
+      - run: node --test scripts/av8/web-isolation.test.mjs
+      - run: node --test deploy/hetzner/*.test.mjs
+      - run: npm run security:history
       - run: npm run security:audit
       - run: npm run security:scan
-      - run: npm run build -w @odin/web
+      - run: node scripts/av8/run.mjs test npm test
+      - run: node scripts/av8/run.mjs test npm run integrity
+      - run: node scripts/av8/run.mjs test npm run build
       - run: npm run security:scan
-
-  browser:
-    needs: [verify, security]
-    runs-on: ubuntu-latest
-    timeout-minutes: 35
-    services:
-      postgres:
-        image: postgres:17-alpine
-        env:
-          POSTGRES_DB: odin_erp
-          POSTGRES_USER: odin
-          POSTGRES_PASSWORD: odin_local_only
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U odin -d odin_erp"
-          --health-interval 5s
-          --health-timeout 3s
-          --health-retries 12
-    env:
-      CI: true
-      API_ORIGIN: http://127.0.0.1:8081
-      DATABASE_ADMIN_URL: postgresql://odin:odin_local_only@127.0.0.1:5432/odin_erp
-      DATABASE_URL: postgresql://odin_app:odin_app_local_only@127.0.0.1:5432/odin_erp
-      ODIN_TOKEN_SECRET: ci-only-signing-secret-with-at-least-32-characters
-      ODIN_MFA_ENCRYPTION_KEY: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
-      ODIN_ALLOWED_ORIGINS: http://127.0.0.1:8080
-      NEXT_PUBLIC_ODIN_DEMO_MODE: 'true'
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 24
-          cache: npm
-      - run: npm ci
-      - run: npm run db:generate
-      - run: npm run db:migrate
-      - run: npm run db:seed
-      - run: npm run build
       - run: npx playwright install --with-deps chromium
-      - name: Start isolated API and web services
+      - run: node scripts/av8/run.mjs test node .av8/api/src/scripts/av8-pos-uat.js
+      - run: node scripts/av8/run.mjs test node .av8/api/src/scripts/av8-supplier-uat.js > .av8/supplier-uat-fixture.json
+      - run: node scripts/av8/run.mjs test node scripts/av8/prepare-finance-uat.mjs
+      - run: node scripts/av8/run.mjs test node scripts/av8/operations-uat.cjs
+      - run: node scripts/av8/run.mjs test node scripts/av8/prepare-opening-uat.cjs
+      - name: Start tested services
         run: |
-          NODE_ENV=test npm run start:prod -w @odin/api > /tmp/odin-api.log 2>&1 &
-          NODE_ENV=production npm run start -w @odin/web > /tmp/odin-web.log 2>&1 &
+          node scripts/av8/run.mjs test npm run start > .av8/services.log 2>&1 &
           for attempt in {1..60}; do
-            if curl --fail --silent http://127.0.0.1:8081/api/health >/dev/null && curl --fail --silent http://127.0.0.1:8080/dashboard >/dev/null; then
-              exit 0
-            fi
+            if curl --fail --silent http://127.0.0.1:8181/api/health >/dev/null && curl --fail --silent http://127.0.0.1:8180/login >/dev/null; then exit 0; fi
             sleep 1
           done
-          sed -n '1,240p' /tmp/odin-api.log
-          sed -n '1,240p' /tmp/odin-web.log
+          echo 'Service health timed out; inspect restricted runner diagnostics.'
           exit 1
-      - run: npx playwright test tests/e2e/odin-ui.spec.ts tests/e2e/localization.spec.ts tests/e2e/access-security.spec.ts --project=chromium
-      - name: Upload browser evidence
+      - run: node scripts/av8/run.mjs test env AV8_BROWSER_PRODUCTION=1 npx playwright test -c playwright.delivery.config.ts
+      - name: Encrypted isolated database and document recovery
+        run: node scripts/av8/run.mjs test node scripts/av8/recovery-drill.mjs
+      - name: Upload synthetic verification evidence
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: playwright-evidence
+          name: av8-delivery-evidence
           path: |
-            playwright-report/
-            test-results/
+            output/playwright/final-delivery/
+            output/pdf/final-delivery/
+            output/recovery/evidence.json
           retention-days: 14
-      - name: Print service logs on failure
-        if: failure()
-        run: |
-          sed -n '1,300p' /tmp/odin-api.log
-          sed -n '1,300p' /tmp/odin-web.log
-
-  restore:
-    needs: [verify, security]
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    services:
-      postgres:
-        image: postgres:17-alpine
-        env:
-          POSTGRES_DB: odin_erp
-          POSTGRES_USER: odin
-          POSTGRES_PASSWORD: odin_local_only
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U odin -d odin_erp"
-          --health-interval 5s
-          --health-timeout 3s
-          --health-retries 12
-    env:
-      CI: true
-      DATABASE_ADMIN_URL: postgresql://odin:odin_local_only@127.0.0.1:5432/odin_erp
-      DATABASE_URL: postgresql://odin_app:odin_app_local_only@127.0.0.1:5432/odin_erp
-      RESTORE_SERVER_URL: postgresql://odin:odin_local_only@127.0.0.1:5432/postgres
-      RESTORE_DATABASE_NAME: odin_restore
-      RESTORE_DATABASE_OWNER: odin
-      RESTORE_DATABASE_URL: postgresql://odin:odin_local_only@127.0.0.1:5432/odin_restore
-      RESTORE_RUNTIME_DATABASE_URL: postgresql://odin_app:odin_app_local_only@127.0.0.1:5432/odin_restore
-      RESTORE_API_PORT: 8099
-      EVIDENCE_DIR: restore-evidence
-      ODIN_TOKEN_SECRET: ci-only-signing-secret-with-at-least-32-characters
-      ODIN_MFA_ENCRYPTION_KEY: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
-      ODIN_ALLOWED_ORIGINS: http://127.0.0.1:8080
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 24
-          cache: npm
-      - run: npm ci
-      - run: npm run db:generate
-      - run: npm run db:migrate
-      - run: npm run db:seed
-      - run: npm run build -w @odin/api
-      - name: Install PostgreSQL 17 client
-        run: |
-          sudo install -d -m 0755 /usr/share/postgresql-common/pgdg
-          curl --fail --silent --show-error https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo gpg --dearmor --yes -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.gpg
-          . /etc/os-release
-          echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.gpg] https://apt.postgresql.org/pub/repos/apt ${VERSION_CODENAME}-pgdg main" | sudo tee /etc/apt/sources.list.d/pgdg.list >/dev/null
-          sudo apt-get update
-          sudo apt-get install --yes postgresql-client-17
-          echo "/usr/lib/postgresql/17/bin" >> "$GITHUB_PATH"
-          /usr/lib/postgresql/17/bin/pg_dump --version
-      - name: Execute encrypted clean-database restore drill
-        run: BACKUP_ENCRYPTION_KEY="$(openssl rand -base64 48)" ./scripts/backup-restore-drill.sh
-      - name: Upload restore evidence
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: backup-restore-evidence
-          path: restore-evidence/
-          retention-days: 35

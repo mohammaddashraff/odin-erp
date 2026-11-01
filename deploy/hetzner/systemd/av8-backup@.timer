@@ -1,0 +1,11 @@
+[Unit]
+Description=Daily encrypted local AV8 %i backup
+
+[Timer]
+OnCalendar=*-*-* 03:15:00 UTC
+Persistent=true
+AccuracySec=1min
+Unit=av8-backup@%i.service
+
+[Install]
+WantedBy=timers.target

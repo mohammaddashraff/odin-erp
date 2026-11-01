@@ -14,9 +14,9 @@ describe('AV8 hosted isolation',()=>{
   it('rejects inherited overrides, wrong projects and weakened authentication',()=>{
     for(const override of [{DATABASE_URL_UNPOOLED:'postgresql://old:old@localhost/odin'}, {VERCEL_PROJECT_ID:'prj_old'}, {ODIN_REQUIRE_PRIVILEGED_MFA:'false'}, {ODIN_ALLOW_SHARED_DEMO_LOGINS:'true'}, {AV8_OUTBOUND:'enabled'}, {AV8_JOBS:'enabled'}])expect(()=>assertAv8Isolation({...env,...override})).toThrow();
   });
-  it('allows password-only login only when the mode is explicitly paired with its settings',()=>{
+  it('rejects the legacy production password-only bypass even when explicitly configured',()=>{
     const simple={...env,AV8_SIMPLE_LOGIN:'true',ODIN_REQUIRE_PRIVILEGED_MFA:'false',ODIN_ALLOW_SHARED_DEMO_LOGINS:'false'};
-    expect(()=>assertAv8Isolation(simple)).not.toThrow();
+    expect(()=>assertAv8Isolation(simple)).toThrow('authentication mode');
     expect(()=>assertAv8Isolation({...simple,ODIN_ALLOW_SHARED_DEMO_LOGINS:'true'})).toThrow('authentication mode');
     expect(()=>assertAv8Isolation({...simple,ODIN_REQUIRE_PRIVILEGED_MFA:'true'})).toThrow('authentication mode');
   });

@@ -8,7 +8,7 @@ const labels: Record<string, [string, string]> = {
   overdueMinor:['Overdue','المتأخر'], unappliedMinor:['Unapplied credit','رصيد غير مخصص'], refundedMinor:['Refunded','المسترد'],
   amountMinor:['Original amount','المبلغ المدفوع'], usdMinor:['USD equivalent','المقابل بالدولار'],
   obligationMinor:['Academy obligation','استحقاق الأكاديمية'], remittedMinor:['Remitted','المحول للأكاديمية'],
-  contractualCommissionMinor:['Contractual commission','العمولة التعاقدية'], netCashRetainedMinor:['Net cash retained','صافي النقد المحتفظ به'],
+  contractualCommissionMinor:['Contractual commission','العمولة التعاقدية'], netCashRetainedMinor:['Student funds retained before other operating expenses','أموال الطلاب المحتفظ بها قبل المصروفات التشغيلية الأخرى'],
   academyHeldDeferredMinor:['Deferred funds awaiting transfer','أقساط مؤجلة بانتظار التحويل'],
   currency:['Currency','العملة'], usdCurrency:['Equivalent currency','عملة المقابل'], source:['Inquiry source','مصدر الاستفسار'],
   id:['Record','السجل'],applicationId:['Student file','ملف الطالب'],owner:['Owner','الموظف المسؤول'],status:['Status','الحالة'],

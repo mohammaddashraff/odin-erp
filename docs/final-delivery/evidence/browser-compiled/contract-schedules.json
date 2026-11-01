@@ -1,0 +1,33 @@
+{
+  "synthetic": true,
+  "proofs": [
+    {
+      "plan": "planA",
+      "applicationId": "33",
+      "contractId": "638",
+      "status": "SIGNED",
+      "items": 8,
+      "totalMinor": "6400000",
+      "applicationFeeCount": 1
+    },
+    {
+      "plan": "planB",
+      "applicationId": "34",
+      "contractId": "789",
+      "status": "SIGNED",
+      "items": 8,
+      "totalMinor": "6400000",
+      "applicationFeeCount": 1
+    },
+    {
+      "plan": "cash",
+      "applicationId": "35",
+      "contractId": "790",
+      "status": "SIGNED",
+      "items": 2,
+      "totalMinor": "5400000",
+      "applicationFeeCount": 1,
+      "academyMinor": "5400000"
+    }
+  ]
+}

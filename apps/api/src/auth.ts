@@ -1,3 +1,4 @@
+import { authenticateAv8Scheduler } from './av8-scheduler-config';
 import { CanActivate, ExecutionContext, ForbiddenException, Injectable, UnauthorizedException } from '@nestjs/common';
 import { compare, hash } from 'bcryptjs';
 import { createHash, randomBytes } from 'node:crypto';
@@ -522,6 +523,7 @@ export class AuthGuard implements CanActivate {
   constructor(private readonly auth: AuthService) {}
   async canActivate(context: ExecutionContext) {
     const request = context.switchToHttp().getRequest();
+    if(request.path==='/api/av8/scheduler/tick'&&['GET','POST'].includes(request.method)){authenticateAv8Scheduler(request.headers.authorization);request.av8SchedulerAuthenticated=true;return true;}
     if (request.path === '/api/health' || request.path === '/api/auth/login' || request.path === '/api/auth/mfa/verify' || request.path === '/api/auth/refresh' || request.path === '/api/auth/logout' || request.path.startsWith('/api/docs')) return true;
     const header = String(request.headers.authorization || '');
     if (!header.startsWith('Bearer ')) throw new UnauthorizedException('Sign in is required');

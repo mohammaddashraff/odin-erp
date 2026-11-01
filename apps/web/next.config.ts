@@ -1,19 +1,16 @@
 import type { NextConfig } from "next";
+import path from "node:path";
 
-const hosted=process.env.AV8_ENV==='production';
-if (process.env.AV8_OUTBOUND !== 'disabled' || !['dev','test','production'].includes(process.env.AV8_ENV || '') || process.env.API_ORIGIN !== (hosted?'https://av8-erp-api.vercel.app':'http://127.0.0.1:8181') || process.env.ODIN_UI_BUILD_DIR !== (hosted?'.next':'.next-av8')) throw new Error('Start AV8 with its verified isolated configuration');
-if(hosted&&process.env.VERCEL==='1'&&process.env.VERCEL_PROJECT_ID!=='prj_uhdt4Zm1BiauDHJeHoMa1ccO2GvG')throw new Error('Unexpected AV8 frontend project');
+import {av8WebConfiguration} from './src/core/server-config';
+const {hosted,apiOrigin,buildDir}=av8WebConfiguration(process.env);
 
-const apiOrigin = (process.env.API_ORIGIN || "http://127.0.0.1:8181").replace(
-  /\/$/,
-  "",
-);
 const demoMode = process.env.NEXT_PUBLIC_ODIN_DEMO_MODE === "true";
 
 const nextConfig: NextConfig = {
   poweredByHeader: false,
+  ...(process.env.AV8_HOSTING==='hetzner'?{output:'standalone' as const,outputFileTracingRoot:path.join(__dirname,'../..')}:{}),
   agentRules: false,
-  distDir: process.env.ODIN_UI_BUILD_DIR || ".next-av8",
+  distDir: buildDir,
   // A compile-time literal lets production builds remove demo credentials.
   env: {
     NEXT_PUBLIC_ODIN_DEMO_MODE: demoMode ? "true" : "false",
@@ -23,10 +20,6 @@ const nextConfig: NextConfig = {
       {
         source: "/:path*",
         headers: [
-          {
-            key: "Content-Security-Policy",
-            value: `default-src 'self'; base-uri 'self'; connect-src 'self'; font-src 'self' data:; form-action 'self'; frame-ancestors 'none'; img-src 'self' data: blob:; object-src 'none'; script-src 'self' 'unsafe-inline'${process.env.NODE_ENV === "development" ? " 'unsafe-eval'" : ""}; style-src 'self' 'unsafe-inline'`,
-          },
           {
             key: "Permissions-Policy",
             value:

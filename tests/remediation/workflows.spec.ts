@@ -138,7 +138,26 @@ test("lead drawer, timeline order, focus, filtering, pagination, Back and refres
   await expect(
     page.getByRole("dialog", { name: "Lead details" }),
   ).toBeVisible();
-  await expect(page.getByRole("dialog")).toContainText("UI Review lead 26");
+  const leadDialog = page.getByRole("dialog", { name: "Lead details" });
+  await expect(leadDialog).toContainText("UI Review lead 26");
+  await expect(leadDialog.getByText("Next action", { exact: true })).toBeVisible();
+  await expect(
+    leadDialog.locator(".av8-lead-next").getByRole("button", {
+      name: "Appointment",
+      exact: true,
+    }),
+  ).toBeVisible();
+  await expect(
+    leadDialog.getByRole("button", { name: "Record activity", exact: true }),
+  ).not.toBeVisible();
+  await leadDialog.locator("summary").filter({ hasText: "More" }).click();
+  await expect(
+    leadDialog.getByRole("button", { name: "Record activity", exact: true }),
+  ).toBeVisible();
+  await expect(
+    leadDialog.getByRole("button", { name: "Open application", exact: true }),
+  ).toBeVisible();
+  await leadDialog.locator("summary").filter({ hasText: "More" }).click();
   expect(
     await page
       .locator("[data-event-id]")
@@ -163,6 +182,29 @@ test("lead drawer, timeline order, focus, filtering, pagination, Back and refres
   await expect(page.getByRole("dialog")).toBeVisible();
   await page.keyboard.press("Escape");
   await expect(page.getByRole("dialog")).toHaveCount(0);
+});
+test("lead drawer keeps one clear next action in Arabic mobile", async ({ page }) => {
+  await page.context().addCookies([
+    { name: "av8_language", value: "ar", url: "http://127.0.0.1:8180" },
+  ]);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/av8/leads?lead=26");
+  const dialog = page.getByRole("dialog", { name: "تفاصيل العميل المحتمل" });
+  await expect(dialog).toBeVisible();
+  await expect(dialog.getByText("الإجراء التالي", { exact: true })).toBeVisible();
+  await expect(
+    dialog.locator(".av8-lead-next").getByRole("button", {
+      name: "موعد",
+      exact: true,
+    }),
+  ).toBeVisible();
+  await dialog.locator("summary").filter({ hasText: "المزيد" }).click();
+  await expect(
+    dialog.getByRole("button", { name: "فتح ملف تقديم", exact: true }),
+  ).toBeVisible();
+  await page.screenshot({
+    path: evidencePath("after", "lead-detail-ar-390.png"),
+  });
 });
 test("full-dataset sort precedes pagination, filtering resets page and nullable dates retain headers", async ({
   page,

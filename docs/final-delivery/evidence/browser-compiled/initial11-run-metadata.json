@@ -1,0 +1,17 @@
+{
+  "scope": "Local compiled production-runtime browser acceptance; synthetic data; no external provider or hosted-deployment claim",
+  "completedAtUtc": "2026-10-31T18:43:10.664976+00:00",
+  "command": "node scripts/av8/run.mjs dev env AV8_BROWSER_PRODUCTION=1 node node_modules/@playwright/test/cli.js test --config=playwright.delivery.config.ts",
+  "testsPassed": 11,
+  "testsFailed": 0,
+  "registeredRoutes": 78,
+  "routeVariantsPassed": 312,
+  "frontendOrigin": "http://127.0.0.1:8180",
+  "apiOrigin": "http://127.0.0.1:8181",
+  "nodeEnv": "production",
+  "isolationEnvironment": "dev",
+  "gitHeadAtEvidenceCapture": "828ae27bd17682739d192115ed163781f2388bea",
+  "workingTreeHadChanges": true,
+  "testedReleaseCommit": null,
+  "commitNote": "Release owner must bind this evidence to the tested release commit; baseline HEAD is not asserted to contain the tested working-tree changes."
+}

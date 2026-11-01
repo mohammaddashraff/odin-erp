@@ -1,0 +1,133 @@
+{
+  "applicationCommit": "170b929bd4749e3ae53c7dcb0155e90d617210d9",
+  "sourceArchiveSha256": "f188e03c17fcceafb975123f62bc431edf2f4e6b4f8a06f50b7142a7ee34663f",
+  "ciRunId": 41235646385,
+  "ciStatus": "PASS",
+  "imagesStatus": "DEPLOYED_AND_VERIFIED",
+  "restoreHelpers": {
+    "deploy/hetzner/restore-drill.mjs": "521779cfe1697314da3a1edb26efd74c89c173bfdc835fbe04f6c8f7da6f7239",
+    "deploy/hetzner/restore-verify.mjs": "c5a7ceeb5ecec8737896f5e59e6ef2bbed980b6d630ca30d0fe3f64bdfc71d8b"
+  },
+  "migrationChecksums": {
+    "apps/api/prisma/migrations/20260716011351_initial/migration.sql": "907395d337205b4d3a6e5f9368dd37148c53b00f5dce7862dc6e97bf324710a2",
+    "apps/api/prisma/migrations/20260716011500_hardening/migration.sql": "a0809043394e5b353a34a15bf83de37a2b13d43dc1a6d6657d0d6fd20f167451",
+    "apps/api/prisma/migrations/20260716054000_payment_allocation_state/migration.sql": "936b037ce4cf6a0734fd4833bd87df60fb4e6cab5292e14c5c1e4996b9d826ee",
+    "apps/api/prisma/migrations/20260717090000_add_purchase_rfq/migration.sql": "0bee32c69c77c3e44a9947c971a75ea5f5c151bae27e2afb72a244b32954f737",
+    "apps/api/prisma/migrations/20260719090000_sales_workflow_foundation/migration.sql": "16013fc7f154652d7cce8609fec6f6ac06905357cc218f6cf10b0fba21167e3f",
+    "apps/api/prisma/migrations/20260719103000_refresh_session_persistence/migration.sql": "da10bf8e6a81327c130a3443fd9a70b0978d6ce22979551811ab05f238e849e3",
+    "apps/api/prisma/migrations/20260727081500_neon_reset_mode/migration.sql": "645da4cf7990653a62b4d6dbfa104bc13534ff7c0728f9ef85e04fda92ea479d",
+    "apps/api/prisma/migrations/20260728220000_override_demo_password/migration.sql": "03106a407a124e7381588c366891af9d4f7945cd0c420994b6c662ee54c31fcd",
+    "apps/api/prisma/migrations/20260731120000_enterprise_access_control/migration.sql": "5f6335bf756995276d408028b17bac7086072f1df8c62d4edc1b0d2a3c705e2e",
+    "apps/api/prisma/migrations/20260803132000_add_none_data_scope/migration.sql": "53abbf035fdf23952ae3cfdb9816d869e229ccf450b152713e7b614693e8308b",
+    "apps/api/prisma/migrations/20260803132100_backfill_explicit_data_scopes/migration.sql": "f3ecc7caf3db0d8a699c6d80d7f71b916fd579f226c8af8fea19872aba77971e",
+    "apps/api/prisma/migrations/20260803140000_central_authorization_denials/migration.sql": "de6b04a9a6c1f6ce61af068a0878acf551a47ae5e7febad0505bb57bcd591109",
+    "apps/api/prisma/migrations/20260803143000_mfa_session_hardening/migration.sql": "1a785cc657f709b68d0c3ce1adfc99c69455fb26c6ae534e5dc46765d35aa4bc",
+    "apps/api/prisma/migrations/20260803150000_disable_legacy_demo_accounts/migration.sql": "956a2588967c3bdc660daf4afd1ce1e76543ad5a59fec5fd15c46c6f719148b7",
+    "apps/api/prisma/migrations/20260809120000_company_access_governance/migration.sql": "63083483ec13fdcf1c32ef99f2d7e689397c71e2021eb18f4415c47d995cd4d1",
+    "apps/api/prisma/migrations/20260811120000_payment_approval_workflow/migration.sql": "a174fa5e2c9c9cd785da9a5704a3dbc38c7155387b188c244d21a6c0d7915c75",
+    "apps/api/prisma/migrations/20260811123000_report_dependency_scopes/migration.sql": "9ccbfe3089d7b6c630acdce8fc1c9fe8908474a3f36638a2e117afab2c6ac774",
+    "apps/api/prisma/migrations/20261002130000_hr_workspace/migration.sql": "ac824ec3d15d181d2717d5592d530a21c738cfb0739f4b7fa0fe051b1175c070",
+    "apps/api/prisma/migrations/20261002131000_hr_permissions/migration.sql": "6e2d524dbd8b5ea1001070957eae2b3ad47a45ac1d3b2e064153ff3ae909cc95",
+    "apps/api/prisma/migrations/20261002132000_employee_profiles/migration.sql": "dc1c26c102159dc2554be335f86e1f66da7bdf9f3b4997251ab795e1d2a04c53",
+    "apps/api/prisma/migrations/20261024180000_av8_workflows/migration.sql": "5b7e37eb692e2d5830f08b93c41b98cebfbdc49e8994306bad29879ecab50941",
+    "apps/api/prisma/migrations/20261024210000_av8_integrity/migration.sql": "d6f1674becf0ccf33c3c34c87735b66792a53d30f3cfdcad6c58a05c2f48ab05",
+    "apps/api/prisma/migrations/20261024213000_av8_binding_dispatch/migration.sql": "b8783d4c22c932ae5ef75b45254349ed51d4c7a62a8b517fefae0bdec8c2e836",
+    "apps/api/prisma/migrations/20261024220000_av8_approval_snapshots/migration.sql": "bd429d8e650627e1d066557c57dbb3ef502560cd1ff9f32e3c2b30c96a55cbea",
+    "apps/api/prisma/migrations/20261025120000_av8_simplified_receipts/migration.sql": "9a8a1d75796639eee707eebf5dd4971a1e043e6c3688456f3b0eefbecf155afa",
+    "apps/api/prisma/migrations/20261025121000_av8_plain_setting_names/migration.sql": "e2417f3473f9ba1e4abba1492a2bbbd74fc7824dad2ff9fa90e1dbb9a8141e7b",
+    "apps/api/prisma/migrations/20261026160000_account_profiles/migration.sql": "ba7dedd7ce175847c20d942f6a6ed8c31e326ddf09b3b673236869a6aba93673",
+    "apps/api/prisma/migrations/20261031120000_av8_confirmed_finance/migration.sql": "5b3d0964d48a5da7e1fdbbae3300d87c85f9dcf175ef3f2525fc2ac1cf1d1fc6",
+    "apps/api/prisma/migrations/20261031130000_av8_receipt_metadata/migration.sql": "67eab6a9a96f01c174475da8601dfad0a28f6c378ded839c6b363d27fa180bdb",
+    "apps/api/prisma/migrations/20261031140000_av8_financial_evidence/migration.sql": "0da6169e8a34fc09ece5619c545eec9ce896d7eb2ccc7a73c343d702f0adfeef",
+    "apps/api/prisma/migrations/20261031140000_treasury_wallets/migration.sql": "596ba55ca61d90318221108ab2c5089afd4656d04cf03b27622cd68fe9e033fd",
+    "apps/api/prisma/migrations/20261031150000_statement_import_identity/migration.sql": "6b795943709aa25103351a7f6dbc44b5fa16863fa7a605a010e27c3da8c5c089",
+    "apps/api/prisma/migrations/20261031220000_av8_operational_evidence/migration.sql": "c276c4354ffd101b9b772fb6014539824f28ae6d117ff95616646ff0c609a0ae",
+    "apps/api/prisma/migrations/20261031230000_av8_opening_history/migration.sql": "afe9163a6f872c724386f2051000fa3c3a5015088f0e48a22e5ddc68038adc2e",
+    "apps/api/prisma/migrations/20261031231000_av8_service_reversal_identity/migration.sql": "6c1c311dbca160356422df3daacfbec30a794e00f530dc1b3a4b08e8cc099b30",
+    "apps/api/prisma/migrations/20261031233000_av8_financial_allocation_controls/migration.sql": "d8f6ead6c07e8d2e9f5f1b7e23c18e029cbd2cc44db2391331551ae9d3ebde43",
+    "apps/api/prisma/migrations/20261031234000_contact_search_keys/migration.sql": "6f0b809fe3e0d587db6ecc6715b75144c9a2e7bf1ea212a3aa4c8270c611e54a",
+    "apps/api/prisma/migrations/20261031235000_av8_student_bank_fees/migration.sql": "5e8920b26899a1b1b027fdfa6ae7363312b629d63123ea15e83b811181485754",
+    "apps/api/prisma/migrations/20261101001000_av8_remittance_basis/migration.sql": "b6095ced0b80b649235423056f5ef3cacaf6d3ae4885c457720027fb9835ec31",
+    "apps/api/prisma/migrations/20261101002000_av8_unallocated_refund_reserve/migration.sql": "5b1f241542a71a489e503dc79780f06b43e3fc6e835f2bbea8384ebd12b101dd",
+    "apps/api/prisma/migrations/20261101003000_av8_supplier_opening_settlement/migration.sql": "8e26c00f2ea3f102ad3f6babca97dcd2e60013404640785a7965ff8ae0f5f8fe",
+    "apps/api/prisma/migrations/20261101004000_av8_scheduler_checkpoint/migration.sql": "68122d4faf131d0de81713f2f730ce3eae86e31d3c914691147582877211822c",
+    "apps/api/prisma/migrations/20261101005000_av8_lead_customer_join/migration.sql": "179b252a61061bd4648d8ece2bf7fbb3e6cf1ed32146cf3e3bcb1c0ef5cb79d8"
+  },
+  "priorCiAttempts": [
+    {
+      "commit": "7a607d747281f2723372347b7f6adf6ff3ddcd20",
+      "runId": 41233623398,
+      "status": "PASS",
+      "browserScenarios": 20
+    },
+    {
+      "commit": "58e3a48fa708b477001aa52b495eff813d536d40",
+      "runId": 41235129907,
+      "status": "FAIL",
+      "passedBackendTests": 427,
+      "failedBackendTests": 1,
+      "reason": "Account-recovery lifecycle exceeded the default 5,000 ms while executing about 13 real cost-12 bcrypt operations. A case-specific 15,000 ms integration budget preserves all assertions, hash strength and performance thresholds."
+    }
+  ],
+  "masterBriefSha256": "e590453cbb611c419dc5bac5178ba611a77d82f4752972f347a519fe8011e8f8",
+  "images": {
+    "api": "sha256:f451d7fc74979cfe70efbca41fe1dee0509e39404bd63ff92942b5f2600f507d",
+    "web": "sha256:425ff680c0f7b9b3ebab6ac9d625ee1145c2c1f3384fa58eaa64416ce6d945a9",
+    "maintenance": "sha256:e4ca1a8f589ae894014f27f39f4e3d06bd20ca856258b7b234f0347415d67f15",
+    "postgres": "postgres@sha256:b0f9560a2de083e2cc7382e75f808c7381a32852a7ec49117deedb300e552b24"
+  },
+  "staging": {
+    "status": "HEALTHY",
+    "applicationCommit": "170b929bd4749e3ae53c7dcb0155e90d617210d9",
+    "migrations": 43,
+    "restoredExactImageVerified": true,
+    "actualApiLoadedPrivateKey": true,
+    "academicEmailEnabled": true,
+    "deliveredRecipients": 2,
+    "attemptsPerRecipient": 1,
+    "scheduler": "Installed; periodic healthy invocations and post-restart manual invocation verified",
+    "localBackup": "Installed; first systemd invocation succeeded, daily03:15UTC, no deletion policy",
+    "productionSecretsReused": false
+  },
+  "ciEvidence": "final-ci.json",
+  "ciUrl": "https://github.com/mohammaddashraff/odin-erp/actions/runs/41235646385",
+  "verifiedCounts": {
+    "backendTests": 428,
+    "backendSuites": 54,
+    "browserScenarios": 21,
+    "routeVariants": 312,
+    "routes": 78,
+    "reviewedControlDeclarations": 590,
+    "apiEndpoints": 180,
+    "clientCallExpressions": 128
+  },
+  "production": {
+    "status": "HEALTHY_FOR_INITIAL_CONFIGURATION",
+    "url": "https://av8.odin-ltd.com",
+    "applicationCommit": "170b929bd4749e3ae53c7dcb0155e90d617210d9",
+    "migrations": 43,
+    "migrationChecksumsMatch": true,
+    "browserSmoke": "PASS",
+    "academicEmailEnabled": false,
+    "emailAlertsEnabled": false,
+    "separateProviderKeyPending": true,
+    "initialOwnerMfaAndPasswordChangeRequired": true,
+    "syntheticBusinessDataSeeded": false,
+    "businessPolicies": "12 DRAFT; actual client approvals pending",
+    "localBackup": "First systemd invocation succeeded; daily 03:15 UTC; no automatic deletion",
+    "readinessEvidence": "production-readiness.json",
+    "hostEvidence": "hosted-release-inventory.json"
+  },
+  "localRecovery": {
+    "hostedSeconds": 15.535,
+    "restoredEnvironment": "isolated staging copy",
+    "exactApiImageVerified": true,
+    "productionDataRestorePerformed": false,
+    "evidence": "hosted-local-recovery.json",
+    "externalRecovery": "Owner-deferred; not verified"
+  },
+  "ciArtifact": {
+    "id": 13056031795,
+    "zipSha256": "99727f68aced314f0747876c34a95762c45bb966669576dda5a1211a1ab9bbaf"
+  }
+}

@@ -120,7 +120,7 @@ export async function fixture(
       { name: "av8_language", value: "en", url: "http://127.0.0.1:8180" },
     ]);
   await page.addInitScript(() =>
-    localStorage.setItem("av8_token", "test-only-ui-session"),
+    localStorage.setItem("av8_refresh_hint", "1"),
   );
   await page.route("**/api/**", async (route) => {
     const url = new URL(route.request().url()),
@@ -131,6 +131,7 @@ export async function fixture(
         contentType: "application/json",
         body: JSON.stringify(body),
       });
+    if (p === "/auth/refresh") return json({token:"test-only-ui-session",user:mode === "restricted" ? {...actor,permissions:["av8.workspace.view"]} : actor});
     if (p === "/auth/me")
       return json(
         mode === "restricted"

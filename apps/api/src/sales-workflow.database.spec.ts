@@ -960,35 +960,9 @@ describe('Sales workflow PostgreSQL integration', () => {
   }, 30_000);
 
   it('requires a rejection reason and enforces maker-checker separation', async () => {
-    const submitted = await admin.document.findFirstOrThrow({ where: {
-      type: 'QUOTATION',
-      status: WorkflowStatus.SUBMITTED,
-    } });
-    const submitter = await admin.user.findUniqueOrThrow({
-      where: { id: submitted.submittedById! },
-      include: { tenant: true, role: true },
-    });
-    const actor: Actor = {
-      userId: submitter.id,
-      tenantId: submitter.tenantId,
-      email: submitter.email,
-      name: submitter.name,
-      role: submitter.role.name,
-      roleIds: [submitter.role.id.toString()],
-      permissions: ['system.super_admin'],
-      deniedPermissions: [],
-      legacyPermissions: ['*'],
-      dataScopes: [],
-      fieldPermissions: [],
-      limits: {},
-      branchIds: submitter.branchIds as string[],
-      warehouseIds: submitter.warehouseIds as string[],
-      companyIds: [],
-      companyAdminIds: [],
-      companyBranchIds: {},
-      companyScopedPermissions: {},
-      companyResourceAssignments: {},
-    };
+    const {tenant,branch,actor}=await fixture('maker-checker-rejection');
+    try {
+    const submitted=await admin.document.create({data:{tenantId:tenant.id,branchId:branch.id,type:'QUOTATION',status:'SUBMITTED',number:'SYNTHETIC-SUBMITTED',documentDate:new Date('2026-10-31'),currency:'EGP',createdById:actor.userId,submittedById:actor.userId,submittedAt:new Date()}});
     await expect(erp.commentDocument(actor, submitted.id, {})).rejects.toThrow(/comment is required/i);
     const comment = await erp.commentDocument(actor, submitted.id, { comment: 'Customer scope and commercial terms confirmed.' });
     expect(comment.action).toBe('COMMENT');
@@ -996,5 +970,6 @@ describe('Sales workflow PostgreSQL integration', () => {
     await expect(erp.workflow(actor, submitted.id, 'reject', {})).rejects.toThrow(BadRequestException);
     await expect(erp.workflow(actor, submitted.id, 'approve', { comment: 'Self approval attempt' })).rejects.toThrow(/maker-checker/i);
     expect((await admin.document.findUniqueOrThrow({ where: { id: submitted.id } })).status).toBe(WorkflowStatus.SUBMITTED);
+    } finally { await cleanup(tenant.id); }
   });
 });

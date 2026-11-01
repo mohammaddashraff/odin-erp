@@ -1,0 +1,9 @@
+
+> @odin/api@1.0.0 test
+> jest --runInBand --runTestsByPath src/av8-first-owner.database.spec.ts
+
+Test Suites: 1 passed, 1 total
+Tests:       3 passed, 3 total
+Snapshots:   0 total
+Time:        2.556 s
+Ran all test suites within paths "src/av8-first-owner.database.spec.ts".

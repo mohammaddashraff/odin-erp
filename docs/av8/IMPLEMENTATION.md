@@ -1,3 +1,5 @@
+> Historical delivery record. The 2026-10-31 [master brief](../final-delivery/master-delivery-brief.md), [decisions](../final-delivery/02-business-rules-and-decisions.md) and [release runbook](../final-delivery/07-deployment-and-recovery-runbook.md) supersede incompatible instructions and old readiness claims. Do not use legacy simple-login/reset or production synthetic seeding.
+
 # AV8 implementation and verification — 24 October 2026
 
 ## Workspace and isolation

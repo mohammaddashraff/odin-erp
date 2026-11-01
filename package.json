@@ -14,8 +14,8 @@
     "build": "npm run build -w @odin/api && npm run build -w @odin/web",
     "release:migrate": "npm run release:migrate -w @odin/api",
     "start": "concurrently -k -n api,web -c blue,cyan \"npm run start:prod -w @odin/api\" \"npm run start -w @odin/web\"",
-    "lint": "npm run lint -w @odin/api && npm run lint -w @odin/web",
-    "typecheck": "npm run lint",
+    "lint": "eslint apps/api/src apps/api/prisma apps/web/src scripts",
+    "typecheck": "npm run lint -w @odin/api && npm run lint -w @odin/web",
     "test": "npm run test -w @odin/api",
     "test:unit": "npm exec --workspace @odin/api -- jest --runInBand --testPathIgnorePatterns=\"(?:database-controls|\\.database)\\.spec\\.ts$\"",
     "test:db": "npm exec --workspace @odin/api -- jest --runInBand --testPathPatterns=\"(?:database-controls|\\.database)\\.spec\\.ts$\"",
@@ -35,11 +35,15 @@
     "av8:dev": "node scripts/av8/run.mjs dev npm run dev",
     "av8:start": "node scripts/av8/run.mjs dev npm run start",
     "av8:build": "node scripts/av8/run.mjs dev npm run build",
-    "av8:test": "node scripts/av8/run.mjs test jest --config scripts/av8/jest.config.cjs --runInBand"
+    "av8:test": "node scripts/av8/run.mjs test jest --config scripts/av8/jest.config.cjs --runInBand",
+    "security:history": "node scripts/security-history-scan.mjs",
+    "test:delivery": "playwright test -c playwright.delivery.config.ts"
   },
   "devDependencies": {
     "@playwright/test": "latest",
-    "concurrently": "10.0.6"
+    "concurrently": "10.0.6",
+    "eslint": "10.14.0",
+    "typescript-eslint": "8.72.1"
   },
   "overrides": {
     "deepmerge-ts": "8.0.2",

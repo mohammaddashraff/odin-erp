@@ -1,0 +1,2 @@
+ALTER TABLE bank_statements ADD COLUMN source_hash text;
+CREATE UNIQUE INDEX bank_statements_tenant_id_bank_account_id_source_hash_key ON bank_statements(tenant_id,bank_account_id,source_hash);

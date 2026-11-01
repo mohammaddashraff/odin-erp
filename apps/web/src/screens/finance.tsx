@@ -24,6 +24,7 @@ import {
   Confirm,
   ErrorNotice,
   SearchField,
+  Pagination,
   useUnsaved,
 } from "../components/ui";
 export function FormPage({
@@ -424,18 +425,66 @@ export function Banking({
   screenId: string;
 }) {
   const { tr, refs, money, name, date, allowed, request, notify, user } = useERP();
-  const state = useResource("/banking");
+  const [transactionPage,setTransactionPage]=useState(1);
+  const [transactionSearch,setTransactionSearch]=useState('');
+  const [transactionBank,setTransactionBank]=useState('');
+  const [transactionSize,setTransactionSize]=useState(50);
+  const [statementPage,setStatementPage]=useState(1);
+  const [statementSearch,setStatementSearch]=useState('');
+  const [statementSize,setStatementSize]=useState(10);
+  const transactionQuery=new URLSearchParams({transactionPage:String(transactionPage),transactionPageSize:String(transactionSize),transactionSearch,statementPage:String(statementPage),statementPageSize:String(statementSize),statementSearch,...(transactionBank?{bankAccountId:transactionBank}:{})});
+  const state = useResource(`/banking?${transactionQuery}`);
   const [mode, setMode] = useState("");
+  const [statementPreview,setStatementPreview]=useState<any>(null);
+  const [previewBusy,setPreviewBusy]=useState(false);
+  const [previewError,setPreviewError]=useState('');
   const [match, setMatch] = useState<any>(null);
+  const [manualMatch,setManualMatch]=useState<any>(null);
   const data = state.data;
   const saved = async () => {
     setMode("");
+    setTransactionPage(1);
+    setStatementPage(1);
     state.reload();
     notify("Action completed");
   };
   const accounts = refs.accounts.filter(
     (a: any) => a.postingAllowed && !a.controlType,
   );
+  if(manualMatch)return <FormPage title="Match posted transaction by ID" close={()=>setManualMatch(null)} defaults={{transactionId:''}} specs={[{key:'transactionId',label:'Posted bank transaction ID',required:true}]} submitLabel="Confirm match" submit={async value=>{await request(`/banking/statement-lines/${manualMatch.line.id}/match`,{method:'POST',body:JSON.stringify(value)});setManualMatch(null);state.reload();notify('Statement line reconciled');}}>{()=><><Details values={[["Account",name(manualMatch.statement.bankAccount)],["Reference",manualMatch.line.reference],["Amount",money(manualMatch.line.amountMinor,manualMatch.statement.bankAccount.currency)]]}/><p className="notice">{tr('Enter the ID from the original posted movement. The bank, amount, direction and unused reconciliation state must match.')}</p></>}</FormPage>;
+  if(mode==='statement-csv')return <FormPage title="Preview bank statement import" close={()=>setMode('')} defaults={{bankAccountId:'',statementDate:today(),opening:'',closing:'',csv:'',dateColumn:'date',amountColumn:'amount',descriptionColumn:'description',referenceColumn:'reference'}} specs={[
+    {key:'bankAccountId',label:'Bank account',options:[{value:'',label:tr('Select')},...refs.bankAccounts],required:true},
+    {key:'statementDate',label:'Statement date',type:'date',required:true},
+    {key:'opening',label:'Opening balance',type:'decimal',required:true},
+    {key:'closing',label:'Closing balance',type:'decimal',required:true},
+    {key:'dateColumn',label:'Date column',required:true},{key:'amountColumn',label:'Amount column',required:true},
+    {key:'descriptionColumn',label:'Description column',required:true},{key:'referenceColumn',label:'Reference column',required:true},
+    {key:'csv',label:'Statement CSV',type:'textarea',required:true,wide:true},
+  ]} submitLabel="Import validated statement" submit={async(d)=>{
+    if(statementPreview?.input!==JSON.stringify(d)||!statementPreview?.result.valid)throw new Error(tr('Preview this statement and resolve its row errors before importing.'));
+    await request('/banking/statements',{method:'POST',body:JSON.stringify({...d,mapping:{date:d.dateColumn,amount:d.amountColumn,description:d.descriptionColumn,reference:d.referenceColumn}})});setStatementPreview(null);await saved();
+  }}>{d=><>
+    <div className="actions"><Button busy={previewBusy} onClick={async()=>{setPreviewBusy(true);setPreviewError('');try{const result=await request('/banking/statements/preview',{method:'POST',body:JSON.stringify({...d,mapping:{date:d.dateColumn,amount:d.amountColumn,description:d.descriptionColumn,reference:d.referenceColumn}})});setStatementPreview({input:JSON.stringify(d),result});}catch(e:any){setPreviewError(e.message);}finally{setPreviewBusy(false);}}}>{tr('Preview import')}</Button></div>
+    {previewError?<ErrorNotice message={previewError}/>:null}
+    {statementPreview?.input===JSON.stringify(d)?<Panel title="Statement preview"><p>{tr('Rows')}: {statementPreview.result.rowCount} · {tr('Currency')}: {statementPreview.result.currency}</p><Table rows={statementPreview.result.rows} columns={[{key:'row',label:'Row'},{key:'date',label:'Date'},{key:'description',label:'Description'},{key:'reference',label:'Reference'},{key:'amount',label:'Amount'}]}/>{statementPreview.result.errors.map((error:any,index:number)=><ErrorNotice key={index} message={`${error.row||''} ${error.message}`}/>)}</Panel>:null}
+  </>}</FormPage>;
+  if (mode === "transfer") return <FormPage title="Transfer between resources" close={()=>setMode("")} defaults={{branchId:defaultBranch(refs.branches,user),sourceId:'',destinationId:'',sourceAmount:'',destinationAmount:'',sourceBaseRate:'',destinationBaseRate:'',feeAmount:'0',feeAccountId:'',fxAccountId:'',fxTreatmentConfirmed:false,postingDate:today(),rateSource:'',reference:'',reason:'',idempotencyKey:crypto.randomUUID()}} specs={[
+    {key:'branchId',label:'Branch',options:refs.branches,required:true},
+    {key:'sourceId',label:'Source resource',options:[{value:'',label:tr('Select')},...refs.bankAccounts],required:true},
+    {key:'destinationId',label:'Destination resource',options:[{value:'',label:tr('Select')},...refs.bankAccounts],required:true},
+    {key:'sourceAmount',label:'Source principal amount',type:'decimal',required:true},
+    {key:'destinationAmount',label:'Destination principal amount',type:'decimal',required:true},
+    {key:'sourceBaseRate',label:'Approved source book rate (base per source unit)',type:'decimal'},
+    {key:'destinationBaseRate',label:'Actual destination rate (base per destination unit)',type:'decimal'},
+    {key:'feeAmount',label:'Fee in source currency',type:'decimal',required:true},
+    {key:'feeAccountId',label:'Fee expense account',options:[{value:'',label:tr('Select')},...accounts.filter((a:any)=>a.type==='EXPENSE')]},
+    {key:'fxAccountId',label:'Approved FX difference account',options:[{value:'',label:tr('Select')},...accounts]},
+    {key:'fxTreatmentConfirmed',label:'I confirm the FX accounting treatment for this transfer',type:'checkbox'},
+    {key:'rateSource',label:'Rate provenance or evidence reference',required:true},
+    {key:'postingDate',label:'Posting date',type:'date',required:true},
+    {key:'reference',label:'Reference'},
+    {key:'reason',label:'Transfer reason',required:true},
+  ]} submitLabel="Post paired transfer" submit={async(d)=>{await request('/banking/transfers',{method:'POST',headers:{'idempotency-key':d.idempotencyKey},body:JSON.stringify(d)});await saved();}}>{d=><p className="notice">{tr('Account currency')}: {refs.bankAccounts.find((a:any)=>String(a.id)===String(d.sourceId))?.currency||'—'} → {refs.bankAccounts.find((a:any)=>String(a.id)===String(d.destinationId))?.currency||'—'}. {tr('Both resource movements post together. Fees and FX differences require explicit accounts.')}</p>}</FormPage>;
   if (mode === "transaction")
     return (
       <FormPage
@@ -456,7 +505,7 @@ export function Banking({
           {
             key: "kind",
             label: "Kind",
-            options: ["RECEIPT", "PAYMENT", "TRANSFER_IN", "TRANSFER_OUT"],
+            options: ["RECEIPT", "PAYMENT"],
           },
           {
             key: "bankAccountId",
@@ -565,6 +614,8 @@ export function Banking({
         title={title}
         subtitle="Posted receipts, payments, transfers and bank-statement matching"
       >
+        {allowed("banking.transaction.create") ? <Button onClick={()=>setMode("transfer")}>{tr("Transfer between resources")}</Button> : null}
+        {allowed("banking.statement.create") ? <Button onClick={()=>setMode("statement-csv")}>{tr("Preview bank statement import")}</Button> : null}
         {screenId !== "bank-statements" &&
         allowed("banking.transaction.create") ? (
           <AddButton onClick={() => setMode("transaction")}>
@@ -578,6 +629,13 @@ export function Banking({
           </Button>
         ) : null}
       </PageHeader>
+      <Panel><div className="toolbar">
+        <label className="field">{tr('Cash / bank account')}<select value={transactionBank} onChange={event=>{setTransactionBank(event.target.value);setTransactionPage(1);setStatementPage(1);}}><option value="">{tr('All')}</option>{(data?.accounts||refs.bankAccounts).map((bank:any)=><option key={bank.id} value={bank.id}>{name(bank)} · {bank.currency}{bank.active===false?` · ${tr('Inactive')}`:''}</option>)}</select></label>
+        {screenId!=="bank-statements"?<><SearchField value={transactionSearch} label="Search posted transactions" onChange={value=>{setTransactionSearch(value.slice(0,100));setTransactionPage(1);}}/>
+        <label className="field">{tr('Transaction rows per page')}<select value={transactionSize} onChange={event=>{setTransactionSize(Number(event.target.value));setTransactionPage(1);}}>{[25,50,100,200].map(size=><option key={size} value={size}>{size}</option>)}</select></label></>:null}
+        {screenId!=="bank-transactions"?<><SearchField value={statementSearch} label="Search bank statements" onChange={value=>{setStatementSearch(value.slice(0,100));setStatementPage(1);}}/>
+        <label className="field">{tr('Statements per page')}<select value={statementSize} onChange={event=>{setStatementSize(Number(event.target.value));setStatementPage(1);}}>{[1,5,10,25,50].map(size=><option key={size} value={size}>{size}</option>)}</select></label></>:null}
+      </div></Panel>
       <Resource state={state}>
         {data ? (
           <>
@@ -592,6 +650,7 @@ export function Banking({
                       render: (r) => (
                         <>
                           <strong>{r.number}</strong>
+                          <small>{tr("Transaction ID")}: {r.id}</small>
                           <small>{r.reference || r.description}</small>
                         </>
                       ),
@@ -625,10 +684,11 @@ export function Banking({
                     },
                   ]}
                 />
+                <Pagination page={transactionPage} pageSize={data.transactionPagination?.size||transactionSize} total={data.transactionPagination?.total||0} onPage={setTransactionPage}/>
               </Panel>
             ) : null}
-            {screenId !== "bank-transactions" ? (
-              data.statements.length ? (
+            {screenId !== "bank-transactions" ? (<>
+              {data.statements.length ? (
                 data.statements.map((s: any) => {
                   const difference =
                     BigInt(s.closingMinor) -
@@ -679,7 +739,7 @@ export function Banking({
                               l.matched ? (
                                 tr("Matched")
                               ) : allowed("banking.statement.reconcile") ? (
-                                <select
+                                <div className="actions"><select
                                   aria-label={tr("Match transaction")}
                                   value=""
                                   onChange={(e) => {
@@ -695,6 +755,7 @@ export function Banking({
                                     .filter(
                                       (r: any) =>
                                         !r.reconciled &&
+                                        (BigInt(l.amountMinor)<0n?['PAYMENT','TRANSFER_OUT']:['RECEIPT','TRANSFER_IN']).includes(r.kind) &&
                                         r.bankAccountId === s.bankAccountId &&
                                         BigInt(r.amountMinor) ===
                                           (BigInt(l.amountMinor) < 0n
@@ -706,7 +767,7 @@ export function Banking({
                                         {r.number}
                                       </option>
                                     ))}
-                                </select>
+                                </select><Button onClick={()=>setManualMatch({line:l,statement:s})}>{tr('Match posted transaction by ID')}</Button></div>
                               ) : (
                                 tr("Read only")
                               ),
@@ -720,8 +781,9 @@ export function Banking({
                 <Panel title="Statement reconciliation">
                   <Table rows={[]} columns={[]} />
                 </Panel>
-              )
-            ) : null}
+              )}
+              <Pagination page={statementPage} pageSize={data.statementPagination?.size||statementSize} total={data.statementPagination?.total||0} onPage={setStatementPage}/>
+            </>) : null}
           </>
         ) : null}
       </Resource>

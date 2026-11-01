@@ -1,35 +1,19 @@
 # AV8 ERP
 
-AV8 adapts the existing ERP into a student recruitment, admissions and academy operations workspace. Work stays in the existing `odin-erp` directory; the displayed product is AV8 ERP.
+AV8 extends the existing ODIN ERP with recruitment, admissions, student finance and academy operations. The approved Classic Sidebar/login and supported ERP modules are preserved. Source: [mohammaddashraff/odin-erp](https://github.com/mohammaddashraff/odin-erp).
 
-## Edit the project
+The current delivery brief and evidence live in [docs/final-delivery](docs/final-delivery/00-execution-ledger.md). Start with:
 
-Source: [mohammaddashraff/odin-erp](https://github.com/mohammaddashraff/odin-erp) (private repository).
+- [Release notes and readiness](docs/final-delivery/11-release-notes-and-readiness.md) and [executed acceptance evidence](docs/final-delivery/05-test-results-and-evidence.md).
+- [Business rules and owner decisions](docs/final-delivery/02-business-rules-and-decisions.md), [data/financial model](docs/final-delivery/03-data-and-financial-model.md) and [permissions](docs/final-delivery/04-permissions-and-role-matrix.md).
+- [English user guide](docs/final-delivery/09-user-guide-en.md) · [دليل المستخدم العربي](docs/final-delivery/10-user-guide-ar.md) · [client UAT](docs/final-delivery/13-client-uat-script.md).
+- [Migration/opening balances](docs/final-delivery/06-migration-and-opening-balances.md), [deployment/recovery](docs/final-delivery/07-deployment-and-recovery-runbook.md) and [administrator/support](docs/final-delivery/08-admin-and-support-runbook.md).
 
-Open the repository and press `.` to edit in GitHub's browser editor, or clone it locally:
+Use Node24, the committed npm lockfile, PostgreSQL17 and Poppler. The web is in `apps/web/src`, API in `apps/api/src`, Prisma schema/migrations in `apps/api/prisma`. Follow the current deployment runbook to provision isolated local dev/test resources and run checks. Local preview uses8180/8181; database ports are5548/5549. Private environment/credential/data files remain ignored under `.av8`. Never run synthetic seeds against production; the seed now refuses that environment.
 
-```bash
-git clone https://github.com/mohammaddashraff/odin-erp.git
-cd odin-erp
-```
+The existing [production site](https://av8-erp.vercel.app) is a separate deployed version. Source availability, successful local tests and production readiness are different states; use the release receipt's exact commit and deployment evidence. No production migration/promotion or real financial/email action is implied by this source delivery.
 
-The frontend is in `apps/web/src`; the backend is in `apps/api/src`; database schemas and migrations are in `apps/api/prisma`. Follow the [AV8 operating instructions](docs/av8/OPERATIONS.md) to install dependencies and run the application with Node.js 24+ and Docker. Private environment files, databases, dependencies and build outputs are excluded from Git.
-
-GitHub stores the editable source. Running and deploying the application also requires its backend, database and private environment configuration.
-
-Production: [AV8 ERP](https://av8-erp.vercel.app). See [Vercel deployment and private login instructions](docs/av8/VERCEL.md).
-
-Start with [AV8 operating instructions](docs/av8/OPERATIONS.md), [implementation and verification](docs/av8/IMPLEMENTATION.md), and [pending business decisions](docs/av8/BUSINESS_DECISIONS.md). The local preview is `http://127.0.0.1:8180` (SSH-forward port 8180).
-
-```bash
-export PATH="$PWD/.av8/bin:$PATH"
-node scripts/av8/init-local.mjs
-npm run av8:start
-```
-
-Private local credentials are in ignored `.av8/dev.env`; separate production credentials are in `.av8/production.env`. AV8 uses separate dev/test/production databases and generated secrets; the original `.env` is not loaded. Only clearly synthetic review records have been created locally; production starts with configuration and private staff accounts.
-
-The inherited instructions below are historical reference. Use the AV8 operating instructions for startup, migrations and recovery; inherited Compose/deployment/reset commands are not the AV8 workflow.
+Earlier `docs/av8` and inherited instructions below are historical context, superseded by the final-delivery brief/runbooks where inconsistent. Their older demo passwords, reset and startup examples are not authorized production procedures.
 
 <details>
 <summary>Inherited ERP documentation (historical reference)</summary>

@@ -86,6 +86,7 @@ enum PosSaleStatus {
 }
 
 enum BankAccountType {
+  WALLET
   CASH
   BANK
   CARD_CLEARING
@@ -974,6 +975,9 @@ model Customer {
   companyId          BigInt?    @map("company_id")
   code               String
   name               String
+  normalizedName     String @default("") @map("normalized_name")
+  normalizedPhone    String @default("") @map("normalized_phone")
+  normalizedEmail    String @default("") @map("normalized_email")
   customerType       String     @default("BUSINESS") @map("customer_type")
   taxNumber          String?    @map("tax_number")
   registrationNumber String?    @map("registration_number")
@@ -1006,6 +1010,9 @@ model Customer {
   @@index([tenantId, taxNumber])
   @@index([tenantId, ownerUserId])
   @@index([tenantId, companyId, active, name])
+  @@index([tenantId, companyId, normalizedPhone])
+  @@index([tenantId, companyId, normalizedName])
+  @@index([tenantId, companyId, normalizedEmail])
   @@map("customers")
 }
 
@@ -1488,6 +1495,21 @@ model PosTender {
   @@map("pos_tenders")
 }
 
+model Av8OpeningSource {
+  id          BigInt   @id @default(autoincrement())
+  tenantId    BigInt   @map("tenant_id")
+  sourceSystem String  @map("source_system")
+  kind        String
+  sourceId    String   @map("source_id")
+  checksum    String
+  data        Json
+  createdById BigInt   @map("created_by_id")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@unique([tenantId, sourceSystem, kind, sourceId])
+  @@map("av8_opening_sources")
+}
+
 model BankAccount {
   id                 BigInt              @id @default(autoincrement())
   tenantId           BigInt              @map("tenant_id")
@@ -1548,12 +1570,14 @@ model BankStatement {
   openingMinor  BigInt              @map("opening_minor")
   closingMinor  BigInt              @map("closing_minor")
   createdById   BigInt              @map("created_by_id")
+  sourceHash    String?             @map("source_hash")
   createdAt     DateTime            @default(now()) @map("created_at") @db.Timestamptz(3)
   tenant        Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   bankAccount   BankAccount         @relation(fields: [bankAccountId], references: [id])
   createdBy     User                @relation(fields: [createdById], references: [id])
   lines         BankStatementLine[]
 
+  @@unique([tenantId, bankAccountId, sourceHash])
   @@index([tenantId, bankAccountId, statementDate])
   @@map("bank_statements")
 }
@@ -1629,6 +1653,7 @@ model Av8Lead {
   records        Av8Record[]
   @@index([tenantId, branchId, ownerId, status])
   @@index([tenantId, nextFollowUp])
+  @@index([tenantId, customerId])
   @@map("av8_leads")
 }
 
@@ -1744,8 +1769,9 @@ model Av8Fund {
   reference         String
   payer             String
   notes             String @default("")
+  metadata          Json     @default("{}")
   evidenceId        String? @map("evidence_id")
-  refundCaseId      BigInt? @unique @map("refund_case_id")
+  refundCaseId      BigInt? @map("refund_case_id")
   createdById       BigInt @map("created_by_id")
   approvedById      BigInt? @map("approved_by_id")
   approvedAt        DateTime? @map("approved_at") @db.Timestamptz(3)
@@ -1756,6 +1782,7 @@ model Av8Fund {
   bankTransaction   BankTransaction? @relation(fields: [bankTransactionId], references: [id], onDelete: Restrict)
   allocations       Av8Allocation[]
   @@index([tenantId, branchId, kind, status])
+  @@index([tenantId, refundCaseId])
   @@map("av8_funds")
 }
 
@@ -1768,6 +1795,7 @@ model Av8Obligation {
   currency      String @default("USD")
   predeparture  Boolean
   evidence      Json
+  dueDate       DateTime? @map("due_date") @db.Date
   createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
   application   Av8Application @relation(fields: [applicationId], references: [id], onDelete: Restrict)
   allocations   Av8Allocation[]

@@ -48,4 +48,9 @@ describe('Deployment exposure controls', () => {
     expect(privilegedMfaRequired({ NODE_ENV: 'test' })).toBe(false);
     expect(privilegedMfaRequired({ NODE_ENV: 'test', ODIN_REQUIRE_PRIVILEGED_MFA: 'true' })).toBe(true);
   });
+  it('never permits production AV8 demo/reset/simple-login flags to bypass privileged MFA',()=>{
+    const unsafe={AV8_ENV:'production',NODE_ENV:'production',AV8_SIMPLE_LOGIN:'true',ODIN_ALLOW_SHARED_DEMO_LOGINS:'true',ODIN_DEPLOYMENT_MODE:'demo'};
+    expect(privilegedMfaRequired(unsafe)).toBe(true);expect(demoResetEnabled(unsafe)).toBe(false);
+  });
+
 });

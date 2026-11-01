@@ -5,6 +5,7 @@ import { PERMISSION_REGISTRY } from '../src/permissions';
 
 /** Empty AV8 environment only. No Odin seed, customer records or public passwords. */
 export async function seedAv8(db:PrismaService) {
+  if (!['dev','test'].includes(process.env.AV8_ENV||'')) throw new Error('Synthetic AV8 seed is prohibited in production and hosted staging; restricted to isolated dev/test. Use reviewed reference setup and opening-data import.');
   const password=process.env.AV8_BOOTSTRAP_PASSWORD;
   if(!password||password.length<20)throw new Error('Private AV8_BOOTSTRAP_PASSWORD required');
   const existing=await db.admin.tenant.findFirst();if(existing)return existing;
@@ -28,6 +29,7 @@ export async function seedAv8(db:PrismaService) {
       const role=await tx.role.create({data:{tenantId,key:key==='admin'?'super_admin':`av8_${key}`,name:`AV8 ${key}`,permissions:[]}});
       for(const p of permissions.filter(p=>grants.some(g=>g===p.key||g.endsWith('.*')&&p.key.startsWith(g.slice(0,-1)))))await tx.rolePermission.create({data:{tenantId,roleId:role.id,permissionId:p.id}});
       for(const resource of ['av8_lead','av8_application','account','bank_account','journal','payment','report','customer','supplier','audit'])await tx.roleDataScope.create({data:{tenantId,roleId:role.id,resource,scope:['account','bank_account'].includes(resource)?'ASSIGNED':key==='telesales'||key==='sales'?'ASSIGNED':'BRANCH'}});
+      if(['finance','management'].includes(key))for(const [resource,field,access]of [['journal','lines','EDIT'],['bankAccount','accountNumber','EDIT'],['approval','evidence','VIEW'],['audit','values','VIEW'],['audit','references','VIEW'],['customer','balanceMinor','VIEW']]as const)await tx.roleFieldPermission.create({data:{tenantId,roleId:role.id,resource,field,access}});
       const user=await tx.user.create({data:{tenantId,roleId:role.id,email:`${key}@av8.local`,name:`AV8 ${key}`,passwordHash,branchIds:[String(branch.id)],warehouseIds:[],mfaRequired:false}});users.push(user);
     }
     const other=await tx.user.create({data:{tenantId,roleId:users[0].roleId,email:'branch-test@av8.local',name:'Synthetic branch actor',passwordHash,branchIds:[String(second.id)],warehouseIds:[],active:false}});
@@ -38,7 +40,7 @@ export async function seedAv8(db:PrismaService) {
     const year=new Date().getUTCFullYear();for(let y=year-1;y<=year+3;y++)await tx.fiscalPeriod.create({data:{tenantId,name:String(y),year:y,month:1,startDate:new Date(`${y}-01-01`),endDate:new Date(`${y}-12-31`),status:'OPEN'}});
     for(const currency of ['EGP','USD'])await tx.currency.create({data:{tenantId,code:currency,name:currency,symbol:currency,precision:2,active:true}});
     for(const initial of initialPolicies) {
-      const active=initial.kind==='PROGRAM'||initial.kind==='DOCUMENTS'||initial.kind==='PLANNING'||initial.key==='CASH'&&initial.kind==='PLAN';
+      const active=initial.kind==='PROGRAM'||initial.kind==='DOCUMENTS'||initial.kind==='PLANNING'||initial.key==='CASH'&&initial.kind==='SETTLEMENT';
       await tx.av8Policy.create({data:{tenantId,...initial,data:initial.data as any,version:1,status:active?'ACTIVE':'DRAFT'}});
     }
     await tx.supplier.create({data:{tenantId,code:'AV8-SYNTHETIC-ACADEMY',name:'Synthetic academy — replace before operations',city:'South Africa'}});

@@ -3,13 +3,15 @@ import { actor, bootstrap } from "../glass/fixtures";
 
 test.beforeEach(async ({ context }) => {
   await context.addInitScript(() =>
-    localStorage.setItem("av8_token", "navigation-fixture"),
+    localStorage.setItem("av8_refresh_hint", "1"),
   );
   await context.route("**/api/**", (route) => {
     const path = new URL(route.request().url()).pathname;
     return route.fulfill({
       json:
-        path === "/api/auth/me"
+        path === "/api/auth/refresh"
+          ? {token:"navigation-fixture",user:actor}
+          : path === "/api/auth/me"
           ? actor
           : path === "/api/bootstrap"
             ? bootstrap

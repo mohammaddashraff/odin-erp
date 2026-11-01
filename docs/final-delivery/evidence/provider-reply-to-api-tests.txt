@@ -1,0 +1,6 @@
+
+Test Suites: 2 passed, 2 total
+Tests:       10 passed, 10 total
+Snapshots:   0 total
+Time:        0.609 s, estimated 1 s
+Ran all test suites matching av8-academic-email|av8-isolation.

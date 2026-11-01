@@ -1,4 +1,4 @@
-import { BadRequestException, Body, Controller, Get, Param, Patch, Post, Query, Req, Res, ServiceUnavailableException } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Get, Headers, Param, Patch, Post, Query, Req, Res, ServiceUnavailableException } from '@nestjs/common';
 import type { Request, Response } from 'express';
 import PDFDocument from 'pdfkit';
 import { AccountingPdfReport, createAccountingPdf } from './accounting-pdf';
@@ -340,7 +340,7 @@ export class ErpController {
 
   @Post('pos/sales')
   @RequirePermissions('pos.sale.create')
-  createSale(@Req() request: AuthRequest, @Body() body: any) { return this.erp.createPosSale(request.actor, body); }
+  createSale(@Req() request: AuthRequest, @Body() body: any, @Headers('idempotency-key') key:string) { return this.erp.createPosSale(request.actor, body, key||''); }
 
   @Post('pos/sales/:id/resume')
   @RequirePermissions('pos.sale.edit')
@@ -359,13 +359,29 @@ export class ErpController {
     this.writePdf(response, `POS RECEIPT ${sale.number}`, rows, { customer: sale.customer?.name || 'Walk-in customer', register: sale.shift.registerCode, subtotalMinor: sale.subtotalMinor, discountMinor: sale.discountMinor, taxMinor: sale.taxMinor, totalMinor: sale.totalMinor, tenders: sale.tenders.map((tender: any) => `${apiText(tender.method, language)} ${apiMinorCurrency(tender.amountMinor, language)}`).join(' + ') }, `${sale.number}.pdf`, language);
   }
 
+  @Get('banking/resources')
+  @RequirePermissions('banking.account.view')
+  bankResources(@Req() request:AuthRequest,@Query() query:any){return this.erp.listBankResources(request.actor,query);}
+
   @Get('banking')
   @RequireAnyPermission('banking.account.view', 'banking.transaction.view', 'banking.statement.view')
-  banking(@Req() request: AuthRequest) { return this.erp.banking(request.actor); }
+  banking(@Req() request: AuthRequest, @Query() query:any) { return this.erp.banking(request.actor,query); }
+
+  @Post('banking/transfers')
+  @RequirePermissions('banking.transaction.create')
+  resourceTransfer(@Req() request:AuthRequest,@Body() body:any,@Headers('idempotency-key') key:string){return this.erp.transferResources(request.actor,body,key);}
+
+  @Patch('masters/bank-accounts/:id')
+  @RequirePermissions('banking.account.edit')
+  updateBank(@Req() request:AuthRequest,@Param('id') bankId:string,@Body() body:any){return this.erp.updateBankAccount(request.actor,id(bankId),body);}
 
   @Post('banking/transactions')
   @RequirePermissions('banking.transaction.create')
   bankTransaction(@Req() request: AuthRequest, @Body() body: any) { return this.erp.createBankTransaction(request.actor, body); }
+
+  @Post('banking/statements/preview')
+  @RequirePermissions('banking.statement.create')
+  statementPreview(@Req() request:AuthRequest,@Body() body:any){return this.erp.previewStatement(request.actor,body);}
 
   @Post('banking/statements')
   @RequirePermissions('banking.statement.create')

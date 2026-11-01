@@ -1,0 +1,20 @@
+{
+  "name": "cash-academy-statement",
+  "applicationId": "6",
+  "value": {
+    "reference": "AV8-CAI-2026-00006",
+    "name": "SYNTHETIC cash 0c9466",
+    "program": "Flight training",
+    "title": "Academy settlement statement — USD",
+    "rows": [
+      {
+        "label": "CASH_FULL_20261031",
+        "dueDate": "2026-04-30",
+        "charge": "54000.00",
+        "paid": "0.00",
+        "remaining": "54000.00",
+        "status": "DUE"
+      }
+    ]
+  }
+}

@@ -174,6 +174,12 @@ describe('ERP authorization PostgreSQL regressions', () => {
       createUser('authorization-operator', 'Authorization Operator'),
       createUser('authorization-approver', 'Authorization Approver'),
     ]);
+    // The persisted administrator is part of the fixture, not merely a forged service Actor.
+    const administratorRole=await admin.role.create({data:{tenantId:tenant.id,name:'Authorization persisted administrator',permissions:[]}});
+    const administratorPermission=await admin.permission.create({data:{tenantId:tenant.id,key:'system.super_admin',module:'system',resource:'access',action:'manage'}});
+    await admin.rolePermission.create({data:{tenantId:tenant.id,roleId:administratorRole.id,permissionId:administratorPermission.id}});
+    await admin.user.update({where:{id:owner.id},data:{roleId:administratorRole.id,passwordChangeRequired:false}});
+
 
     await admin.currency.create({ data: {
       tenantId: tenant.id, code: 'EGP', name: 'Egyptian Pound', symbol: 'E£',

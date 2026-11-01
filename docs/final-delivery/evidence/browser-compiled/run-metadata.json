@@ -1,0 +1,25 @@
+{
+  "capturedAt": "2026-10-31T19:43:24.166728+00:00",
+  "runtime": "Compiled API and Next.js; NODE_ENV=production, AV8_ENV=dev",
+  "origin": "http://127.0.0.1:8180",
+  "database": "Verified isolated local av8_dev; synthetic fixtures only",
+  "scenariosPassed": 21,
+  "scenariosFailed": 0,
+  "routeVariantsPassed": 312,
+  "duration": "6.7 minutes",
+  "sourceCheckpointAtCapture": "58e3a48fa708b477001aa52b495eff813d536d40",
+  "testedReleaseCommit": null,
+  "workingTreeHadChanges": true,
+  "scope": "Current compiled local acceptance plus direct persisted-result assertions. The API inactive-cheque return gate added after this build is separately regression-tested and belongs to final exact-commit CI, not this local runtime claim.",
+  "canonicalResult": "results.json",
+  "browserTest": "tests/final-delivery/browser.spec.ts",
+  "fixtureOrder": [
+    "av8-pos-uat.js",
+    "av8-supplier-uat.js",
+    "prepare-finance-uat.mjs",
+    "operations-uat.cjs",
+    "prepare-opening-uat.cjs"
+  ],
+  "externalMessagesSent": 0,
+  "credentialPersistence": "No bearer in localStorage; actual captured responses held only in browser-test memory."
+}

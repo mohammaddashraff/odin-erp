@@ -1,0 +1,9 @@
+(node:77244) DeprecationWarning: Calling client.query() when the client is already executing a query is deprecated and will be removed in pg@9.0. Use async/await or an external async flow control mechanism instead.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+(node:77244) DeprecationWarning: Calling client.query() when the client is already executing a query is deprecated and will be removed in pg@9.0. Use async/await or an external async flow control mechanism instead.
+
+Test Suites: 6 passed, 6 total
+Tests:       32 passed, 32 total
+Snapshots:   0 total
+Time:        7.814 s
+Ran all test suites matching av8-(scheduler|supplier-opening|integrity|operations.database).

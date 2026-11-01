@@ -4,97 +4,72 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { useERP, useResource } from '../core/erp-context';
 import { Button, ErrorNotice, Loading, PageHeader, Panel, Status, Table, type FieldSpec } from '../components/ui';
-import { Form, cash, f, reason, useAv8Actions } from './av8-ui';
+import OpeningBalances from './av8-opening';
+import { Form, cash, f, option, reason, useAv8Actions } from './av8-ui';
 
-const minor=(value:any)=>{
- const match=String(value??'').trim().match(/^(\d+)(?:\.(\d{1,2}))?$/);
- if(!match)throw new Error('Use an exact amount with at most 2 decimal places');
- return String(BigInt(match[1])*100n+BigInt((match[2]||'').padEnd(2,'0')));
-};
-const decimal=(value:any)=>{
- if(value===null||value===undefined||value==='')return '';
- const amount=BigInt(value);return `${amount/100n}.${String(amount%100n).padStart(2,'0')}`;
-};
-const select=(key:string,label:string,options:any[],required=true):FieldSpec=>({key,label,options,required});
-const displayName=(value:any)=>String(value||'').replace(/\s+[—-]\s+DRAFT\s*$/i,'');
+const RULES_VERSION = '2026-10-31';
+const select = (key: string,label: string,options: any[],required=true): FieldSpec => ({key,label,options:option(options),required});
+const displayName = (value: any) => String(value || '').replace(/\s+[—-]\s+DRAFT\s*$/i,'');
+const installmentData = (key: string) => ({rulesVersion:RULES_VERSION,interpretation:'EACH',anchor:'CONTRACT',frequencyMonths:3,firstMilestone:'CONTRACT',installmentCount:key==='A'?5:6,installmentAmountMinor:key==='A'?'960000':'800000',...(key==='A'?{contractAmountMinor:'600000',visaAmountMinor:'800000'}:{firstAmountMinor:'1400000'})});
 
+type Edit = {title:string;policy:any;fields:FieldSpec[] | ((value:any)=>FieldSpec[]);initial:any;mode?:'approve';hint?:string};
 export default function Policies({refs}:{refs?:any}) {
- const {tr,allowed}=useERP();
- const resource=useResource('/av8/policies');
- const [edit,setEdit]=useState<any>(null);
- const act=useAv8Actions(resource.reload);
- const policies=resource.data||[];
- const programs=policies.filter((p:any)=>p.kind==='PROGRAM');
- const plans=policies.filter((p:any)=>p.kind==='PLAN');
- const terms=policies.filter((p:any)=>p.kind==='SETTLEMENT');
-
- const openProgram=(policy:any)=>setEdit({
-  policy,title:'Edit program and fees',
-  fields:[f('name','Program name','text',true),f('applicationFee','Application fee (USD)','decimal',true),f('cashStudentTotal','Cash student total (USD)','decimal',true),reason],
-  initial:{...policy.data,applicationFee:decimal(policy.data.applicationFeeMinor),cashStudentTotal:decimal(policy.data.cashStudentTotalMinor),reason:''},
- });
- const openPlan=(policy:any)=>{
-  const data=policy.data;
-  if(policy.key==='CASH')return setEdit({policy,title:'Edit payment plan',fields:[f('name','Plan name','text',true),reason],initial:{...data,reason:''}});
-  const amountKey=policy.key==='A'?'contractAmount':'firstAmount';
-  const amountLabel=policy.key==='A'?'Contract payment (USD)':'First payment (USD)';
-  setEdit({policy,title:'Edit payment plan',fields:[
-   f('name','Plan name','text',true),
-   select('interpretation','Installment amount means',[{value:'EACH',label:'Each installment'},{value:'TOTAL',label:'Total deferred balance'}]),
-   f('installmentCount','Number of deferred installments','number',true),f('installmentAmount','Deferred installment amount (USD)','decimal',true),
-   ...(policy.key==='A'?[f('contractAmount',amountLabel,'decimal',true),f('visaAmount','Visa payment (USD)','decimal',true)]:[f(amountKey,amountLabel,'decimal',true)]),
-   select('firstMilestone','First payment milestone',['CONTRACT','VISA','BEFORE_DEPARTURE']),
-   select('anchor','Deferred schedule starts from',['CONTRACT','DEPARTURE','CUSTOM']),
-   f('offsetMonths','First installment after (months)','number',true),f('frequencyMonths','Repeat every (months)','number',true),reason,
-  ],initial:{...data,installmentCount:data.installmentCount??'',installmentAmount:decimal(data.installmentAmountMinor),contractAmount:decimal(data.contractAmountMinor),visaAmount:decimal(data.visaAmountMinor),firstAmount:decimal(data.firstAmountMinor),reason:''}});
- };
- const openTerms=(policy:any)=>setEdit(policy.key==='CASH'?{
-  policy,title:'Edit academy terms',fields:[f('academyAmount','Academy amount (USD)','decimal',true),f('commissionAmount','Commission (USD)','decimal',true),select('additionalMilestone','Academy transfer milestone',['BEFORE_DEPARTURE','AFTER_DEPARTURE']),reason],
-  initial:{...policy.data,academyAmount:decimal(policy.data.totalAcademyMinor),commissionAmount:decimal(policy.data.commissionMinor),reason:''},
- }:{
-  policy,title:'Edit academy terms',fields:[f('medicalAmount','Medical pass transfer (USD)','decimal',true),f('visaAmount','Visa issuance transfer (USD)','decimal',true),f('commissionAmount','Commission (USD)','decimal',true),f('deferredPassThrough','Transfer deferred collections to academy','checkbox'),reason],
-  initial:{...policy.data,medicalAmount:decimal(policy.data.medicalMinor),visaAmount:decimal(policy.data.visaMinor),commissionAmount:decimal(policy.data.commissionMinor),reason:''},
- });
- const save=async(value:any)=>{
-  const policy=edit.policy,data={...policy.data,...value};delete data.reason;
-  if(policy.kind==='PROGRAM'){
-   data.currency='USD';data.applicationFeeMinor=minor(value.applicationFee);data.cashStudentTotalMinor=minor(value.cashStudentTotal);
-   delete data.applicationFee;delete data.cashStudentTotal;
-  }
-  if(policy.kind==='PLAN'&&policy.key!=='CASH'){
-   for(const key of ['installmentCount','offsetMonths','frequencyMonths'])data[key]=Number(value[key]);
-   data.installmentAmountMinor=minor(value.installmentAmount);delete data.installmentAmount;
-   if(policy.key==='A'){data.contractAmountMinor=minor(value.contractAmount);data.visaAmountMinor=minor(value.visaAmount);delete data.contractAmount;delete data.visaAmount;}
-   else {data.firstAmountMinor=minor(value.firstAmount);delete data.firstAmount;}
-  }
-  if(policy.kind==='SETTLEMENT'){
-   data.commissionMinor=minor(value.commissionAmount);delete data.commissionAmount;
-   if(policy.key==='CASH'){data.totalAcademyMinor=minor(value.academyAmount);delete data.academyAmount;}
-   else {data.medicalMinor=minor(value.medicalAmount);data.visaMinor=minor(value.visaAmount);delete data.medicalAmount;delete data.visaAmount;}
-  }
-  return act('/policies',{id:policy.id,data,reason:value.reason||'Business setting updated'});
- };
- const editButton=(policy:any,open:(policy:any)=>void)=><>{policy.usable?<Status value="ACTIVE"/>:<span className="status warning"><i/>{tr('Needs completion')}</span>}{allowed('av8.policies.manage')?<Button onClick={()=>open(policy)}>{tr(policy.usable?'Edit':'Complete')}</Button>:null}</>;
-
- return <div className="av8-workspace av8-settings">
-  <PageHeader title="Business configuration" subtitle="Everyday AV8 settings — changes apply to new agreements only">
-   {allowed('system.super_admin')?<Link className="btn" href="/purchasing/suppliers">{tr('Manage academies')}</Link>:null}
-  </PageHeader>
-  {resource.error?<ErrorNotice message={resource.error}/>:resource.loading?<Loading/>:<div className="av8-settings-grid">
-   <Panel title="Programs and fees" className="av8-settings-card">
-    <div className="av8-settings-list">{programs.map((policy:any)=><article key={policy.id}><div><strong>{policy.data.name}</strong><small>{tr('Application fee')} · {cash(policy.data.applicationFeeMinor)}</small><small>{tr('Cash student total')} · {cash(policy.data.cashStudentTotalMinor)}</small></div><div className="actions">{editButton(policy,openProgram)}</div></article>)}</div>
-   </Panel>
-   <Panel title="Bank and cash accounts" className="av8-settings-card">
-    <div className="av8-settings-content"><p>{tr('These accounts determine the currency and destination of each receipt.')}</p><Table rows={refs?.banks||[]} columns={[{key:'name',label:'Account'},{key:'type',label:'Type',render:(row:any)=>tr(row.type)},{key:'currency',label:'Currency'}]}/>{allowed('system.super_admin')?<Link className="btn" href="/banking/accounts">{tr('Manage bank and cash accounts')}</Link>:null}</div>
-   </Panel>
-   <Panel title="Payment plans" className="av8-settings-card av8-settings-wide">
-    <div className="av8-settings-list">{plans.map((policy:any)=><article key={policy.id}><div><strong>{displayName(policy.data.name)||`${tr('Payment plan')} ${policy.key}`}</strong><small>{policy.key==='CASH'?`${tr('Total')} · ${policy.previews?.[0]?.totalMinor!=null?cash(policy.previews[0].totalMinor):tr('Not configured')}`:policy.usable?`${policy.data.installmentCount??tr('Not configured')} ${tr('deferred installments')} · ${tr(policy.data.anchor)}`:tr('Complete the amount and schedule before using this plan')}</small></div><div className="actions">{editButton(policy,openPlan)}</div></article>)}</div>
-   </Panel>
-   <Panel title="Academies and agreed terms" className="av8-settings-card av8-settings-wide">
-    <div className="av8-callout"><strong>{tr('Signed agreements keep an immutable snapshot')}</strong><p>{tr('Changing these settings affects new agreements only; existing signed student terms do not change.')}</p></div>
-    <div className="av8-settings-list">{terms.map((policy:any)=><article key={policy.id}><div><strong>{tr(policy.key==='CASH'?'Cash plan terms':'Installment plan terms')}</strong><small>{policy.usable?policy.key==='CASH'?`${tr('Academy')} ${cash(policy.data.totalAcademyMinor)} · ${tr('Commission')} ${cash(policy.data.commissionMinor)}`:`${tr('Medical pass')} ${cash(policy.data.medicalMinor)} · ${tr('Visa')} ${cash(policy.data.visaMinor)}`:tr('Complete the agreed amounts before using these terms')}</small></div><div className="actions">{editButton(policy,openTerms)}</div></article>)}</div>
-   </Panel>
-  </div>}
-  {edit?<Form title={edit.title} fields={edit.fields} initial={edit.initial} save={save} close={()=>setEdit(null)}/>:null}
- </div>;
+  const {tr,allowed,refs:erpRefs}=useERP();
+  const resource=useResource('/av8/policies');
+  const [edit,setEdit]=useState<Edit|null>(null);
+  const act=useAv8Actions(resource.reload);
+  const policies=resource.data||[];
+  const openProgram=(policy:any)=>setEdit({policy,title:'Edit program and fees',fields:[f('name','Program name','text',true),reason],initial:{name:policy.data.name,reason:''},hint:'Confirmed application fee: USD 2,000. Pay-in-full total: USD 54,000.'});
+  const openPlan=(policy:any)=>setEdit({policy,title:'Edit payment plan',fields:policy.key==='CASH'?(value:any)=>[
+    f('name','Plan name','text',true),select('collectionMilestone','Approved collection milestone',[{value:'CONTRACT',label:'Contract signing'},{value:'APPROVED_DATE',label:'Explicit agreed date'},{value:'VISA_BEFORE_TRAVEL',label:'Visa issued / before travel'}]),...(value.collectionMilestone==='APPROVED_DATE'?[f('collectionDate','Approved collection date','date',true)]:[]),reason,
+  ]:[f('name','Plan name','text',true),{...f('offsetMonths','First installment after (months)','number',true),min:'0',max:'120',step:'1'},reason],
+    initial:{name:displayName(policy.data.name),...(policy.data.rulesVersion===RULES_VERSION?{offsetMonths:policy.data.offsetMonths??'',collectionMilestone:policy.data.collectionMilestone||'',collectionDate:policy.data.collectionDate||''}:{}),reason:''},
+    hint:policy.key==='CASH'?'Select the collection milestone actually agreed in the contract.':'Quarterly dates use the signing date. The first offset needs explicit business approval; +3 months is only a proposed choice.'});
+  const openTerms=(policy:any)=>setEdit({policy,title:'Apply confirmed academy terms',fields:[reason],initial:{reason:''},hint:policy.key==='CASH'?'USD 54,000 is due to the academy three calendar months after signing. No separate commission is configured.':'USD 1,500 after medical and USD 4,500 after visa are included within USD 6,000. Later collections pass through in full.'});
+  const openRefund=(policy:any)=>setEdit({policy,title:'Configure termination and refunds',fields:(value:any)=>[
+    select('refundConversion','Refund conversion policy',[{value:'ORIGINAL_RECEIPT_RATE',label:'Original receipt currency and rate'},{value:'APPROVED_PAYOUT_RATE',label:'Approved payout rate with separate FX posting'}]),
+    ...(value.refundConversion==='APPROVED_PAYOUT_RATE'?[select('fxDifferenceAccountCode','Approved FX difference account',(erpRefs?.accounts||[]).filter((account:any)=>account.postingAllowed&&!account.controlType).map((account:any)=>({value:account.code,label:`${account.code} · ${account.name}`})))]:[]),
+    select('unpaidObligations','Unpaid obligations on termination',[{value:'CANCEL_REMAINING',label:'Cancel remaining obligations'},{value:'RETAIN_REMAINING',label:'Retain remaining obligations'},{value:'EXPLICIT_PER_CHARGE',label:'Decide each unpaid obligation'}]),reason],
+    initial:{refundConversion:policy.data.refundConversion||'',unpaidObligations:policy.data.unpaidObligations||'',fxDifferenceAccountCode:policy.data.fxDifferenceAccountCode||'',reason:''},hint:'Refund confirmed paid funds less approved actual expenses. The original termination +45-day deadline remains visible while academy recovery is pending.'});
+  const approve=(policy:any)=>setEdit({policy,title:'Approve policy version',mode:'approve',fields:[reason],initial:{reason:''},hint:'Approval activates this version for new operations. Signed agreements retain their original terms.'});
+  const openAccounting=(policy:any)=>setEdit({policy,title:'Configure approved accounting mapping',fields:[select('agencyAccountCode','Student collections liability account',(erpRefs?.accounts||[]).filter((account:any)=>account.type==='LIABILITY'&&account.postingAllowed).map((account:any)=>({value:account.code,label:`${account.code} · ${account.name}`}))),f('fxPolicy','Approved FX accounting treatment','textarea',true),f('revenueRecognition','Approved revenue recognition treatment','textarea',true),f('walletStudentCollection','Approve student collections through wallets','checkbox'),select('fxDifferenceAccountCode','Approved FX difference account',(erpRefs?.accounts||[]).filter((account:any)=>account.postingAllowed&&!account.controlType).map((account:any)=>({value:account.code,label:`${account.code} · ${account.name}`})),false),reason],initial:{...policy.data,reason:''},hint:'Only approved finance decisions belong here. Mapping changes do not rewrite posted history.'});
+  const openCheque=(policy:any)=>setEdit({policy,title:'Configure cheque collection policy',fields:[select('creditEvent','When does the cheque credit the student?',[{value:'CLEARANCE',label:'Confirmed bank clearance'}]),select('fxEvent','When is the historical FX rate fixed?',[{value:'RECEIPT',label:'Cheque receipt date'},{value:'CLEARANCE',label:'Bank clearance date'}]),select('travelGate','Cheque travel requirement',[{value:'CLEARED',label:'Confirmed bank clearance'}]),reason],initial:{...policy.data,reason:''},hint:'Select and approve the policy explicitly before accepting student cheques.'});
+  const openPlanning=(policy:any)=>setEdit({policy,title:'Configure follow-up and travel rules',fields:[f('responseMinutes','First response target (minutes)','number',true),f('visaFollowupDays','Visa follow-up interval (days)','number',true),f('departureEstimateDays','Departure planning estimate (days)','number',true),f('reviewDays','Report review target (days)','number',true),f('englishRequired','Require completed English before travel','checkbox'),reason],initial:{...policy.data,reason:''},hint:'Planning estimates do not guarantee a visa decision or departure date.'});
+  const openDocuments=(policy:any)=>setEdit({policy,title:'Configure approved document checklist',fields:[...(policy.data.requirements||[]).flatMap((document:any)=>[f(`${document.key}_label`,`${document.key} · ${tr('English label')}`,'text',true),f(`${document.key}_arabic`,`${document.key} · ${tr('Arabic label')}`,'text',true),f(`${document.key}_mandatory`,`${document.label} · ${tr('Required document')}`,'checkbox'),select(`${document.key}_owner`,`${document.label} · ${tr('Responsible party')}`,['STUDENT','AV8']),select(`${document.key}_sensitivity`,`${document.label} · ${tr('Document access category')}`,['ordinary','passport','bank','criminal','medical'])]),reason],initial:{...Object.fromEntries((policy.data.requirements||[]).flatMap((document:any)=>['label','arabic','mandatory','owner','sensitivity'].map(field=>[`${document.key}_${field}`,document[field]]))),reason:''},hint:'Apply approved checklist requirements to new applications. Existing application evidence and decisions are preserved.'});
+  const openFee=(policy:any)=>setEdit({policy,title:'Configure bank-fee accounting',fields:[...['expenseAccountCode','receivableAccountCode','reimbursementOffsetAccountCode','fxDifferenceAccountCode'].map((key,index)=>select(key,['Bank-fee expense account','Student reimbursement receivable account','Fee reimbursement offset account','Approved FX difference account'][index],(erpRefs?.accounts||[]).filter((account:any)=>account.postingAllowed&&!account.controlType).map((account:any)=>({value:account.code,label:`${account.code} · ${account.name}`})),index!==3)),reason],initial:{...policy.data,reason:''},hint:'Choose approved accounting mappings. Reimbursement is capped at the actual fee and does not increase tuition or commission.'});
+  const save=async(value:any)=>{
+    if(!edit)return;
+    const policy=edit.policy;
+    if(edit.mode==='approve')return act('/policies',{id:policy.id,action:'approve',reason:value.reason});
+    let data:any={...policy.data};
+    if(policy.kind==='PROGRAM')data={...data,name:value.name,currency:'USD',applicationFeeMinor:'200000',cashStudentTotalMinor:'5400000',rulesVersion:RULES_VERSION};
+    if(policy.kind==='PLAN'){
+      data=policy.key==='CASH'?{...data,rulesVersion:RULES_VERSION,name:value.name,collectionMilestone:value.collectionMilestone,collectionDate:value.collectionMilestone==='APPROVED_DATE'?value.collectionDate:null}:{...data,...installmentData(policy.key),name:value.name,offsetMonths:Number(value.offsetMonths)};
+    }
+    if(policy.kind==='SETTLEMENT')data=policy.key==='CASH'?{...data,rulesVersion:RULES_VERSION,totalAcademyMinor:'5400000',commissionMinor:null,dueOffsetMonths:3,anchor:'CONTRACT'}:{...data,rulesVersion:RULES_VERSION,medicalMinor:'150000',visaMinor:'450000',commissionMinor:'1000000',deferredPassThrough:true};
+    if(policy.kind==='REFUND')data={rulesVersion:RULES_VERSION,formula:'CONFIRMED_PAID_MINUS_ELIGIBLE_ACTUAL_EXPENSES',deadlineDays:45,refundConversion:value.refundConversion,unpaidObligations:value.unpaidObligations,legacyConflictTreatment:'REQUIRE_CASE_REVIEW',...(value.refundConversion==='APPROVED_PAYOUT_RATE'?{fxDifferenceAccountCode:value.fxDifferenceAccountCode}:{})};
+    if(policy.kind==='ACCOUNTING')data={...data,agencyAccountCode:value.agencyAccountCode,fxPolicy:value.fxPolicy,revenueRecognition:value.revenueRecognition,walletStudentCollection:!!value.walletStudentCollection,fxDifferenceAccountCode:value.fxDifferenceAccountCode||null};
+    if(policy.kind==='CHEQUE')data={rulesVersion:RULES_VERSION,creditEvent:value.creditEvent,fxEvent:value.fxEvent,travelGate:value.travelGate};
+    if(policy.kind==='BANK_FEE')data={rulesVersion:RULES_VERSION,treatment:'EXPENSE_AND_RECEIVABLE',expenseAccountCode:value.expenseAccountCode,receivableAccountCode:value.receivableAccountCode,reimbursementOffsetAccountCode:value.reimbursementOffsetAccountCode,...(value.fxDifferenceAccountCode?{fxDifferenceAccountCode:value.fxDifferenceAccountCode}:{})};
+    if(policy.kind==='PLANNING')data={...data,responseMinutes:Number(value.responseMinutes),visaFollowupDays:Number(value.visaFollowupDays),departureEstimateDays:Number(value.departureEstimateDays),reviewDays:Number(value.reviewDays),englishRequired:!!value.englishRequired};
+    if(policy.kind==='DOCUMENTS')data={...data,requirements:(policy.data.requirements||[]).map((document:any)=>({...document,...Object.fromEntries(['label','arabic','mandatory','owner','sensitivity'].map(field=>[field,value[`${document.key}_${field}`]]))}))};
+    return act('/policies',{id:policy.id,data,reason:value.reason});
+  };
+  const controls=(policy:any,open:(policy:any)=>void)=><div className="actions"><Status value={policy.status}/><span>{tr('Version')} {policy.version}</span>{allowed('av8.policies.manage')?<Button onClick={()=>open(policy)}>{tr(policy.usable?'Edit':'Complete')}</Button>:null}{policy.status==='DRAFT'&&allowed('av8.policies.approve')?<Button onClick={()=>approve(policy)}>{tr('Approve policy version')}</Button>:null}</div>;
+  return <div className="av8-workspace av8-settings">
+    <PageHeader title="Business configuration" subtitle="Everyday AV8 settings — changes apply to new agreements only">{allowed('system.super_admin')?<Link className="btn" href="/purchasing/suppliers">{tr('Manage academies')}</Link>:null}</PageHeader>
+    {resource.error?<ErrorNotice message={resource.error} retry={resource.reload}/>:resource.loading?<Loading/>:<div className="av8-settings-grid">
+      <Panel title="Programs and fees" className="av8-settings-card"><div className="av8-settings-list">{policies.filter((p:any)=>p.kind==='PROGRAM').map((policy:any)=><article key={policy.id}><div><strong>{policy.data.name}</strong><small>{tr('Application fee')} · {cash(policy.data.applicationFeeMinor)}</small><small>{tr('Cash student total')} · {cash(policy.data.cashStudentTotalMinor)}</small></div>{controls(policy,openProgram)}</article>)}</div></Panel>
+      <Panel title="Bank and cash accounts" className="av8-settings-card"><div className="av8-settings-content"><p>{tr('These accounts determine the currency and destination of each receipt.')}</p><Table rows={refs?.banks||[]} columns={[{key:'name',label:'Account'},{key:'type',label:'Type',render:(row:any)=>tr(row.type)},{key:'currency',label:'Currency'}]}/>{allowed('banking.account.view')?<Link className="btn" href="/banking/accounts">{tr('Manage bank and cash accounts')}</Link>:null}</div></Panel>
+      <Panel title="Payment plans" className="av8-settings-card av8-settings-wide"><p>{tr('Plan 1 and Plan 2 each total USD 64,000. Pay in full totals USD 54,000, including the application fee once.')}</p><div className="av8-settings-list">{policies.filter((p:any)=>p.kind==='PLAN').map((policy:any)=><article key={policy.id}><div><strong>{displayName(policy.data.name)||`${tr('Payment plan')} ${policy.key}`}</strong><small>{policy.usable?tr('Approved for new contracts'):tr('Complete and approve the agreed schedule before signing')}</small>{policy.data.rulesVersion===RULES_VERSION?<small>{policy.key==='CASH'?tr(policy.data.collectionMilestone||'Not configured'):`${tr('First installment after (months)')}: ${policy.data.offsetMonths??tr('Not configured')}`}</small>:<small>{tr('Legacy policy version — preserve existing signed agreements')}</small>}</div>{controls(policy,openPlan)}</article>)}</div></Panel>
+      <Panel title="Academies and agreed terms" className="av8-settings-card av8-settings-wide"><div className="av8-callout"><strong>{tr('Signed agreements keep an immutable snapshot')}</strong><p>{tr('Changing these settings affects new agreements only; existing signed student terms do not change.')}</p></div><div className="av8-settings-list">{policies.filter((p:any)=>p.kind==='SETTLEMENT').map((policy:any)=><article key={policy.id}><div><strong>{tr(policy.key==='CASH'?'Cash plan terms':'Installment plan terms')}</strong><small>{tr(policy.key==='CASH'?'USD 54,000 is due to the academy three calendar months after signing. No separate commission is configured.':'USD 1,500 after medical and USD 4,500 after visa are included within USD 6,000. Later collections pass through in full.')}</small>{!policy.usable?<small>{tr('Apply confirmed rules to a new version before use')}</small>:null}</div>{controls(policy,openTerms)}</article>)}</div></Panel>
+      <Panel title="Termination and refund policies" className="av8-settings-card av8-settings-wide"><p>{tr('Choose and approve the agreed refund treatment before creating termination cases.')}</p><div className="av8-settings-list">{policies.filter((p:any)=>p.kind==='REFUND').map((policy:any)=><article key={policy.id}><div><strong>{tr('Refund confirmed paid funds less eligible actual expenses')}</strong><small>{tr(policy.data.refundConversion||'Not configured')} · {tr(policy.data.unpaidObligations||'Not configured')}</small></div>{controls(policy,openRefund)}</article>)}</div>{!policies.some((p:any)=>p.kind==='REFUND')?<p className="notice">{tr('Refund policy is unavailable. Ask the administrator to complete the configuration.')}</p>:null}</Panel>
+      <Panel title="Cheque collection policy" className="av8-settings-card"><div className="av8-settings-list">{policies.filter((p:any)=>p.kind==='CHEQUE').map((policy:any)=><article key={policy.id}><div><strong>{tr(policy.data.creditEvent||'Not configured')}</strong><small>{tr('Historical FX event')}: {tr(policy.data.fxEvent||'Not configured')}</small></div>{controls(policy,openCheque)}</article>)}</div></Panel>
+      {policies.some((p:any)=>p.kind==='ACCOUNTING')?<Panel title="Accounting mappings" className="av8-settings-card"><div className="av8-settings-list">{policies.filter((p:any)=>p.kind==='ACCOUNTING').map((policy:any)=><article key={policy.id}><div><strong>{tr('Student collections liability account')}: {policy.data.agencyAccountCode||tr('Not configured')}</strong><small>{policy.data.revenueRecognition}</small></div>{controls(policy,openAccounting)}</article>)}</div></Panel>:null}
+      <Panel title="Follow-up and document rules" className="av8-settings-card av8-settings-wide"><div className="av8-settings-list">{policies.filter((policy:any)=>['PLANNING','DOCUMENTS'].includes(policy.kind)).map((policy:any)=><article key={policy.id}><strong>{tr(policy.kind==='PLANNING'?'Follow-up and travel rules':'Approved document checklist')}</strong>{controls(policy,policy.kind==='PLANNING'?openPlanning:openDocuments)}</article>)}</div></Panel>
+      <Panel title="Bank transfer fee policy" className="av8-settings-card av8-settings-wide"><div className="av8-settings-list">{policies.filter((policy:any)=>policy.kind==='BANK_FEE').map((policy:any)=><article key={policy.id}><strong>{tr('Actual fee and exact reimbursement')}</strong>{controls(policy,openFee)}</article>)}</div></Panel>
+      <OpeningBalances/>
+    </div>}
+    {edit?<Form title={edit.title} fields={edit.fields} initial={edit.initial} save={save} close={()=>setEdit(null)} submitLabel={edit.mode==='approve'?'Approve':['PLAN','REFUND','ACCOUNTING','CHEQUE','BANK_FEE'].includes(edit.policy.kind)?'Save draft':'Save new version'}>{edit.hint?<p>{tr(edit.hint)}</p>:null}</Form>:null}
+  </div>;
 }

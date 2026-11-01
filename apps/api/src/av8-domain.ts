@@ -1,3 +1,4 @@
+import { contactDigits } from './contact-normalization';
 import { BadRequestException } from '@nestjs/common';
 import { money } from './money';
 
@@ -45,24 +46,30 @@ export const documentChecklist = [
   {key:'birth',label:'Birth certificate with specified three-part number',arabic:'شهادة ميلاد بها الرقم الثلاثي',owner:'STUDENT',mandatory:true,sensitivity:'ordinary'},
   {key:'bank',label:'Student or first-degree relative bank statement',arabic:'كشف حساب الطالب أو قريب من الدرجة الأولى',owner:'STUDENT',mandatory:true,sensitivity:'bank'},
   {key:'family',label:'Family record when applicable',arabic:'قيد عائلي عند الطلب',owner:'STUDENT',mandatory:false,sensitivity:'ordinary'},
+  {key:'education',label:'Educational eligibility evidence',arabic:'إثبات الأهلية التعليمية',owner:'STUDENT',mandatory:true,sensitivity:'ordinary'},
   {key:'photo',label:'Passport-size photograph',arabic:'صورة شخصية',owner:'STUDENT',mandatory:true,sensitivity:'ordinary'},
   {key:'acceptance',label:'Acceptance documents',arabic:'مستندات القبول',owner:'AV8',mandatory:true,sensitivity:'ordinary'},
   {key:'insurance',label:'Health insurance documents',arabic:'مستندات التأمين الصحي',owner:'AV8',mandatory:true,sensitivity:'ordinary'},
   {key:'ato',label:'Academy ATO license',arabic:'ترخيص الأكاديمية',owner:'AV8',mandatory:true,sensitivity:'ordinary'},
   {key:'embassy',label:'Embassy application',arabic:'طلب السفارة',owner:'AV8',mandatory:true,sensitivity:'ordinary'},
 ];
+export const CONFIRMED_RULES_VERSION = '2026-10-31';
 export const initialPolicies = [
   {kind:'PROGRAM',key:'DEFAULT',data:{name:'Flight training',currency:'USD',applicationFeeMinor:'200000',cashStudentTotalMinor:'5400000'}},
-  ...['A','B'].map(key=>({kind:'PLAN',key,data:{name:`Installment ${key}`, interpretation:null,anchor:null,offsetMonths:null,frequencyMonths:3,firstMilestone:key==='A'?'CONTRACT':null,inclusions,original:key==='A'?'والباقي ٩٦٠٠ دولار علي ٥ دفعات دفعة كل ٣ شهور':'وباقي الدفعات ٨٠٠٠ دولار علي ٦ دفعات دفعة كل ٣ شهور'}})),
-  {kind:'PLAN',key:'CASH',data:{name:'Cash — confirmed student price',inclusions}},
+  ...['A','B'].map(key=>({kind:'PLAN',key,data:{name:`Installment ${key}`, rulesVersion:CONFIRMED_RULES_VERSION,interpretation:'EACH',anchor:'CONTRACT',offsetMonths:null,frequencyMonths:3,firstMilestone:'CONTRACT',inclusions,original:key==='A'?'والباقي ٩٦٠٠ دولار علي ٥ دفعات دفعة كل ٣ شهور':'وباقي الدفعات ٨٠٠٠ دولار علي ٦ دفعات دفعة كل ٣ شهور'}})),
+  {kind:'PLAN',key:'CASH',data:{name:'Pay in full',rulesVersion:CONFIRMED_RULES_VERSION,collectionMilestone:null,collectionDate:null,inclusions}},
   {kind:'SETTLEMENT',key:'INSTALLMENT',data:{medicalMinor:'150000',visaMinor:'450000',commissionMinor:'1000000',deferredPassThrough:true}},
-  {kind:'SETTLEMENT',key:'CASH',data:{totalAcademyMinor:null,commissionMinor:null,additionalMilestone:null,conditionalExample:'If commission is USD 10,000, academy total would be USD 44,000. Unapproved.'}},
+  {kind:'SETTLEMENT',key:'CASH',data:{rulesVersion:CONFIRMED_RULES_VERSION,totalAcademyMinor:'5400000',commissionMinor:null,dueOffsetMonths:3,anchor:'CONTRACT'}},
+  {kind:'BANK_FEE',key:'REMITTANCE',data:{rulesVersion:CONFIRMED_RULES_VERSION,treatment:null,expenseAccountCode:null,receivableAccountCode:null,reimbursementOffsetAccountCode:null,fxDifferenceAccountCode:null}},
+  {kind:'CHEQUE',key:'COLLECTION',data:{rulesVersion:CONFIRMED_RULES_VERSION,creditEvent:null,fxEvent:null,travelGate:null}},
+  {kind:'REFUND',key:'TERMINATION',data:{rulesVersion:CONFIRMED_RULES_VERSION,formula:'CONFIRMED_PAID_MINUS_ELIGIBLE_ACTUAL_EXPENSES',deadlineDays:45,refundConversion:null,unpaidObligations:null,legacyConflictTreatment:null}},
   {kind:'DOCUMENTS',key:'CHECKLIST',data:{requirements:documentChecklist,source:'Client operational checklist; not verified embassy law'}},
   {kind:'PLANNING',key:'DEFAULT',data:{responseMinutes:60,visaFollowupDays:60,departureEstimateDays:90,reviewDays:7,englishRequired:false}},
   {kind:'ACCOUNTING',key:'AGENCY',data:{agencyAccountCode:null,fxPolicy:null,revenueRecognition:'Pending accounting review; no automatic revenue posting'}},
 ];
 export type ScheduleItem = {key:string;label:string;amountMinor:string;milestone:string;predeparture:boolean;deferred:boolean;dueDate:string|null};
 export function planPreview(key: string, data: any, anchorDate?: string, live = false): {totalMinor:string;items:ScheduleItem[]} {
+  if (data?.rulesVersion===CONFIRMED_RULES_VERSION) return confirmedPlanPreview(key,data,anchorDate,live);
   if (!['A','B','CASH'].includes(key)) fail('Unknown student plan');
   const explicitMinor=(value:unknown,fallback:bigint,label:string)=>{if(value===undefined||value===null||value==='')return fallback;if(!/^\d+$/.test(String(value))||BigInt(String(value))<=0n)fail(`${label} must be an explicit positive amount`);return BigInt(String(value));};
   const applicationFee=explicitMinor(data.applicationFeeMinor,200000n,'Application fee');
@@ -111,7 +118,47 @@ export function csvRows(input:string):string[][] {
 }
 export function leadInput(body:any) {
   const name=text(body.name,'Name',true,160),phone=text(body.phone,'Phone',true,40);
-  if(!/^[+\d() .-]{5,40}$/.test(phone))fail('Phone format is invalid');
+  if(!/^[+\d() .-]{5,40}$/.test(contactDigits(phone))||contactDigits(phone).replace(/[^0-9]/g,'').length<5)fail('Phone format is invalid');
   const email=text(body.email,'Email',false,200);if(email&&!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))fail('Email format is invalid');
   return {name,phone,email,source:text(body.source,'Source',true,80),campaign:text(body.campaign,'Campaign',false,120),program:text(body.program||'Flight training','Program',true,160),notes:text(body.notes,'Notes',false),inquiryAt:body.inquiryAt?instant(body.inquiryAt):new Date(),nextFollowUp:body.nextFollowUp?instant(body.nextFollowUp):null};
+}
+
+
+/** Current commercial terms. Legacy signed snapshots still use planPreview's legacy branch. */
+export function confirmedPlanPreview(key:string,data:any,signingDate?:string,live=false):{totalMinor:string;items:ScheduleItem[]} {
+  if(!['A','B','CASH'].includes(key))fail('Unknown student plan');
+  if(signingDate)calendarDate(signingDate);
+  const exact=(field:string,expected:string)=>{if(data[field]!==undefined&&data[field]!==null&&String(data[field])!==expected)fail(`Confirmed ${field} must be ${expected} USD minor units`);};
+  exact('applicationFeeMinor','200000');
+  const items:ScheduleItem[]=[{key:'APPLICATION',label:'Application fee (existing charge)',amountMinor:'200000',milestone:'APPLICATION',predeparture:true,deferred:false,dueDate:null}];
+  const add=(key:string,label:string,amountMinor:string,milestone:string,predeparture:boolean,deferred=false,dueDate:string|null=null)=>items.push({key,label,amountMinor,milestone,predeparture,deferred,dueDate});
+  if(key==='CASH'){
+    exact('cashStudentTotalMinor','5400000');
+    if(live&&!['CONTRACT','APPROVED_DATE','VISA_BEFORE_TRAVEL'].includes(data.collectionMilestone))fail('Select the approved pay-in-full collection milestone (D10)');
+    const due=data.collectionMilestone==='APPROVED_DATE'?calendarDate(data.collectionDate):data.collectionMilestone==='CONTRACT'?signingDate||null:null;
+    add('CASH_BALANCE','Study package payment','5200000',data.collectionMilestone||'PENDING_APPROVED_MILESTONE',true,false,due);
+  }else{
+    if(data.interpretation&&data.interpretation!=='EACH')fail('The confirmed installment amounts apply to each installment');
+    if(data.anchor&&data.anchor!=='CONTRACT')fail('Financial due dates must use contract signing');
+    if(data.frequencyMonths!==undefined&&data.frequencyMonths!==3)fail('Quarterly installments must be three calendar months apart');
+    if(data.firstMilestone&&data.firstMilestone!=='CONTRACT')fail('The first contract payment is due at signing');
+    const count=key==='A'?5:6;
+    if(data.installmentCount!==undefined&&data.installmentCount!==count)fail(`The confirmed plan has ${count} quarterly installments`);
+    exact('contractAmountMinor','600000');exact('visaAmountMinor','800000');exact('firstAmountMinor','1400000');exact('installmentAmountMinor',key==='A'?'960000':'800000');
+    if(live&&(!Number.isInteger(data.offsetMonths)||data.offsetMonths<0||data.offsetMonths>120))fail('Select and approve the first quarterly offset from contract signing (D01)');
+    if(key==='A'){add('CONTRACT','Contract payment','600000','CONTRACT',true,false,signingDate||null);add('VISA','After visa / before departure','800000','VISA',true);}
+    else add('FIRST','Contract payment','1400000','CONTRACT',true,false,signingDate||null);
+    for(let index=0;index<count;index++)add(`DEFERRED_${index+1}`,`Deferred installment ${index+1}`,key==='A'?'960000':'800000','CONTRACT',false,true,signingDate&&Number.isInteger(data.offsetMonths)?monthsAfter(signingDate,data.offsetMonths+index*3):null);
+  }
+  return {totalMinor:key==='CASH'?'5400000':'6400000',items};
+}
+export function daysAfter(date:string,days:number):string {
+  calendarDate(date);if(!Number.isInteger(days)||days<0||days>36600)fail('Invalid calendar-day offset');
+  const value=new Date(`${date}T00:00:00Z`);value.setUTCDate(value.getUTCDate()+days);return value.toISOString().slice(0,10);
+}
+export function refundEntitlement(received:bigint,priorRefunds:bigint,expenses:{id:string;amountMinor:string}[]):bigint {
+  if(received<0n||priorRefunds<0n||priorRefunds>received)fail('Refund receipt reconciliation is invalid');
+  const ids=new Set<string>();let deducted=0n;
+  for(const expense of expenses){if(ids.has(expense.id))fail('An expense cannot be deducted twice');ids.add(expense.id);if(!/^\d+$/.test(expense.amountMinor))fail('Expense must be an exact actual amount');deducted+=BigInt(expense.amountMinor);}
+  const available=received-priorRefunds-deducted;return available>0n?available:0n;
 }

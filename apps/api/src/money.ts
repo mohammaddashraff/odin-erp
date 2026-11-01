@@ -23,3 +23,13 @@ export function roundDiv(numerator: bigint, denominator: bigint): bigint {
 export function serialize<T>(value: T): T {
   return JSON.parse(JSON.stringify(value, (_key, item) => typeof item === 'bigint' ? item.toString() : item));
 }
+
+/** Explicit currency scale: USD cents are independent of the source currency minor unit. */
+export function currencyAmount(value: unknown, precision: number, field = 'amount'): bigint {
+  if (!Number.isInteger(precision) || precision < 0 || precision > 6) throw new BadRequestException('Unsupported currency precision');
+  return parseFixed(value, precision, field);
+}
+export function convertMinor(amount: bigint, fromPrecision: number, toPrecision: number, rateMicros: bigint): bigint {
+  if (![fromPrecision, toPrecision].every(p => Number.isInteger(p) && p >= 0 && p <= 6) || rateMicros <= 0n) throw new BadRequestException('Invalid conversion scale or rate');
+  return roundDiv(amount * rateMicros * 10n ** BigInt(toPrecision), 1000000n * 10n ** BigInt(fromPrecision));
+}

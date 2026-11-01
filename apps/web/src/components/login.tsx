@@ -12,7 +12,9 @@ import {
   LockKeyhole,
   Package,
 } from "lucide-react";
+import { QRCodeSVG } from "qrcode.react";
 import { useERP } from "../core/erp-context";
+import { withSessionLock } from "../core/session-provider";
 import { localizeError } from "../core/i18n";
 import { Brand, Button, Fields } from "./ui";
 import ThemeToggle from "./theme-toggle";
@@ -38,6 +40,7 @@ export default function Login() {
     setBusy(true);
     setError("");
     try {
+      await withSessionLock(async () => {
       const response = await fetch(
         challenge ? "/api/auth/mfa/verify" : "/api/auth/login",
         {
@@ -64,6 +67,7 @@ export default function Login() {
       if (result.mfaRequired || result.mfaEnrollmentRequired)
         setChallenge(result);
       else establishSession(result);
+      });
     } catch (submissionError: any) {
       setError(localizeError(submissionError.message, language));
     } finally {
@@ -139,18 +143,54 @@ export default function Login() {
           {challenge ? (
             <>
               {challenge.mfaEnrollmentRequired ? (
-                <div className="notice">
-                  <p>{tr("Authenticator setup key")}</p>
-                  <code dir="ltr">{challenge.secret}</code>
-                  <details>
-                    <summary>{tr("One-time recovery codes")}</summary>
-                    {challenge.recoveryCodes?.map((code: string) => (
-                      <code className="recovery-code" dir="ltr" key={code}>
-                        {code}
-                      </code>
-                    ))}
+                <section
+                  className="auth-mfa-enrollment"
+                  aria-labelledby="mfa-enrollment-title"
+                >
+                  <div className="auth-mfa-intro">
+                    <h3 id="mfa-enrollment-title">
+                      {tr("Scan to set up your authenticator")}
+                    </h3>
+                    <p>
+                      {tr(
+                        "Scan this QR code with your authenticator app.",
+                      )}
+                    </p>
+                  </div>
+                  {challenge.otpAuthUri ? (
+                    <div className="auth-mfa-qr" dir="ltr">
+                      <QRCodeSVG
+                        value={challenge.otpAuthUri}
+                        size={196}
+                        level="M"
+                        marginSize={3}
+                        role="img"
+                        title={tr(
+                          "Scan this QR code with your authenticator app.",
+                        )}
+                        data-testid="mfa-qr-code"
+                      />
+                    </div>
+                  ) : null}
+                  <p className="auth-mfa-next">
+                    {tr("Then enter the six-digit code below.")}
+                  </p>
+                  <details className="auth-mfa-details">
+                    <summary>{tr("Use a setup key instead")}</summary>
+                    <p>{tr("Authenticator setup key")}</p>
+                    <code dir="ltr">{challenge.secret}</code>
                   </details>
-                </div>
+                  <details className="auth-mfa-details">
+                    <summary>{tr("One-time recovery codes")}</summary>
+                    <div className="auth-recovery-codes">
+                      {challenge.recoveryCodes?.map((code: string) => (
+                        <code className="recovery-code" dir="ltr" key={code}>
+                          {code}
+                        </code>
+                      ))}
+                    </div>
+                  </details>
+                </section>
               ) : null}
               <Fields
                 specs={[
@@ -254,3 +294,4 @@ export default function Login() {
     </main>
   );
 }
+
