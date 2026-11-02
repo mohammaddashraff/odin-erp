@@ -1,5 +1,7 @@
 import { AdministrationService } from './administration.service';
 import { AdministrationController } from './administration.controller';
+import { CompanySettingsController } from './company-settings.controller';
+import { CompanySettingsService } from './company-settings.service';
 import { Av8Service } from './av8.service';
 import { Av8FinanceService } from './av8-finance.service';
 import { Av8Controller } from './av8.controller';
@@ -27,9 +29,9 @@ import { RequestLoggingInterceptor } from './request-logging.interceptor';
 import { StepUpGuard } from './step-up.guard';
 
 @Module({
-  controllers: [AdministrationController, Av8Controller, Av8OperationsController, Av8OpeningController, Av8SchedulerController, ErpController, AccessControlController, PrivateAttachmentsController],
+  controllers: [AdministrationController, CompanySettingsController, Av8Controller, Av8OperationsController, Av8OpeningController, Av8SchedulerController, ErpController, AccessControlController, PrivateAttachmentsController],
   providers: [
-    AdministrationService, PrismaService, Av8Service, Av8FinanceService, Av8OperationsService, Av8OpeningService, Av8SchedulerService,
+    AdministrationService, CompanySettingsService, PrismaService, Av8Service, Av8FinanceService, Av8OperationsService, Av8OpeningService, Av8SchedulerService,
     AuthService,
     AccessControlService,
     AccessGovernanceService,

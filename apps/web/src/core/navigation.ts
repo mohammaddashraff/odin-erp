@@ -669,6 +669,7 @@ export const modules: readonly ModuleDefinition[] = [
     children: [
       {id:"admin-overview",label:"Overview",route:"/admin/overview",permission:"settings.users_access.view",namespace:"admin",screen:"administration"},
       {id:"access-users",label:"Users",route:"/settings/access/users",permission:"settings.users_access.view",namespace:"admin",screen:"administration"},
+      {id:"company-settings",label:"Company settings",route:"/settings/company",permission:["settings.system.view","settings.users_access.manage","system.super_admin"],namespace:"admin",screen:"administration"},
       {id:"access-roles",label:"Access Groups",route:"/settings/access/roles",permission:"system.super_admin",namespace:"admin",screen:"administration"},
       {id:"audit-log",label:"Activity Log",route:"/admin/audit",permission:["audit.business.view","settings.users_access.view"],namespace:"admin",screen:"administration"},
       {id:"advanced",label:"Advanced Settings",route:"/admin/advanced",permission:["settings.users_access.view","settings.system.view"],namespace:"admin",screen:"administration"},

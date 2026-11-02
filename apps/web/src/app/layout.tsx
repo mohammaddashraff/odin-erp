@@ -9,6 +9,7 @@ import "./accounting.css";
 import "./accounting-reports.css";
 import "./interface-polish.css";
 import "./administration.css";
+import "./settings-page.css";
 import "./glass.css";
 import "./themes.css";
 import "./classic-shell.css";

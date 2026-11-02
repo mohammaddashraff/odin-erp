@@ -8,6 +8,7 @@ import { PrismaService } from './prisma.service';
 import { FIELD_REGISTRY, LIMIT_REGISTRY, hasPermission, normalizePermissions, PERMISSION_REGISTRY, permissionMatches } from './permissions';
 import { actions, label, permissionPresentation, resourceLabel, rolePresentation, scopePresentation } from './access-presentation';
 import { serialize } from './money';
+import { profileImage } from './profile-image';
 type Tx = Prisma.TransactionClient;
 const strings = (v: unknown): string[] => Array.isArray(v) ? v.map(String) : [];
 const id = (v: unknown) => { if (!/^[1-9]\d{0,17}$/.test(String(v)))
@@ -16,7 +17,7 @@ const roleInclude = { permissionAssignments: { include: { permission: true } }, 
 export function accessRevision(user: any) {
     return createHash('sha256').update(JSON.stringify(serialize({ authVersion: user.authVersion, branchIds: user.branchIds, roles: [user.role, ...user.additionalRoles.map((a: any) => a.role)], overrides: user.permissionOverrides, memberships: user.companyMemberships, grants: user.temporaryGrants, delegations: user.delegationsReceived, assignments: user.resourceAssignments }), (key, value) => ['createdAt', 'updatedAt', 'lastUsedAt', 'passwordHash', 'mfaSecretEncrypted', 'mfaRecoveryHashes'].includes(key) ? undefined : value)).digest('hex');
 }
-const selfFields = ['name', 'phone', 'jobTitle', 'language', 'expectedProfileVersion'];
+const selfFields = ['name', 'phone', 'jobTitle', 'language', 'profileImage', 'expectedProfileVersion'];
 export function profileInput(body: any, self: boolean) {
     const allowed = new Set(self ? selfFields : [...selfFields, 'email', 'homeBranchId']);
     if (!body || typeof body !== 'object' || Array.isArray(body) || Object.keys(body).some(k => !allowed.has(k)))
@@ -39,6 +40,8 @@ export function profileInput(body: any, self: boolean) {
     }
     if (body.homeBranchId !== undefined)
         result.homeBranchId = body.homeBranchId === null ? null : id(body.homeBranchId);
+    if (body.profileImage !== undefined)
+        result.profileImage = profileImage(body.profileImage);
     return result;
 }
 @Injectable()
@@ -67,7 +70,7 @@ export class AdministrationService {
     }
     private userView(u: any, branches: any[], a: Actor) {
         const visible = can(a, 'system.super_admin') || a.userId === u.id ? strings(u.branchIds) : strings(u.branchIds).filter(b => this.visibleBranches(a).includes(b));
-        return { id: String(u.id), name: u.name, email: u.email, phone: u.phone, jobTitle: u.jobTitle, language: u.language, active: u.active,
+        return { id: String(u.id), name: u.name, email: u.email, phone: u.phone, jobTitle: u.jobTitle, language: u.language, profileImage: u.profileImage, active: u.active,
             homeBranchId: u.homeBranchId && visible.includes(String(u.homeBranchId)) ? String(u.homeBranchId) : null,
             branchIds: visible, branches: branches.filter(b => visible.includes(String(b.id))).map(b => ({ id: String(b.id), name: b.name, operational: b.operational })),
             primaryRole: { id: String(u.roleId), name: u.role.name, ...rolePresentation(u.role) }, additionalRoles: u.additionalRoles.map((v: any) => ({ id: String(v.role.id), name: v.role.name, ...rolePresentation(v.role) })),
@@ -172,7 +175,8 @@ export class AdministrationService {
                 await tx.refreshSession.updateMany({ where: { userId, revokedAt: null }, data: { revokedAt: new Date() } });
                 await tx.mfaChallenge.updateMany({ where: { userId, consumedAt: null }, data: { consumedAt: new Date() } });
             }
-            await tx.accessAuditLog.create({ data: { tenantId: a.tenantId, actorUserId: a.userId, subjectUserId: userId, action: 'USER_DETAILS_UPDATED', previousValue: serialize(Object.fromEntries(Object.keys(data).map(k => [k, (before as any)[k]]))), newValue: serialize(data), branchId: strings(before.branchIds)[0] ? BigInt(strings(before.branchIds)[0]) : null } });
+            const auditData = (source: any) => Object.fromEntries(Object.keys(data).map(k => [k, k === 'profileImage' ? !!source[k] : source[k]]));
+            await tx.accessAuditLog.create({ data: { tenantId: a.tenantId, actorUserId: a.userId, subjectUserId: userId, action: 'USER_DETAILS_UPDATED', previousValue: serialize(auditData(before)), newValue: serialize(auditData(data)), branchId: strings(before.branchIds)[0] ? BigInt(strings(before.branchIds)[0]) : null } });
             return { ok: true };
         }).catch(error => { if (error.code === 'P2002')
             throw new ConflictException('This email is already in use.'); throw error; });

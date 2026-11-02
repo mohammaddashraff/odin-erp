@@ -224,6 +224,7 @@ model Tenant {
   accessReviews        AccessReviewRecord[]
   authorityPolicies    AuthorityLimitPolicy[]
   privateAttachments   PrivateAttachment[]
+  companyProfiles      CompanyProfile[]
 
   @@map("tenants")
 }
@@ -326,6 +327,7 @@ model User {
   mfaSecretEncrypted  String?                       @map("mfa_secret_encrypted")
   mfaRecoveryHashes   Json                          @default("[]") @map("mfa_recovery_hashes")
   mfaEnrolledAt       DateTime?                     @map("mfa_enrolled_at") @db.Timestamptz(3)
+  profileImage        String?                       @map("profile_image")
   tenant              Tenant                        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   role                Role                          @relation(fields: [roleId], references: [id])
   createdDocuments    Document[]                    @relation("DocumentCreator")
@@ -553,10 +555,35 @@ model Company {
   privateAttachments PrivateAttachment[]
   customers          Customer[]
   suppliers          Supplier[]
+  profile            CompanyProfile?
 
   @@unique([tenantId, code])
   @@index([tenantId, active, name])
   @@map("companies")
+}
+
+model CompanyProfile {
+  id                     BigInt   @id @default(autoincrement())
+  tenantId               BigInt   @map("tenant_id")
+  companyId              BigInt   @unique @map("company_id")
+  nameAr                 String?  @map("name_ar")
+  legalName              String?  @map("legal_name")
+  email                  String?
+  phone                  String?
+  website                String?
+  address                String?
+  commercialRegistration String?  @map("commercial_registration")
+  taxNumber              String?  @map("tax_number")
+  logoImage              String?  @map("logo_image")
+  version                Int      @default(0)
+  createdAt              DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt              DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  tenant                 Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  company                Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, companyId])
+  @@index([tenantId, updatedAt])
+  @@map("company_profiles")
 }
 
 model CompanyMembership {

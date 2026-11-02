@@ -41,6 +41,15 @@ export function Brand({ compact = false }: { compact?: boolean }) {
     </span>
   );
 }
+export function ProfileImage({ src, name, size = 40, className = "" }: { src?: string | null; name: string; size?: number; className?: string }) {
+  return src ? (
+    <span className={`profile-image ${className}`} style={{ width: size, height: size }}>
+      <Image src={src} width={size} height={size} alt={name} unoptimized />
+    </span>
+  ) : (
+    <span className={`initials profile-image ${className}`} style={{ width: size, height: size }} aria-hidden="true">{name.trim().slice(0, 2).toLocaleUpperCase()}</span>
+  );
+}
 export function Button({
   children,
   primary,

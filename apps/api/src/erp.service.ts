@@ -766,6 +766,9 @@ export class ErpService {
         ? await tx.employee.findMany({ where: { active: true, AND: [this.employeeScope(actor), { OR: [{ salesEligible: true }, { department: { code: 'SALES' } }] }] }, include: { department: true }, orderBy: { name: 'asc' } }) : [];
       return {
       tenant: await tx.tenant.findUnique({ where: { id: actor.tenantId } }),
+      companyProfile: await tx.company.findFirst({
+        where: { id: { in: actor.companyIds.map(BigInt) }, active: true }, include: { profile: true }, orderBy: { id: 'asc' },
+      }),
       companies: accountingCompanies.length ? (await tx.company.findMany({ where: { id: { in: accountingCompanies }, active: true }, select: { id: true, name: true, baseCurrency: true }, orderBy: { name: 'asc' } })).map((company) => ({ ...company, branchIds: actor.companyBranchIds[company.id.toString()] || [] })) : [],
       branches: await tx.branch.findMany({ where: can(actor, 'system.super_admin') ? {} : { id: { in: actor.branchIds.map(BigInt) } }, orderBy: { code: 'asc' } }),
       warehouses: await tx.warehouse.findMany({ where: { active: true, ...(can(actor, 'system.super_admin') ? {} : { id: { in: actor.warehouseIds.map(BigInt) } }) }, orderBy: { code: 'asc' } }),

@@ -3,6 +3,7 @@ import { resolve } from 'node:path';
 import { ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import { json } from 'express';
 import { AppModule } from './app.module';
 import { publicAsset } from './accounting-pdf';
 import { allowedOrigins, mfaEncryptionKey, swaggerEnabled, tokenSigningSecret } from './deployment-config';
@@ -17,6 +18,7 @@ async function bootstrap() {
     }
   }
   const app = await NestFactory.create(AppModule);
+  app.use(json({ limit: '2mb' }));
   app.getHttpAdapter().getInstance().disable('x-powered-by');
   // The dedicated Hetzner API has no public port: one trusted web-service hop.
   // Its proxy accepts only nginx-overwritten, validated client addresses in production.

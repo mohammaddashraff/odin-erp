@@ -52,11 +52,15 @@ const Audit = dynamic(() => import("./reports").then((m) => m.Audit), {
 });
 const Pos = dynamic(() => import("./pos"), { loading });
 const Administration = dynamic(() => import("./administration"), { loading });
+const AccountProfile = dynamic(() => import("./account-profile"), { loading });
+const CompanySettings = dynamic(() => import("./company-settings"), { loading });
 const Access = dynamic(() => import("./access"), { loading });
 export default function Screens({ route }: { route: string }) {
   const { allowed } = useERP();
   const daily = useSearchParams().get('view') === 'daily';
   const { child, module } = routeEntry(route);
+  if (route === '/my-profile') return <AccountProfile />;
+  if (route === '/settings/company') return <CompanySettings />;
   if (route === '/dashboard' && allowed('dashboard.overview.view')) return daily ? <AV8 section="dashboard"/> : <Dashboard/>;
   if (module.id === "accounting") {
     const content =

@@ -46,6 +46,7 @@ import {
   ErrorNotice,
   Loading,
   SearchField,
+  ProfileImage,
 } from "./ui";
 import { t } from "../core/i18n";
 import Login from "./login";
@@ -117,6 +118,7 @@ export default function Workspace({ route }: { route: string }) {
     changeLanguage,
     endSession,
     notices,
+    accountProfile,
   } = useERP();
   const router = useRouter();
   const current = routeEntry(route);
@@ -302,11 +304,11 @@ export default function Workspace({ route }: { route: string }) {
           </Button>
         </div>
 
-        <div className="classic-workspace-context" title={refs?.tenant?.name || ""}>
+        <div className="classic-workspace-context" title={refs?.companyProfile?.name || refs?.tenant?.name || ""}>
           <Building2 size={19} />
           <span>
             <small>{tr("Current company")}</small>
-            <strong>{refs?.tenant?.name || "—"}</strong>
+            <strong>{refs?.companyProfile?.name || refs?.tenant?.name || "—"}</strong>
           </span>
         </div>
 
@@ -489,14 +491,15 @@ export default function Workspace({ route }: { route: string }) {
             </Button>
             <details className="account-menu classic-account-menu">
               <summary aria-label={tr("Account menu")}>
-                <span className="initials">{user.name.slice(0, 2)}</span>
-                <span className="account-name">{user.name}</span>
+                <ProfileImage src={accountProfile?.profileImage} name={accountProfile?.name || user.name} size={35} />
+                <span className="account-name">{accountProfile?.name || user.name}</span>
                 <ChevronDown size={13} />
               </summary>
               <div className="account-menu-panel">
                 <div className="account-menu-identity">
-                  <strong>{user.name}</strong>
-                  <small>{user.email}</small>
+                  <ProfileImage src={accountProfile?.profileImage} name={accountProfile?.name || user.name} size={48} />
+                  <strong>{accountProfile?.name || user.name}</strong>
+                  <small>{accountProfile?.email || user.email}</small>
                 </div>
                 <Link href="/my-profile">{tr("My Profile")}</Link>
                 <div className="account-appearance">

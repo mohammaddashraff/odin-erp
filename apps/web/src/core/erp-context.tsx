@@ -40,6 +40,7 @@ export function ERPProvider({
   const router = useRouter();
   const [language, setLanguage] = useState<Language>(initialLanguage);
   const [refs, setRefs] = useState<RecordData | null>(null);
+  const [accountProfile, setAccountProfile] = useState<RecordData | null>(null);
   const [error, setError] = useState("");
   const [notices, setNotices] = useState<
     { id: number; message: string; error: boolean; owner: unknown }[]
@@ -108,14 +109,24 @@ export function ERPProvider({
       if (version === generation.current) setError(reason.message);
     }
   }, [request]);
+  const refreshAccountProfile = useCallback(async () => {
+    if (!session.user || session.user.passwordChangeRequired) return;
+    const profile = await request('/profile');
+    setAccountProfile(profile);
+    return profile;
+  }, [request, session.user]);
   useEffect(() => {
     setRefs(null);
+    setAccountProfile(null);
     ++generation.current;
-    if (session.user && !session.user.passwordChangeRequired) void refreshRefs();
+    if (session.user && !session.user.passwordChangeRequired) {
+      void refreshRefs();
+      void refreshAccountProfile().catch(() => undefined);
+    }
     return () => {
       ++generation.current;
     };
-  }, [session.user, refreshRefs]);
+  }, [session.user, refreshRefs, refreshAccountProfile]);
   const allowContextChange = () =>
     window.dispatchEvent(
       new Event("odin:before-context-change", { cancelable: true }),
@@ -168,6 +179,8 @@ export function ERPProvider({
         : null,
     error,
     refreshRefs,
+    accountProfile,
+    refreshAccountProfile,
     request,
     notify,
     notices: notices.filter((n) => n.owner === session.user),
