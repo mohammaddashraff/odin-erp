@@ -1,0 +1,145 @@
+name: Full client readiness QA
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  full-qa:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_DB: odin_erp
+          POSTGRES_USER: odin
+          POSTGRES_PASSWORD: odin_local_only
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U odin -d odin_erp"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      CI: true
+      NODE_ENV: test
+      DATABASE_ADMIN_URL: postgresql://odin:odin_local_only@127.0.0.1:5432/odin_erp
+      DATABASE_URL: postgresql://odin_app:odin_app_local_only@127.0.0.1:5432/odin_erp
+      API_PORT: 8081
+      API_ORIGIN: http://127.0.0.1:8081
+      NEXT_PUBLIC_API_BASE: /api
+      ODIN_TOKEN_SECRET: qa-only-token-secret-with-at-least-32-characters
+      ODIN_DEMO_PASSWORD: ${{ secrets.ODIN_DEMO_PASSWORD }}
+      ODIN_WEB_ORIGIN: http://127.0.0.1:8080
+      ODIN_ALLOWED_ORIGINS: http://127.0.0.1:8080,http://localhost:8080
+      ENABLE_SWAGGER: false
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Create isolated runtime database role
+        env:
+          PGPASSWORD: odin_local_only
+        run: |
+          psql -h 127.0.0.1 -U odin -d odin_erp -v ON_ERROR_STOP=1 <<'SQL'
+          DO $$ BEGIN
+            IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'odin_app') THEN
+              CREATE ROLE odin_app LOGIN PASSWORD 'odin_app_local_only';
+            END IF;
+          END $$;
+          GRANT CONNECT ON DATABASE odin_erp TO odin_app;
+          GRANT USAGE, CREATE ON SCHEMA public TO odin_app;
+          ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO odin_app;
+          ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT USAGE, SELECT, UPDATE ON SEQUENCES TO odin_app;
+          SQL
+
+      - name: Generate Prisma client
+        run: npm run db:generate
+
+      - name: Apply migrations with admin connection
+        env:
+          DATABASE_URL: ${{ env.DATABASE_ADMIN_URL }}
+        run: npm run db:migrate
+
+      - name: Grant runtime access after migrations
+        env:
+          PGPASSWORD: odin_local_only
+        run: |
+          psql -h 127.0.0.1 -U odin -d odin_erp -v ON_ERROR_STOP=1 <<'SQL'
+          GRANT USAGE ON SCHEMA public TO odin_app;
+          GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO odin_app;
+          GRANT USAGE, SELECT, UPDATE ON ALL SEQUENCES IN SCHEMA public TO odin_app;
+          SQL
+
+      - name: Seed deterministic isolated tenant
+        env:
+          DATABASE_URL: ${{ env.DATABASE_ADMIN_URL }}
+        run: npm run db:seed
+
+      - name: TypeScript checks
+        run: npm run lint
+
+      - name: API unit and PostgreSQL integration tests
+        run: npm test
+
+      - name: Production builds
+        env:
+          DATABASE_URL: ${{ env.DATABASE_ADMIN_URL }}
+        run: npm run build
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Start isolated API and Web
+        run: |
+          npm run start > /tmp/odin-full-qa.log 2>&1 &
+          echo $! > /tmp/odin-full-qa.pid
+          for attempt in {1..60}; do
+            if curl --fail --silent http://127.0.0.1:8081/api/health >/dev/null && curl --fail --silent http://127.0.0.1:8080/dashboard >/dev/null; then
+              exit 0
+            fi
+            sleep 2
+          done
+          cat /tmp/odin-full-qa.log
+          exit 1
+
+      - name: Full local UI, transaction, localization and permissions suite
+        run: npx playwright test tests/e2e/odin-ui.spec.ts tests/e2e/localization.spec.ts --project=chromium
+
+      - name: Financial and inventory integrity
+        env:
+          DATABASE_URL: ${{ env.DATABASE_ADMIN_URL }}
+        run: npm run integrity
+
+      - name: Production sales and AR workflow
+        env:
+          STAGING_BASE_URL: https://odin-erp-web.vercel.app
+        run: npx playwright test tests/e2e/staging-business-workflow.spec.ts --project=chromium
+
+      - name: Production usability, routes, RTL, mobile and role audit
+        env:
+          STAGING_BASE_URL: https://odin-erp-web.vercel.app
+        run: npx playwright test tests/e2e/production-usability-audit.spec.ts --project=chromium
+
+      - name: Upload QA evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: full-client-readiness-evidence
+          path: |
+            playwright-report/
+            test-results/
+            artifacts/screenshots/
+            /tmp/odin-full-qa.log
+          if-no-files-found: warn
+          retention-days: 14
